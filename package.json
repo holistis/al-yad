@@ -15,7 +15,8 @@
     "check-licenses": "tsx scripts/check-licenses.ts",
     "setup-host": "tsx scripts/setup-native-host.ts",
     "register-host": "powershell -ExecutionPolicy Bypass -File scripts/register-host.ps1",
-    "smoke-host": "tsx scripts/smoke-native-host.ts"
+    "smoke-host": "tsx scripts/smoke-native-host.ts",
+    "engine-smoke": "tsx scripts/engine-smoke.ts"
   },
   "devDependencies": {
     "tsx": "^4.19.2",
