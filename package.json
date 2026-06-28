@@ -1,0 +1,25 @@
+{
+  "name": "al-yad",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "check-licenses": "tsx scripts/check-licenses.ts",
+    "setup-host": "tsx scripts/setup-native-host.ts",
+    "register-host": "powershell -ExecutionPolicy Bypass -File scripts/register-host.ps1",
+    "smoke-host": "tsx scripts/smoke-native-host.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.3"
+  }
+}

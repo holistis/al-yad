@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yad</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        padding: 16px;
+        color: #1a1a1a;
+      }
+      h1 {
+        font-size: 16px;
+        margin: 0 0 12px;
+      }
+      .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+        background: #9ca3af;
+        vertical-align: middle;
+      }
+      .verbonden {
+        background: #16a34a;
+      }
+      .verbinden {
+        background: #d97706;
+      }
+      .verbroken {
+        background: #dc2626;
+      }
+      #status {
+        font-size: 14px;
+        margin-bottom: 12px;
+      }
+      pre {
+        background: #f3f4f6;
+        padding: 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Yad — de hand</h1>
+    <div id="status"><span class="dot"></span><span id="label">…</span></div>
+    <pre id="detail"></pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
