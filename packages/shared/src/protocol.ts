@@ -7,10 +7,22 @@
  * berichten-vormen die over die draad gaan.
  */
 
+import type { Action, ActResult } from "./action.js";
+import type { Snapshot } from "./snapshot.js";
+
 export const PROTOCOL_VERSION = 1 as const;
 
 /** Wat de Hand kan; het Brein kiest acties op basis hiervan. */
 export type Capability = "dom" | "cdp" | "ax-snapshot" | "session-capture";
+
+/** Voortgangsstatus van een agent-run, getoond in de sidepanel. */
+export type RunStatus =
+  | "plannen"
+  | "bezig"
+  | "klaar"
+  | "gestopt"
+  | "fout"
+  | "geweigerd";
 
 /** Generieke envelope. Elk bericht heeft een uniek id; antwoorden zetten `correlationId`. */
 export interface Envelope<TType extends string, TPayload> {
@@ -29,6 +41,14 @@ export interface Envelope<TType extends string, TPayload> {
 export interface HandPayloads {
   HELLO: { extId: string; clientVersion: string; capabilities: Capability[] };
   PING: { t: number };
+  /** start een nieuwe agent-run (vanuit de sidepanel) */
+  GOAL: { goal: string; maxSteps?: number };
+  /** antwoord op REQUEST_SNAPSHOT (correlationId verwijst naar de aanvraag) */
+  SNAPSHOT_RESULT: { snapshot: Snapshot };
+  /** antwoord op ACT */
+  ACT_RESULT: ActResult;
+  /** antwoord op REQUEST_CONFIRM */
+  CONFIRM_RESULT: { approved: boolean };
 }
 
 /** Berichten van het Brein naar de Hand. */
@@ -41,6 +61,14 @@ export interface BrainPayloads {
   };
   PONG: { t: number };
   ERROR: { code: string; message: string };
+  /** vraag de Hand om een verse perceptie van de actieve pagina */
+  REQUEST_SNAPSHOT: Record<string, never>;
+  /** laat de Hand een actie uitvoeren */
+  ACT: { action: Action };
+  /** vraag de gebruiker om bevestiging voor een schrijf-/onomkeerbare actie */
+  REQUEST_CONFIRM: { action: Action; reason: string };
+  /** voortgang naar de sidepanel */
+  RUN_UPDATE: { status: RunStatus; step?: number; message: string; action?: Action };
 }
 
 export type HandMessage = {
