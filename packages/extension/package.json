@@ -1,0 +1,19 @@
+{
+  "name": "@yad/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "typecheck": "wxt prepare && tsc --noEmit"
+  },
+  "dependencies": {
+    "@yad/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/chrome": "latest",
+    "typescript": "^5.7.3",
+    "wxt": "^0.19.0"
+  }
+}
