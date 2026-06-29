@@ -21,6 +21,22 @@ export default defineContentScript({
           sendResponse({ ok: true });
           return true;
         }
+        if (msg?.type === "YAD_GET_STORAGE") {
+          const local: Record<string, string> = {};
+          try {
+            for (let i = 0; i < window.localStorage.length; i++) {
+              const k = window.localStorage.key(i);
+              if (k) {
+                const v = window.localStorage.getItem(k);
+                if (v !== null) local[k] = v;
+              }
+            }
+          } catch {
+            /* cross-origin frame of beveiligingsbeperking: leeg object teruggeven */
+          }
+          sendResponse({ local });
+          return true;
+        }
         if (msg?.type === "YAD_SNAPSHOT") {
           try {
             sendResponse(buildSnapshot(refMap));

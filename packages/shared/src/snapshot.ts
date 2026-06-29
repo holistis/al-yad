@@ -22,4 +22,6 @@ export interface Snapshot {
   nodes: SnapshotNode[];
   /** korte samenvatting van de zichtbare paginatekst */
   textDigest: string;
+  /** gebruikersoverschrijving van het site-profiel: "stealth" | "normal" | "fast" */
+  siteProfileOverride?: string;
 }

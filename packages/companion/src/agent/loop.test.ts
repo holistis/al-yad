@@ -34,6 +34,7 @@ class MockHand implements HandBridge {
   }
   async act(a: Action): Promise<ActResult> {
     this.acts.push(a);
+    if (a.kind === "extract") return { ok: true, extracted: "3 vacatures: Tolk A, Docent B, Helpdesk C" };
     return { ok: true };
   }
   async requestConfirm(): Promise<boolean> {
@@ -95,6 +96,42 @@ describe("AgentLoop", () => {
     expect(hand.confirmCalls).toBe(1);
     expect(hand.acts).toEqual([{ kind: "click", ref: "e1" }]);
     expect(out.status).toBe("klaar"); // queue leeg -> default finish
+  });
+
+  it("auto-modus: voert een schrijf-actie uit zónder bevestiging te vragen", async () => {
+    const hand = new MockHand();
+    const router = new MockRouter(['{"kind":"click","ref":"e1"}']); // e1 = "Opslaan" (muterend)
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("sla op");
+    expect(hand.confirmCalls).toBe(0); // geen bevestiging gevraagd
+    expect(hand.acts).toEqual([{ kind: "click", ref: "e1" }]);
+    expect(out.status).toBe("klaar");
+  });
+
+  it("auto-modus: blokkeert /checkout nog steeds hard (deny-lijst niet te omzeilen)", async () => {
+    const hand = new MockHand();
+    const router = new MockRouter([
+      '{"kind":"navigate","url":"https://shop.nl/checkout"}',
+      '{"kind":"finish","summary":"gestopt"}',
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("reken af");
+    expect(hand.acts).toHaveLength(0); // ondanks auto: niets uitgevoerd
+    expect(hand.updates.some((u) => u.status === "geweigerd")).toBe(true);
+    expect(out.status).toBe("klaar");
+  });
+
+  it("zet geëxtraheerde informatie in het eind-antwoord (niet alleen 'klaar')", async () => {
+    const hand = new MockHand();
+    const router = new MockRouter([
+      '{"kind":"extract","what":"vacatures","ref":"e2"}',
+      '{"kind":"finish","summary":"Klaar"}',
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    const out = await loop.run("zoek 3 vacatures");
+    expect(out.status).toBe("klaar");
+    expect(out.summary).toContain("Tolk A");
+    expect(out.summary).toContain("Helpdesk C");
   });
 
   it("stopt met fout na drie onleesbare modelantwoorden", async () => {

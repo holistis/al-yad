@@ -52,6 +52,56 @@ function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: strin
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+/**
+ * Typt karakter-voor-karakter met willekeurige vertraging per teken.
+ * Stuurt keydown/input/keyup events per karakter zodat React's synthetische
+ * event-laag (LinkedIn, Gmail, etc.) elke toetsaanslag ziet — onmisbaar voor
+ * sites die bot-achtig plakken detecteren.
+ */
+async function typeSlowly(
+  el: HTMLInputElement | HTMLTextAreaElement,
+  text: string,
+  baseDelayMs: number,
+): Promise<void> {
+  const proto = Object.getPrototypeOf(el);
+  const desc = Object.getOwnPropertyDescriptor(proto, "value");
+  // Wis de bestaande waarde
+  if (desc?.set) desc.set.call(el, "");
+  else el.value = "";
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+
+  let built = "";
+  for (const char of text) {
+    built += char;
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: char, bubbles: true, cancelable: true }));
+    if (desc?.set) desc.set.call(el, built);
+    else el.value = built;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent("keyup", { key: char, bubbles: true }));
+    // Jitter: base ± 50% zodat het patroon niet mechanisch is
+    await sleep(Math.round(baseDelayMs * 0.5 + Math.random() * baseDelayMs));
+  }
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+/**
+ * Typt karakter-voor-karakter in een contentEditable element (LinkedIn berichtvak,
+ * Gmail compose, etc.) via document.execCommand zodat de DOM-mutatieobservers
+ * van het framework de invoer als echte toetsaanslagen zien.
+ */
+async function typeSlowlyEditable(
+  el: HTMLElement,
+  text: string,
+  baseDelayMs: number,
+): Promise<void> {
+  el.textContent = "";
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  for (const char of text) {
+    document.execCommand("insertText", false, char);
+    await sleep(Math.round(baseDelayMs * 0.5 + Math.random() * baseDelayMs));
+  }
+}
+
 export async function executeAction(
   action: Action,
   refMap: Map<string, Element>,
@@ -74,7 +124,16 @@ export async function executeAction(
     case "click": {
       const el = refMap.get(action.ref);
       if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
-      (el as HTMLElement).scrollIntoView({ block: "center" });
+      const scrollPause = action.scrollPause ?? 0;
+      // Stealth-sites: smooth scrollen + wachten zodat het eruitziet als menselijk
+      // scrollen naar het element. Andere sites: direct (auto).
+      (el as HTMLElement).scrollIntoView({
+        behavior: scrollPause > 0 ? "smooth" : "auto",
+        block: "center",
+      });
+      if (scrollPause > 0) {
+        await sleep(scrollPause); // wacht tot scroll klaar + menselijk aarzelen
+      }
 
       // Overlay-check: controleer of het doel zichtbaar is via elementFromPoint.
       // Als er iets voor hangt dat op een consent-banner lijkt, probeer het eerst weg.
@@ -96,11 +155,20 @@ export async function executeAction(
       if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
       (el as HTMLElement).scrollIntoView({ block: "center" });
       (el as HTMLElement).focus();
+      const typeDelay = action.typeDelay ?? 0;
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-        setNativeValue(el, action.text);
+        if (typeDelay > 0) {
+          await typeSlowly(el, action.text, typeDelay);
+        } else {
+          setNativeValue(el, action.text);
+        }
       } else if ((el as HTMLElement).isContentEditable) {
-        (el as HTMLElement).textContent = action.text;
-        el.dispatchEvent(new Event("input", { bubbles: true }));
+        if (typeDelay > 0) {
+          await typeSlowlyEditable(el as HTMLElement, action.text, typeDelay);
+        } else {
+          (el as HTMLElement).textContent = action.text;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
       } else {
         return { ok: false, detail: "element is geen invoerveld" };
       }

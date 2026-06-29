@@ -37,12 +37,21 @@ export interface Envelope<TType extends string, TPayload> {
   payload: TPayload;
 }
 
+/** Een bijlage die de gebruiker meestuurt met een taak (afbeelding). */
+export interface Attachment {
+  type: "image";
+  mimeType: string;
+  /** Base64-gecodeerde inhoud (zonder data: prefix). */
+  data: string;
+  name?: string;
+}
+
 /** Berichten van de Hand naar het Brein. */
 export interface HandPayloads {
   HELLO: { extId: string; clientVersion: string; capabilities: Capability[] };
   PING: { t: number };
   /** start een nieuwe agent-run (vanuit de sidepanel) */
-  GOAL: { goal: string; maxSteps?: number };
+  GOAL: { goal: string; maxSteps?: number; attachments?: Attachment[] };
   /** antwoord op REQUEST_SNAPSHOT (correlationId verwijst naar de aanvraag) */
   SNAPSHOT_RESULT: { snapshot: Snapshot };
   /** antwoord op ACT */
@@ -51,6 +60,15 @@ export interface HandPayloads {
   CONFIRM_RESULT: { approved: boolean };
   /** breek de lopende run af (bv. de run-tab is gesloten) */
   ABORT_RUN: { reason: string };
+  /** live configuratie-update vanuit de instellingen (sleutels, gedrag) */
+  UPDATE_CONFIG: { env: Record<string, string>; maxSteps?: number; autonomy?: "confirm" | "auto"; language?: "nl" | "en" };
+  /** vastgelegde sessie van de actieve tab (cookies + localStorage) voor de REDACTED-adapter */
+  SESSION_CAPTURE: {
+    url: string;
+    cookieHeader: string;
+    localStorage: Record<string, string>;
+    label: "A" | "B";
+  };
 }
 
 /** Berichten van het Brein naar de Hand. */
@@ -71,6 +89,16 @@ export interface BrainPayloads {
   REQUEST_CONFIRM: { action: Action; reason: string };
   /** voortgang naar de sidepanel */
   RUN_UPDATE: { status: RunStatus; step?: number; message: string; action?: Action };
+  /** welke providers zijn actief in de companion-pool (na (her)bouw) */
+  COMPANION_CONFIG: { activeProviders: string[] };
+  /** resultaat van een SESSION_CAPTURE: heeft de REDACTED-adapter de sessie opgeslagen? */
+  SESSION_RESULT: {
+    ok: boolean;
+    brand?: string;
+    path?: string;
+    authType?: string;
+    detail?: string;
+  };
 }
 
 export type HandMessage = {

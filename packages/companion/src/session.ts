@@ -3,6 +3,7 @@ import {
   isEnvelope,
   type Action,
   type ActResult,
+  type Attachment,
   type BrainMessage,
   type BrainPayloads,
   type RunStatus,
@@ -10,7 +11,10 @@ import {
 } from "@yad/shared";
 import { AgentLoop, type HandBridge } from "./agent/loop.js";
 import { LlmRouter } from "./engine/router.js";
+import { buildPool } from "./engine/pool.js";
 import { createHandshakeHandler, type CompanionInfo } from "./handshake.js";
+import { saveREDACTEDSession } from "./adapters/REDACTED.js";
+import { CacheStore } from "./memory/cache-store.js";
 
 type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM";
 
@@ -31,13 +35,20 @@ export class BrainSession implements HandBridge {
   private readonly handshake: (raw: unknown) => void;
   private running = false;
   private aborted = false;
+  private defaultMaxSteps = 15;
+  private autonomy: "confirm" | "auto" = "confirm";
+  private language: "nl" | "en" = "nl";
+  // router is niet readonly: UPDATE_CONFIG kan de pool vervangen
+  private router: LlmRouter;
+  private readonly cacheStore = new CacheStore();
 
   constructor(
     private readonly send: (m: BrainMessage) => void,
-    private readonly router: LlmRouter,
+    router: LlmRouter,
     info: CompanionInfo,
     private readonly log: (m: string) => void = () => {},
   ) {
+    this.router = router;
     this.handshake = createHandshakeHandler(info, send, log);
   }
 
@@ -52,12 +63,53 @@ export class BrainSession implements HandBridge {
         this.handshake(raw);
         return;
       case "GOAL": {
-        const p = raw.payload as { goal?: string; maxSteps?: number };
-        if (typeof p?.goal === "string") void this.startRun(p.goal, p.maxSteps);
+        const p = raw.payload as { goal?: string; maxSteps?: number; attachments?: Attachment[] };
+        if (typeof p?.goal === "string") void this.startRun(p.goal, p.maxSteps, p.attachments);
         return;
       }
       case "ABORT_RUN": {
         this.aborted = true;
+        return;
+      }
+      case "UPDATE_CONFIG": {
+        const p = raw.payload as {
+          env: Record<string, string>;
+          maxSteps?: number;
+          autonomy?: "confirm" | "auto";
+          language?: "nl" | "en";
+        };
+        // Schrijf UI-sleutels over process.env (compatibel met loadEnvFile die ook
+        // process.env gebruikt). Lege waarden worden genegeerd zodat de .env-bodem
+        // intact blijft: de UI is additief bovenop .env. Een in de UI uitgeschakelde
+        // provider die óók in .env staat, blijft dus tot een herstart actief — dat is
+        // bewust (we wissen nooit de .env-sleutels van de gebruiker live weg).
+        for (const [k, v] of Object.entries(p.env)) {
+          if (v) process.env[k] = v;
+        }
+        if (p.maxSteps && p.maxSteps > 0) this.defaultMaxSteps = p.maxSteps;
+        if (p.autonomy === "confirm" || p.autonomy === "auto") this.autonomy = p.autonomy;
+        if (p.language === "nl" || p.language === "en") this.language = p.language;
+        const newPool = buildPool();
+        this.router = new LlmRouter(newPool, { log: (m) => this.log(`[motor] ${m}`) });
+        this.log(`config bijgewerkt: ${newPool.map((pr) => pr.name).join(",")} (${newPool.length} providers)`);
+        // Stuur actieve providers terug zodat de UI ze kan tonen (geen sleutelwaarden, alleen namen).
+        this.send(brainMessage("COMPANION_CONFIG", { activeProviders: newPool.map((pr) => pr.name) }));
+        return;
+      }
+      case "SESSION_CAPTURE": {
+        const p = raw.payload as {
+          url: string;
+          cookieHeader: string;
+          localStorage: Record<string, string>;
+          label: "A" | "B";
+        };
+        const result = saveREDACTEDSession(p);
+        this.send(brainMessage("SESSION_RESULT", result));
+        this.log(
+          result.ok
+            ? `sessie opgeslagen: ${result.brand} account-${p.label} → ${result.path}`
+            : `sessie-fout: ${result.detail}`,
+        );
         return;
       }
       case "SNAPSHOT_RESULT":
@@ -77,7 +129,7 @@ export class BrainSession implements HandBridge {
     }
   }
 
-  private async startRun(goal: string, maxSteps?: number): Promise<void> {
+  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[]): Promise<void> {
     if (this.running) {
       this.update({ status: "fout", message: "Er loopt al een taak." });
       return;
@@ -87,9 +139,13 @@ export class BrainSession implements HandBridge {
     const loop = new AgentLoop({ chat: (req) => this.router.chat(req) }, this, {
       log: this.log,
       isAborted: () => this.aborted,
+      maxSteps: maxSteps ?? this.defaultMaxSteps,
+      autonomy: this.autonomy,
+      language: this.language,
+      cacheStore: this.cacheStore,
     });
     try {
-      await loop.run(goal, maxSteps);
+      await loop.run(goal, maxSteps, attachments);
     } catch (e) {
       this.update({ status: "fout", message: (e as Error).message });
     } finally {

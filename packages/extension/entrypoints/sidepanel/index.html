@@ -5,113 +5,457 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Yad</title>
     <style>
-      :root {
-        font-family: system-ui, sans-serif;
-        color: #1a1a1a;
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body {
+        margin: 0; padding: 0; height: 100%; overflow: hidden;
+        font-family: system-ui, sans-serif; color: #1a1a1a;
+        background: #fafafe; font-size: 14px;
       }
-      body {
-        margin: 0;
-        padding: 14px;
-        font-size: 14px;
+      .hidden { display: none !important; }
+
+      /* ---- Full-height layout ---- */
+      #gate { height: 100%; overflow-y: auto; }
+      #app { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+
+      /* ---- Header ---- */
+      #header {
+        display: flex; align-items: center; gap: 11px; padding: 12px 14px 11px; flex-shrink: 0;
+        background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #9333ea 100%);
+        color: #fff; box-shadow: 0 1px 8px rgba(79,70,229,.25);
       }
-      h1 {
-        font-size: 16px;
-        margin: 0 0 10px;
+      #logo { flex-shrink: 0; display: flex; filter: drop-shadow(0 2px 4px rgba(0,0,0,.18)); }
+      #brand { flex: 1; display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+      #brand h1 { font-size: 17px; margin: 0; color: #fff; font-weight: 700; }
+      #brand-sub { font-size: 11px; color: rgba(255,255,255,.72); }
+      #status-wrap { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+      .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
+      .verbonden { background: #4ade80; }
+      .verbinden { background: #fbbf24; }
+      .verbroken { background: #f87171; }
+      #conn-label { font-size: 11px; color: rgba(255,255,255,.85); }
+
+      /* ---- Tabs ---- */
+      #tabs {
+        display: flex; border-bottom: 1px solid #e5e7eb; padding: 0 14px;
+        background: #fff; flex-shrink: 0;
       }
-      .hidden {
-        display: none;
+      .tab {
+        flex: 1; border: none; background: none; cursor: pointer; padding: 8px 2px;
+        font: inherit; font-size: 12px; color: #6b7280;
+        border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
       }
-      .dot {
-        display: inline-block;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        margin-right: 8px;
-        background: #9ca3af;
-        vertical-align: middle;
+      .tab.active { color: #111827; border-bottom-color: #111827; font-weight: 600; }
+      .tab:hover:not(.active) { color: #374151; }
+
+      /* ---- Tab panels ---- */
+      .tab-panel { flex: 1; overflow-y: auto; min-height: 0; padding: 12px 14px; }
+
+      /* ---- Taak tab: chat layout ---- */
+      #tab-taak { overflow: hidden; display: flex; flex-direction: column; padding: 0; }
+
+      /* Quick-bar */
+      #chat-topbar {
+        display: flex; align-items: center; gap: 5px; padding: 5px 10px 4px;
+        background: #f9fafb; border-bottom: 1px solid #e5e7eb; flex-shrink: 0;
       }
-      .verbonden { background: #16a34a; }
-      .verbinden { background: #d97706; }
-      .verbroken { background: #dc2626; }
-      #status { margin-bottom: 12px; }
-      textarea {
-        width: 100%;
-        box-sizing: border-box;
-        min-height: 64px;
-        font: inherit;
-        padding: 8px;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        resize: vertical;
+      .qb-group { display: flex; gap: 1px; background: #e5e7eb; border-radius: 7px; padding: 2px; }
+      .qb-btn {
+        font: inherit; font-size: 12px; padding: 3px 9px; border: none;
+        border-radius: 5px; background: transparent; color: #6b7280; cursor: pointer; white-space: nowrap;
       }
-      button {
-        font: inherit;
-        padding: 8px 14px;
-        border: none;
-        border-radius: 6px;
-        background: #111827;
-        color: #fff;
-        cursor: pointer;
+      .qb-btn.active { background: #fff; color: #111827; font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+      .qb-btn:hover:not(.active) { background: rgba(255,255,255,.6); }
+      .qb-btn .qb-label { display: none; font-size: 11px; margin-left: 2px; }
+      .qb-btn.active .qb-label { display: inline; }
+      .qb-divider { width: 1px; height: 18px; background: #e5e7eb; align-self: center; margin: 0 2px; }
+      #clear {
+        margin-left: auto; padding: 3px 8px; font-size: 13px; border: none;
+        background: transparent; color: #9ca3af; cursor: pointer; border-radius: 5px;
       }
-      button:disabled { background: #9ca3af; cursor: not-allowed; }
-      button.secondary { background: #e5e7eb; color: #111827; }
-      .row { display: flex; gap: 8px; margin-top: 8px; }
-      .gate-item { display: flex; gap: 8px; margin: 10px 0; align-items: flex-start; }
-      .gate-item input { margin-top: 3px; }
-      .docs a { display: block; margin: 4px 0; color: #2563eb; }
-      .summary { background: #f3f4f6; padding: 10px; border-radius: 6px; line-height: 1.4; white-space: pre-line; }
-      #log {
-        margin-top: 12px;
-        max-height: 320px;
-        overflow-y: auto;
-        border-top: 1px solid #e5e7eb;
-        padding-top: 8px;
+      #clear:hover { color: #374151; background: #f3f4f6; }
+
+      /* Chat messages */
+      #chat-messages {
+        flex: 1; overflow-y: auto; padding: 10px 12px;
+        display: flex; flex-direction: column; gap: 5px; min-height: 0;
       }
-      .logline { padding: 4px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
-      .logline .tag { font-weight: 600; margin-right: 6px; }
-      .tag.klaar { color: #16a34a; }
-      .tag.fout, .tag.geweigerd, .tag.gestopt { color: #dc2626; }
-      .tag.bezig, .tag.plannen { color: #d97706; }
-      #confirm {
-        margin-top: 12px;
-        border: 1px solid #d97706;
-        background: #fffbeb;
-        border-radius: 6px;
-        padding: 10px;
+      .cb {
+        max-width: 88%; padding: 8px 11px; border-radius: 14px; font-size: 13px;
+        line-height: 1.45; word-break: break-word; white-space: pre-wrap;
       }
-      .note { color: #6b7280; font-size: 12px; margin-top: 10px; }
-      pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+      .cb.u { align-self: flex-end; background: #1e293b; color: #fff; border-bottom-right-radius: 3px; }
+      .cb.a { align-self: flex-start; background: #f3f4f6; color: #111827; border-bottom-left-radius: 3px; }
+      .cb.a.ok { background: #f0fdf4; border: 1px solid #bbf7d0; }
+      .cb.a.err { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+      .cb.step {
+        align-self: flex-start; padding: 3px 9px; border-radius: 6px; font-size: 11px;
+        background: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; max-width: 95%;
+      }
+      .cb-copy {
+        display: inline-block; margin-top: 6px; padding: 3px 9px; font-size: 11px;
+        border: none; border-radius: 4px; cursor: pointer; font: inherit;
+        background: #dcfce7; color: #166534;
+      }
+      .typing-bubble { align-self: flex-start; padding: 6px 10px; }
+      .typing-dots { display: inline-flex; gap: 4px; align-items: center; }
+      .typing-dots span {
+        width: 5px; height: 5px; border-radius: 50%; background: #9ca3af;
+        display: inline-block; animation: tdb 1.2s infinite;
+      }
+      .typing-dots span:nth-child(2) { animation-delay: .2s; }
+      .typing-dots span:nth-child(3) { animation-delay: .4s; }
+      @keyframes tdb { 0%,80%,100%{opacity:.25;transform:scale(.8)} 40%{opacity:1;transform:scale(1.1)} }
+
+      /* Confirm bubble */
+      .confirm-bubble {
+        align-self: flex-start; max-width: 92%; padding: 10px 12px;
+        background: #fffbeb; border: 1px solid #d97706;
+        border-radius: 10px; border-bottom-left-radius: 3px; font-size: 13px;
+      }
+      .confirm-bubble pre { font-size: 11px; white-space: pre-wrap; word-break: break-all; margin: 5px 0; color: #6b7280; }
+      .confirm-btns { display: flex; gap: 6px; margin-top: 8px; }
+      .confirm-btns button { font: inherit; font-size: 12px; padding: 5px 12px; border: none; border-radius: 6px; cursor: pointer; }
+      .confirm-btns .cyes { background: #111827; color: #fff; }
+      .confirm-btns .cno { background: #f3f4f6; color: #374151; }
+
+      /* Bewaar-form (above input) */
+      #bewaar-form {
+        flex-shrink: 0; padding: 6px 12px;
+        background: #f0fdf4; border-top: 1px solid #bbf7d0;
+        display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+      }
+      #bewaar-form p { margin: 0; font-size: 12px; color: #166534; flex: 1; min-width: 110px; }
+      #bewaar-naam {
+        flex: 1; min-width: 90px; font: inherit; font-size: 12px;
+        padding: 4px 7px; border: 1px solid #d1d5db; border-radius: 5px;
+      }
+      .bw-btns { display: flex; gap: 4px; }
+      .bw-btns button { font: inherit; font-size: 12px; padding: 4px 10px; border: none; border-radius: 5px; cursor: pointer; }
+      .bw-btns .bok { background: #111827; color: #fff; }
+      .bw-btns .bskip { background: #f3f4f6; color: #374151; }
+
+      /* Chat input */
+      #chat-input-wrap {
+        flex-shrink: 0; border-top: 1px solid #e5e7eb; background: #fff; padding: 6px 10px 8px;
+      }
+      #attach-previews { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+      #attach-previews:empty { display: none; }
+      .attach-thumb {
+        display: inline-flex; align-items: center; gap: 4px;
+        background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 5px;
+        padding: 3px 6px; font-size: 11px; color: #1d4ed8;
+      }
+      .attach-thumb img { width: 22px; height: 22px; object-fit: cover; border-radius: 3px; }
+      .attach-remove { background: none; border: none; padding: 0; cursor: pointer; color: #6b7280; font-size: 13px; }
+      .attach-remove:hover { color: #dc2626; }
+      #attach-input { display: none; }
+      #chat-input-row { display: flex; align-items: flex-end; gap: 5px; }
+      #chat-input-row textarea {
+        flex: 1; min-height: 34px; max-height: 110px; resize: none; overflow-y: auto;
+        border: 1px solid #d1d5db; border-radius: 16px; padding: 7px 12px;
+        font: inherit; font-size: 13px; line-height: 1.4;
+      }
+      #chat-input-row textarea:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,.15); }
+      #attach-btn {
+        flex-shrink: 0; background: transparent; color: #9ca3af; border: none;
+        padding: 5px 4px; font-size: 18px; cursor: pointer; border-radius: 6px; align-self: flex-end; margin-bottom: 2px;
+      }
+      #attach-btn:hover { color: #6b7280; background: #f3f4f6; }
+      #start {
+        flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+        background: #111827; color: #fff; border: none; cursor: pointer; padding: 0;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #start:disabled { background: #d1d5db; cursor: not-allowed; }
+      .input-hint { font-size: 11px; color: #d1d5db; margin-top: 3px; padding-left: 3px; }
+
+      /* ---- Overige tabs ---- */
+      .section-title {
+        font-size: 12px; font-weight: 600; color: #6b7280;
+        text-transform: uppercase; letter-spacing: .04em; margin: 0 0 8px;
+      }
+      .empty-state { color: #9ca3af; font-size: 13px; text-align: center; padding: 20px 0; }
+      .workflow-item {
+        display: flex; align-items: flex-start; gap: 8px;
+        padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 6px;
+      }
+      .workflow-info { flex: 1; min-width: 0; }
+      .workflow-name { font-weight: 600; font-size: 13px; }
+      .workflow-goal { font-size: 12px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .workflow-actions { display: flex; gap: 4px; flex-shrink: 0; }
+      .history-item {
+        display: flex; align-items: center; gap: 8px;
+        padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 12px;
+      }
+      .history-status { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+      .history-status.klaar { background: #16a34a; }
+      .history-status.fout, .history-status.gestopt, .history-status.geweigerd { background: #dc2626; }
+      .history-goal { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #374151; }
+      .history-meta { color: #9ca3af; flex-shrink: 0; }
+
+      /* ---- Instellingen ---- */
+      .settings-section { margin-bottom: 14px; }
+      .settings-section h3 { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 8px; }
+      .field { margin-bottom: 7px; }
+      .field label { display: block; font-size: 12px; color: #374151; margin-bottom: 3px; }
+      .field-row { display: flex; gap: 4px; }
+      .field input[type=text], .field input[type=password], .field input[type=url] {
+        width: 100%; box-sizing: border-box; padding: 5px 8px; font: inherit; font-size: 12px;
+        border: 1px solid #d1d5db; border-radius: 5px;
+      }
+      .field input[type=range] { width: 100%; }
+      .field .hint { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+      .field-check { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+      #site-override-section { padding: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
+      #site-override-section p { margin: 0 0 6px; font-size: 12px; }
+      .tier-options { display: flex; gap: 6px; }
+      .tier-btn {
+        flex: 1; padding: 5px; font: inherit; font-size: 12px; border: 1px solid #d1d5db;
+        border-radius: 5px; background: #fff; cursor: pointer; text-align: center;
+      }
+      .tier-btn.active { background: #111827; color: #fff; border-color: #111827; }
+      #save-btn {
+        width: 100%; margin-top: 4px; font: inherit; font-size: 13px; padding: 8px;
+        border: none; border-radius: 6px; background: #111827; color: #fff; cursor: pointer;
+      }
+      #save-msg { font-size: 12px; color: #16a34a; margin-top: 6px; text-align: center; min-height: 18px; }
+      .note { color: #9ca3af; font-size: 11px; margin: 8px 0 0; }
+
+      /* ---- Provider catalogus ---- */
+      #provider-catalog { margin-bottom: 8px; }
+      .provider-card { border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 5px; }
+      .provider-card.active { border-color: #374151; }
+      .provider-header { display: flex; align-items: center; gap: 7px; padding: 8px 8px 5px; }
+      .provider-header input[type=checkbox] { flex-shrink: 0; cursor: pointer; }
+      .provider-name { flex: 1; font-size: 13px; font-weight: 600; cursor: pointer; -webkit-user-select: none; user-select: none; }
+      .provider-badge { font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 3px; letter-spacing: .04em; }
+      .provider-badge.free { background: #dcfce7; color: #166534; }
+      .provider-badge.paid { background: #fef3c7; color: #92400e; }
+      .provider-badge.local { background: #ede9fe; color: #5b21b6; }
+      .provider-badge.custom { background: #e0f2fe; color: #075985; }
+      .provider-badge.companion { background: #dbeafe; color: #1d4ed8; font-weight: 500; }
+      .provider-detail { padding: 0 8px 5px 27px; }
+      .provider-tagline { font-size: 11px; color: #6b7280; margin-bottom: 2px; }
+      .provider-meta { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+      .provider-limit { display: inline-block; background: #f3f4f6; border-radius: 3px; padding: 1px 4px; font-size: 10px; color: #374151; }
+      .provider-stars { font-size: 10px; color: #d97706; }
+      .provider-signup { font-size: 10px; color: #2563eb; cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; font: inherit; }
+      .provider-fields { padding: 2px 8px 8px; border-top: 1px solid #f3f4f6; }
+      #provider-search {
+        width: 100%; box-sizing: border-box; padding: 6px 9px; margin-bottom: 8px;
+        font: inherit; font-size: 12px; border: 1px solid #d1d5db; border-radius: 6px;
+      }
+      .no-results { color: #9ca3af; font-size: 12px; text-align: center; padding: 12px 0; }
+      .mode-options { display: flex; flex-direction: column; gap: 6px; }
+      .mode-btn {
+        display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+        padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+        background: #fff; color: #111827; cursor: pointer; text-align: left; width: 100%; font: inherit;
+      }
+      .mode-btn:hover { border-color: #9ca3af; }
+      .mode-btn.active { border-color: #4f46e5; background: #eef2ff; box-shadow: inset 0 0 0 1px #4f46e5; }
+      .mode-title { font-size: 13px; font-weight: 600; }
+      .mode-desc { font-size: 11px; color: #6b7280; }
+      .lang-options { display: flex; gap: 6px; }
+      .lang-btn {
+        flex: 1; padding: 7px 8px; font: inherit; font-size: 13px; border: 1px solid #d1d5db;
+        border-radius: 6px; background: #fff; color: #111827; cursor: pointer; text-align: center; font-weight: 500;
+      }
+      .lang-btn:hover { border-color: #9ca3af; }
+      .lang-btn.active { border-color: #4f46e5; background: #eef2ff; box-shadow: inset 0 0 0 1px #4f46e5; color: #4338ca; }
+
+      /* ---- REDACTED sessie-capture ---- */
+      .capture-row { display: flex; gap: 6px; margin-top: 6px; }
+      .capture-btn {
+        flex: 1; padding: 7px; font: inherit; font-size: 12px;
+        border: 1px solid #d1d5db; border-radius: 6px; background: #fff; cursor: pointer;
+      }
+      .capture-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+      .capture-btn:disabled { opacity: .5; cursor: not-allowed; }
+      #capture-msg { font-size: 12px; margin-top: 6px; min-height: 18px; }
+      #capture-msg.ok { color: #166534; }
+      #capture-msg.err { color: #b91c1c; }
+      .history-margin { margin-top: 14px; }
+
+      /* ---- Stats ---- */
+      .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+      .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }
+      .stat-label { font-size: 11px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+      .stat-value { font-size: 22px; font-weight: 700; color: #111827; margin-top: 2px; }
+      .stat-sub { font-size: 11px; color: #9ca3af; margin-top: 1px; }
+      .stat-bar-wrap { margin-bottom: 6px; }
+      .stat-bar-label { display: flex; justify-content: space-between; font-size: 12px; color: #374151; margin-bottom: 3px; }
+      .stat-bar-track { background: #f3f4f6; border-radius: 4px; height: 7px; overflow: hidden; }
+      .stat-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #4f46e5, #7c3aed); }
+      .top-goal { padding: 5px 0; border-bottom: 1px solid #f3f4f6; font-size: 12px; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     </style>
   </head>
   <body>
     <!-- Akkoord-poort -->
     <section id="gate" class="hidden">
-      <h1>Voor je begint</h1>
-      <div class="summary" id="gate-summary"></div>
-      <div class="docs">
-        <a href="#" data-doc="algemene-voorwaarden">Algemene Voorwaarden</a>
-        <a href="#" data-doc="privacyverklaring">Privacyverklaring</a>
-        <a href="#" data-doc="gebruiksbeleid">Gebruiksbeleid</a>
+      <div style="padding:14px">
+        <h1 style="font-size:16px;margin:0 0 10px">Voor je begint</h1>
+        <div id="gate-summary" style="background:#f3f4f6;padding:10px;border-radius:6px;line-height:1.4;white-space:pre-line"></div>
+        <div style="margin:10px 0">
+          <a href="#" data-doc="algemene-voorwaarden" style="display:block;margin:4px 0;color:#2563eb">Algemene Voorwaarden</a>
+          <a href="#" data-doc="privacyverklaring" style="display:block;margin:4px 0;color:#2563eb">Privacyverklaring</a>
+          <a href="#" data-doc="gebruiksbeleid" style="display:block;margin:4px 0;color:#2563eb">Gebruiksbeleid</a>
+        </div>
+        <div id="gate-items"></div>
+        <button id="accept" type="button" disabled style="font:inherit;font-size:13px;padding:8px 14px;border:none;border-radius:6px;background:#111827;color:#fff;cursor:pointer;width:100%;margin-top:10px">Akkoord en starten</button>
+        <p style="color:#9ca3af;font-size:12px;margin-top:10px">Dit is een concept.</p>
       </div>
-      <div id="gate-items"></div>
-      <button id="accept" type="button" disabled>Akkoord en starten</button>
-      <p class="note">Dit is een concept. Laat het bij twijfel door een jurist bekijken.</p>
     </section>
 
-    <!-- Werk-UI -->
+    <!-- Hoofd-UI -->
     <section id="app" class="hidden">
-      <h1>Yad — de hand</h1>
-      <div id="status"><span class="dot"></span><span id="label">…</span></div>
-
-      <textarea id="goal" placeholder="Wat moet ik doen op deze pagina?"></textarea>
-      <div class="row">
-        <button id="start" type="button" disabled>Start taak</button>
-        <button id="clear" type="button" class="secondary">Wis log</button>
+      <div id="header">
+        <span id="logo" aria-hidden="true">
+          <svg width="34" height="34" viewBox="0 0 32 32" fill="none">
+            <defs>
+              <linearGradient id="yad-badge" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#a5b4fc"/><stop offset="1" stop-color="#f0abfc"/>
+              </linearGradient>
+            </defs>
+            <rect width="32" height="32" rx="9" fill="#fff" fill-opacity=".16"/>
+            <rect x=".6" y=".6" width="30.8" height="30.8" rx="8.4" stroke="url(#yad-badge)" stroke-opacity=".5"/>
+            <path d="M10.5 6.5 L10.5 23.5 L14.6 19.4 L17.4 25.5 L20 24.3 L17.2 18.4 L22.7 18.4 Z" fill="#fff"/>
+            <path d="M21.2 8.6 L24.4 6.4 M22.8 12.4 L26.6 11.2 M22.4 4.8 L23.6 8.2" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-opacity=".8"/>
+          </svg>
+        </span>
+        <div id="brand">
+          <h1>Yad</h1>
+          <span id="brand-sub">de hand · jouw AI browser-agent</span>
+        </div>
+        <span id="status-wrap">
+          <span class="dot" id="dot"></span>
+          <span id="conn-label">…</span>
+        </span>
       </div>
 
-      <div id="confirm" class="hidden"></div>
-      <div id="log"></div>
-      <p class="note">Yad werkt op de tab die open staat. Staat er geen webpagina open, dan opent Yad zelf een nieuwe tab voor de taak.</p>
+      <div id="tabs">
+        <button type="button" class="tab active" data-tab="taak" data-i18n="tabTask">Taak</button>
+        <button type="button" class="tab" data-tab="workflows" data-i18n="tabSaved">Opgeslagen</button>
+        <button type="button" class="tab" data-tab="instellingen" data-i18n="tabSettings">Instellingen</button>
+        <button type="button" class="tab" data-tab="statistieken" data-i18n="tabStats">Stats</button>
+      </div>
+
+      <!-- Tab: Taak (chat) -->
+      <div id="tab-taak" class="tab-panel">
+        <div id="chat-topbar">
+          <div class="qb-group">
+            <button type="button" class="qb-btn qmode-btn" data-mode="confirm">🛡️ <span class="qb-label">Bevestig</span></button>
+            <button type="button" class="qb-btn qmode-btn" data-mode="auto">⚡ <span class="qb-label">Auto</span></button>
+          </div>
+          <div class="qb-divider"></div>
+          <div class="qb-group">
+            <button type="button" class="qb-btn qlang-btn" data-lang="nl">NL</button>
+            <button type="button" class="qb-btn qlang-btn" data-lang="en">EN</button>
+          </div>
+          <button type="button" id="clear">✕</button>
+        </div>
+
+        <div id="chat-messages"></div>
+
+        <div id="bewaar-form" class="hidden">
+          <p data-i18n="savePrompt">Taak geslaagd — bewaar als snelkoppeling?</p>
+          <input id="bewaar-naam" type="text" placeholder="Naam" data-i18n-ph="saveNamePh" />
+          <div class="bw-btns">
+            <button id="bewaar-ok" type="button" class="bok" data-i18n="saveOk">Bewaar</button>
+            <button id="bewaar-skip" type="button" class="bskip" data-i18n="saveSkip">Overslaan</button>
+          </div>
+        </div>
+
+        <div id="chat-input-wrap">
+          <div id="attach-previews"></div>
+          <div id="chat-input-row">
+            <button type="button" id="attach-btn">📎</button>
+            <input type="file" id="attach-input" accept="image/*" />
+            <textarea id="goal" rows="1" placeholder="Wat moet ik doen?" data-i18n-ph="placeholder"></textarea>
+            <button id="start" type="button" disabled title="Taak starten">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2L14 8L3 14V2Z" fill="currentColor"/></svg>
+            </button>
+          </div>
+          <div class="input-hint" data-i18n="pasteHint">Of plak een afbeelding (Ctrl+V)</div>
+        </div>
+      </div>
+
+      <!-- Tab: Workflows -->
+      <div id="tab-workflows" class="tab-panel hidden">
+        <p class="section-title" data-i18n="savedTasks">Opgeslagen taken</p>
+        <div id="workflow-list"><p class="empty-state" data-i18n="noSavedTasks">Nog geen taken bewaard.</p></div>
+        <p class="section-title history-margin" data-i18n="historyTitle">Geschiedenis</p>
+        <div id="history-list"><p class="empty-state" data-i18n="noHistory">Nog geen runs.</p></div>
+      </div>
+
+      <!-- Tab: Instellingen -->
+      <div id="tab-instellingen" class="tab-panel hidden">
+        <form id="settings-form" autocomplete="off">
+          <div class="settings-section">
+            <h3 data-i18n="settingsProviders">AI-providers</h3>
+            <input type="search" id="provider-search" placeholder="Zoek…" data-i18n-ph="providerSearch" autocomplete="off" />
+            <div id="provider-catalog"></div>
+            <p class="hint" data-i18n="providerHint">Vink een provider aan, plak je sleutel.</p>
+          </div>
+          <div class="settings-section">
+            <h3 data-i18n="settingsBehavior">Gedrag</h3>
+            <div class="field">
+              <label><span data-i18n="maxStepsLabel">Max stappen per taak:</span> <strong id="steps-val">15</strong></label>
+              <input type="range" id="s-steps" min="5" max="40" step="1" value="15" />
+            </div>
+            <div class="field">
+              <label data-i18n="autonomyLabel">Hoe zelfstandig mag Yad werken?</label>
+              <div class="mode-options">
+                <button type="button" class="mode-btn" data-mode="confirm">
+                  <span class="mode-title" data-i18n="confirmMode">🛡️ Vraag bevestiging</span>
+                  <span class="mode-desc" data-i18n="confirmModeDesc">Yad vraagt jou bij elke wijziging (veilig, standaard)</span>
+                </button>
+                <button type="button" class="mode-btn" data-mode="auto">
+                  <span class="mode-title" data-i18n="autoMode">⚡ Volledig zelfstandig</span>
+                  <span class="mode-desc" data-i18n="autoModeDesc">Yad doet alles zelf, zonder te vragen</span>
+                </button>
+              </div>
+              <div class="hint" data-i18n="autonomyHint">Betaal- en bestelpagina's blijven altijd geblokkeerd.</div>
+            </div>
+            <div class="field">
+              <label data-i18n="languageLabel">Taal van de antwoorden</label>
+              <div class="lang-options">
+                <button type="button" class="lang-btn" data-lang="nl" data-i18n="langNl">🇳🇱 Nederlands</button>
+                <button type="button" class="lang-btn" data-lang="en" data-i18n="langEn">🇬🇧 English</button>
+              </div>
+              <div class="hint" data-i18n="langHint">Kies de taal waarin Yad zijn antwoorden schrijft.</div>
+            </div>
+            <div id="site-override-section">
+              <p id="site-domain-label">Huidig domein: onbekend</p>
+              <div class="tier-options">
+                <button type="button" class="tier-btn" data-tier="stealth" data-i18n="tierCautious">Voorzichtig</button>
+                <button type="button" class="tier-btn" data-tier="normal" data-i18n="tierNormal">Normaal</button>
+                <button type="button" class="tier-btn" data-tier="fast" data-i18n="tierFast">Snel</button>
+                <button type="button" class="tier-btn" data-tier="null" data-i18n="tierDefault">Standaard</button>
+              </div>
+              <div class="hint" data-i18n="tierHint">Voorzichtig = mensachtig tempo. Snel = minimale pauze. Standaard = automatisch.</div>
+            </div>
+          </div>
+          <div class="settings-section" id="REDACTED-section">
+            <h3 data-i18n="sessionCaptureTitle">Sessies (REDACTED)</h3>
+            <p class="hint" data-i18n="sessionCaptureHint">Log in op een REDACTED site in de actieve tab. Klik dan om de sessie vast te leggen zodat de pentest-suite hem kan gebruiken.</p>
+            <div class="capture-row">
+              <button type="button" id="capture-a" class="capture-btn" data-i18n="captureA">📸 Account A</button>
+              <button type="button" id="capture-b" class="capture-btn" data-i18n="captureB">📸 Account B</button>
+            </div>
+            <div id="capture-msg"></div>
+          </div>
+          <button type="submit" id="save-btn" data-i18n="saveSettings">Opslaan &amp; toepassen</button>
+          <div id="save-msg"></div>
+        </form>
+      </div>
+
+      <!-- Tab: Stats -->
+      <div id="tab-statistieken" class="tab-panel hidden">
+        <p class="section-title" data-i18n="statsTitle">Lokale statistieken</p>
+        <div id="stats-content"><p class="empty-state" data-i18n="noStats">Nog geen runs om te analyseren.</p></div>
+        <p class="note" data-i18n="statsPrivacy">Alle gegevens staan alleen op jouw apparaat. Er wordt niets verzonden.</p>
+      </div>
     </section>
 
     <script type="module" src="./main.ts"></script>

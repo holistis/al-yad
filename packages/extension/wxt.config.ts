@@ -15,9 +15,20 @@ export default defineConfig({
     // tabs + host_permissions zijn nodig om de actieve tab te bedienen.
     // LET OP: <all_urls> is breed; vóór een Web Store-inzending versmallen naar
     // activeTab/optionele host-permissions (zie bouwplan, Web Store-risico).
-    permissions: ["nativeMessaging", "sidePanel", "storage", "tabs", "scripting", "webNavigation"],
+    permissions: ["nativeMessaging", "sidePanel", "storage", "tabs", "scripting", "webNavigation", "cookies"],
     host_permissions: ["<all_urls>"],
-    action: {},
+    icons: {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png",
+    },
+    action: {
+      default_icon: {
+        "16": "icons/icon-16.png",
+        "32": "icons/icon-32.png",
+      },
+    },
     side_panel: { default_path: "sidepanel.html" },
     ...(manifestKey ? { key: manifestKey } : {}),
   },
