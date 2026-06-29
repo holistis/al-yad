@@ -25,17 +25,25 @@ Correctheid / robuustheid:
 - parseAction gebruikt een echte balans-scanner (eerste geldige object) i.p.v. first/last-accolade.
 - Abort-listener-leak in de provider opgeruimd.
 
+## Opgelost (ronde 2 — 2026-06-29)
+
+Tab-capture bug:
+- captureActiveWebTab() gebruikt nu 3-stappen fallback: lastFocusedWindow → lastWebTabId (bijgehouden via onActivated/onUpdated) → query alle windows op lastAccessed. Side-panel focus geeft niet langer "geen geschikte web-pagina".
+
+Deferred items uit ronde 1:
+- Cross-frame perceptie: same-origin iframes meegenomen in buildSnapshot() via contentDocument; cross-origin gooit SecurityError en wordt netjes overgeslagen. (perception.ts)
+- Overlay/cookiebanner: elementFromPoint-check voor elke klik; consent-dismiss (NL/EN/FR/DE) automatisch vóór de echte klik. (executor.ts)
+- Aparte REQUEST_CONFIRM-timeout: 120s i.p.v. 30s; timeout logt "geen antwoord" (onderscheid met expliciete weigering); fail-closed. (session.ts)
+- Log-redactie: response-body niet meer verbatim in LlmError; alleen HTTP-status + provider-naam. (openai-compatible.ts)
+- NativeHost.send: EPIPE/schrijffout gevangen; closed=true; geen crash bij gebroken pipe. (native-host.ts)
+- SPA-navigatie: webNavigation.onHistoryStateUpdated luistert op run-tab; extra 800ms wacht na pushState. webNavigation permission toegevoegd. (native-port.ts, wxt.config.ts)
+
 ## Bewust later (tracked)
 
 Grotere of niet-urgente items, met bestand-hints:
-- Cross-frame perceptie: same-origin iframes meenemen (all_frames + frame-aggregatie). Nu alleen hoofddocument + open shadow DOM. Cross-origin iframes en gesloten shadow roots expliciet als "niet-inspecteerbaar" markeren. (perception.ts, content.ts, native-port.ts)
 - host_permissions versmallen: van <all_urls> naar activeTab + optionele per-origin host-permissions; injecteer alleen op de run-tab. Pre-flight: draai in een apart, leeg Chrome-profiel met alleen in-scope test-accounts. (wxt.config.ts)
-- Overlay/cookiebanner-afhandeling: klik-doel verifiëren via elementFromPoint; generieke consent-dismiss (NL/EN) vóór de echte klik. (executor.ts)
 - Per-tenant/per-sessie rate-budget (token-bucket) bovenop pacing 1s + maxSteps. (companion/agent/loop.ts, session.ts)
 - Protocol-versie-check ook op GOAL/RESULT-berichten bij een toekomstige versie-bump. (session.ts)
-- Aparte, ruimere REQUEST_CONFIRM-timeout en onderscheid "geen antwoord" vs "geweigerd". (session.ts, loop.ts)
 - Windows host: console-subsystem .exe-wrapper i.p.v. .bat. (native-messaging, scripts/setup-native-host.ts)
-- Log-redactie: provider-foutmeldingen (mogelijk PII) niet verbatim loggen; status+provider-naam volstaat. (engine/providers/openai-compatible.ts, router.ts, loop.ts)
-- NativeHost.send: output 'error'/EPIPE + backpressure afhandelen i.p.v. mogelijk crashen bij gesloten pipe. (companion/native-host.ts)
-- SPA-navigatie-readiness (history.pushState houdt status='complete'): grotendeels gedekt door re-snapshot per stap; later webNavigation.onHistoryStateUpdated. (native-port.ts)
 - Hand-laag tests (jsdom): executor (click/type/select/extract, contenteditable), perception, native-port reconnect/heartbeat, en de akkoord-handhaving op het GOAL-pad. (packages/extension)
+- Cross-origin iframes en gesloten shadow roots expliciet als "niet-inspecteerbaar" markeren in de snapshot. (perception.ts)
