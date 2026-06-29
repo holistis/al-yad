@@ -13,6 +13,7 @@ export interface PoolEnv {
   YAD_PAID_API_KEY?: string;
   YAD_PAID_BASE_URL?: string;
   YAD_PAID_MODEL?: string;
+  YAD_PAID_PRIMARY?: string;
   OLLAMA_BASE_URL?: string;
   OLLAMA_MODEL?: string;
   GROQ_MODEL?: string;
@@ -105,13 +106,17 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
     );
   }
   if (env.YAD_PAID_API_KEY) {
+    // YAD_PAID_PRIMARY=true -> tier -1: de betaalde topsleutel wordt EERST geprobeerd
+    // (beste kwaliteit op lastige sites; je betaalt per stap). Standaard tier 1:
+    // vangnet, alleen gebruikt als de gratis pool faalt (goedkoopst). Jouw keuze.
+    const paidPrimary = (env.YAD_PAID_PRIMARY ?? "").toLowerCase() === "true";
     providers.push(
       new OpenAICompatibleProvider({
         name: "paid",
         baseUrl: env.YAD_PAID_BASE_URL ?? "https://openrouter.ai/api/v1",
         apiKey: env.YAD_PAID_API_KEY,
         model: env.YAD_PAID_MODEL ?? "anthropic/claude-3.5-sonnet",
-        tier: 1,
+        tier: paidPrimary ? -1 : 1,
       }),
     );
   }
