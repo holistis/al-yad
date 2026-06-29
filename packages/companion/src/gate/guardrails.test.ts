@@ -95,6 +95,35 @@ describe("Poort: percent-encoding bypass", () => {
   it("weigert een navigate naar een geencodeerd checkout-pad", () => {
     expect(checkDenied({ kind: "navigate", url: "https://shop.nl/che%63kout" }, { currentUrl: "https://shop.nl/" }).denied).toBe(true);
   });
+
+  it("weigert dubbel-geencodeerde checkout-paden", () => {
+    expect(pathIsDenied("https://shop.nl/che%2563kout")).toBe(true);
+  });
+});
+
+describe("Poort: SPA hash-route (rode lijn)", () => {
+  it("weigert checkout/payment/order in het hash-fragment van een SPA", () => {
+    expect(pathIsDenied("https://webshop.nl/#/checkout")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/#/cart/payment")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/#/order/123")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/#/producten")).toBe(false);
+  });
+
+  it("weigert een navigate naar een hash-routed checkout", () => {
+    expect(checkDenied({ kind: "navigate", url: "https://webshop.nl/#/checkout" }, { currentUrl: "https://webshop.nl/" }).denied).toBe(true);
+  });
+
+  it("stopt ook als de landingspagina-URL een hash-route checkout is", () => {
+    // de loop hercontroleert pathIsDenied(snapshot.url); die moet de hash vangen
+    expect(pathIsDenied("https://webshop.nl/#/checkout")).toBe(true);
+  });
+});
+
+describe("Poort: muterende kassa-/bestel-link (rode lijn)", () => {
+  it("weigert een klik op een 'Naar de kassa'- of 'Afrekenen'-link", () => {
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", role: "link", targetName: "Naar de kassa" }).denied).toBe(true);
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", role: "link", targetName: "Afrekenen" }).denied).toBe(true);
+  });
 });
 
 describe("Poort: fail-safe bij onbekende URL", () => {

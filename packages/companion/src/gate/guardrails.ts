@@ -21,7 +21,7 @@ export const DENY_PATHS = [
 const SAFE_SCHEMES = ["http:", "https:"];
 
 const DENY_WORDS =
-  /\b(betaal|afrekenen|bestel|plaats\s*bestelling|checkout|pay\s*now|place\s*order|delete\s*account|account\s*verwijderen)\b/i;
+  /\b(betaal|afrekenen|kassa|naar\s*de\s*kassa|kasse|caisse|bestel|plaats\s*bestelling|checkout|pay\s*now|place\s*order|delete\s*account|account\s*verwijderen)\b/i;
 
 const CONFIRM_WORDS =
   /\b(opslaan|save|verstuur|verzend|send|submit|bevestig|confirm|verwijder|delete|update|wijzig|aanmaken|create|betaal|bestel)\b/i;
@@ -42,34 +42,44 @@ export interface GateVerdict {
   reason?: string;
 }
 
-function matchesDenyPath(pathname: string): boolean {
-  const variants = new Set<string>();
-  const lower = pathname.toLowerCase();
-  variants.add(lower);
-  try {
-    variants.add(decodeURIComponent(lower));
-  } catch {
-    /* ongeldige encoding -> alleen de rauwe variant */
+/** Decodeer herhaald (gedicht tegen dubbel-encoding) tot stabiel, met een harde cap. */
+function decodeDeep(s: string): string {
+  let cur = s;
+  for (let i = 0; i < 3; i++) {
+    let next: string;
+    try {
+      next = decodeURIComponent(cur);
+    } catch {
+      return cur;
+    }
+    if (next === cur) return cur;
+    cur = next;
   }
+  return cur;
+}
+
+function matchesDenyPath(segment: string): boolean {
+  const lower = segment.toLowerCase();
+  const variants = new Set<string>([lower, decodeDeep(lower)]);
   for (const v of variants) {
     if (DENY_PATHS.some((d) => v.includes(d))) return true;
   }
   return false;
 }
 
-/** Is dit pad (na normalisatie) een betaal-/bestel-pad? */
+/**
+ * Is dit (na normalisatie) een betaal-/bestel-pad? Controleert pathname, query EN
+ * hash-fragment: SPA's routeren checkout vaak via de hash (#/checkout), wat anders
+ * door de pathname-check zou glippen. Conservatief: liever te streng dan een
+ * bestelling/betaling toelaten (de harde rode lijn).
+ */
 export function pathIsDenied(url: string, base?: string): boolean {
   try {
     const u = new URL(url, base ?? "http://local.invalid");
-    return matchesDenyPath(u.pathname);
+    return matchesDenyPath(u.pathname) || matchesDenyPath(u.hash) || matchesDenyPath(u.search);
   } catch {
     const s = String(url).toLowerCase();
-    let decoded = s;
-    try {
-      decoded = decodeURIComponent(s);
-    } catch {
-      /* laat decoded gelijk aan s */
-    }
+    const decoded = decodeDeep(s);
     return DENY_PATHS.some((d) => s.includes(d) || decoded.includes(d));
   }
 }
