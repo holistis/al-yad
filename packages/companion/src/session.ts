@@ -17,7 +17,7 @@ import { saveREDACTEDSession } from "./adapters/REDACTED.js";
 import { CacheStore } from "./memory/cache-store.js";
 import { REDACTEDSessionReader } from "./key/session-reader.js";
 
-type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES";
+type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE";
 
 interface Pending {
   resolve: (payload: unknown) => void;
@@ -117,7 +117,8 @@ export class BrainSession implements HandBridge {
       case "SNAPSHOT_RESULT":
       case "ACT_RESULT":
       case "CONFIRM_RESULT":
-      case "INJECT_COOKIES_RESULT": {
+      case "INJECT_COOKIES_RESULT":
+      case "INJECT_LOCALSTORAGE_RESULT": {
         const cid = raw.correlationId;
         const pend = cid ? this.pending.get(cid) : undefined;
         if (cid && pend) {
@@ -140,19 +141,31 @@ export class BrainSession implements HandBridge {
     this.running = true;
     this.aborted = false;
 
-    // Sessie-hergebruik: injecteer opgeslagen cookies vóór de loop zodat de agent
-    // meteen authenticated is op de site zonder handmatige inlog.
+    // Sessie-hergebruik: injecteer opgeslagen cookies + localStorage vóór de loop
+    // zodat de agent meteen authenticated is op de site zonder handmatige inlog.
     if (startingUrl) {
       const session = this.sessionReader.findForUrl(startingUrl);
       if (session) {
-        try {
-          const r = await this.request<{ ok: boolean; count: number }>("INJECT_COOKIES", {
-            url: startingUrl,
-            cookies: session.cookies,
-          }, 5_000);
-          this.log(`sessie geïnjecteerd: ${session.brand} — ${r.count} cookies`);
-        } catch (e) {
-          this.log(`sessie-injectie mislukt: ${(e as Error).message} (doorgaan zonder)`);
+        if (session.cookies.length > 0) {
+          try {
+            const r = await this.request<{ ok: boolean; count: number }>("INJECT_COOKIES", {
+              url: startingUrl,
+              cookies: session.cookies,
+            }, 5_000);
+            this.log(`cookies geïnjecteerd: ${session.brand} — ${r.count} cookies`);
+          } catch (e) {
+            this.log(`cookie-injectie mislukt: ${(e as Error).message} (doorgaan zonder)`);
+          }
+        }
+        if (session.localStorageItems && Object.keys(session.localStorageItems).length > 0) {
+          try {
+            const r = await this.request<{ ok: boolean; count: number }>("INJECT_LOCALSTORAGE", {
+              items: session.localStorageItems,
+            }, 5_000);
+            this.log(`localStorage geïnjecteerd: ${session.brand} — ${r.count} sleutels`);
+          } catch (e) {
+            this.log(`localStorage-injectie mislukt: ${(e as Error).message} (doorgaan zonder)`);
+          }
         }
       }
     }

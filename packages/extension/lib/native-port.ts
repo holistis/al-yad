@@ -2,7 +2,7 @@ import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, s
 import { isAccepted } from "./acceptance";
 import { getSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { captureSession, getActiveWebTab } from "./session-capture";
-import { injectCookies } from "./session-inject";
+import { injectCookies, injectLocalStorage } from "./session-inject";
 
 /**
  * Beheert de native-messaging-poort naar het Brein (companion) EN vertaalt de
@@ -252,7 +252,7 @@ function connect(): void {
 }
 
 function replyToBrain(
-  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT",
+  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT",
   payload: object,
   correlationId: string,
 ): void {
@@ -330,6 +330,20 @@ function onMessage(raw: unknown): void {
         replyToBrain("INJECT_COOKIES_RESULT", { ok: true, count }, raw.id);
       }).catch(() => {
         replyToBrain("INJECT_COOKIES_RESULT", { ok: false, count: 0 }, raw.id);
+      });
+      break;
+    }
+    case "INJECT_LOCALSTORAGE": {
+      const p = raw.payload as { items: Record<string, string> };
+      if (runTabId == null) {
+        replyToBrain("INJECT_LOCALSTORAGE_RESULT", { ok: false, count: 0 }, raw.id);
+        break;
+      }
+      const tabId = runTabId;
+      void injectLocalStorage(tabId, p.items).then((count) => {
+        replyToBrain("INJECT_LOCALSTORAGE_RESULT", { ok: true, count }, raw.id);
+      }).catch(() => {
+        replyToBrain("INJECT_LOCALSTORAGE_RESULT", { ok: false, count: 0 }, raw.id);
       });
       break;
     }

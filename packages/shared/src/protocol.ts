@@ -71,6 +71,8 @@ export interface HandPayloads {
   };
   /** antwoord op INJECT_COOKIES (correlationId verwijst naar de aanvraag) */
   INJECT_COOKIES_RESULT: { ok: boolean; count: number };
+  /** antwoord op INJECT_LOCALSTORAGE (correlationId verwijst naar de aanvraag) */
+  INJECT_LOCALSTORAGE_RESULT: { ok: boolean; count: number };
 }
 
 /** Berichten van het Brein naar de Hand. */
@@ -103,6 +105,8 @@ export interface BrainPayloads {
   };
   /** vraag de Hand om cookies te injecteren voor een URL (sessie-hergebruik) */
   INJECT_COOKIES: { url: string; cookies: Array<{ name: string; value: string }> };
+  /** vraag de Hand om localStorage-items te zetten in de actieve run-tab (jwt-bearer sessie-hergebruik) */
+  INJECT_LOCALSTORAGE: { items: Record<string, string> };
 }
 
 export type HandMessage = {
