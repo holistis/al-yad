@@ -13,6 +13,7 @@ Thumbs.db
 # lokale, machine-specifieke extensie-sleutel (mag NOOIT de repo in)
 *.pem
 secrets/
+packages/extension/.keys/
 # gegenereerde, machine-specifieke host-bestanden (absolute paden) -> per machine via pnpm setup-host
 native-messaging/com.yad.companion.json
 native-messaging/yad-companion-launcher.bat
