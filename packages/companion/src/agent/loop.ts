@@ -18,8 +18,11 @@ export interface HandBridge {
 
 export interface LoopOptions {
   maxSteps?: number;
+  /** basis-pauze tussen acties (ms); 0 = geen pauze (tests). Echte runs jitteren hierboven. */
   pacingMs?: number;
   sleep?: (ms: number) => Promise<void>;
+  /** injecteerbaar voor tests; standaard Math.random */
+  random?: () => number;
   log?: (m: string) => void;
   /** wordt elke stap gecheckt; true = run netjes afbreken (bv. tab gesloten) */
   isAborted?: () => boolean;
@@ -65,6 +68,7 @@ export class AgentLoop {
   private readonly maxSteps: number;
   private readonly pacingMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly random: () => number;
   private readonly log: (m: string) => void;
 
   constructor(
@@ -73,13 +77,24 @@ export class AgentLoop {
     opts: LoopOptions = {},
   ) {
     this.maxSteps = opts.maxSteps ?? 15;
-    this.pacingMs = opts.pacingMs ?? 1000;
+    // Mensachtige basis-pauze (geen robot-1/sec). humanPause() jittert hierboven.
+    this.pacingMs = opts.pacingMs ?? 1800;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+    this.random = opts.random ?? Math.random;
     this.log = opts.log ?? (() => {});
     this.isAborted = opts.isAborted ?? (() => false);
   }
 
   private readonly isAborted: () => boolean;
+
+  /**
+   * Mensachtige, onregelmatige pauze tussen acties. Een vaste 1s-cadans is een
+   * bot-signaal; echte mensen variëren. Lager ban-risico op gevoelige sites.
+   */
+  private humanPause(): number {
+    if (this.pacingMs <= 0) return 0;
+    return Math.round(this.pacingMs + this.random() * this.pacingMs * 1.3); // ~1.8–4.1s
+  }
 
   async run(goal: string, maxStepsOverride?: number): Promise<RunOutcome> {
     const maxSteps = Math.min(maxStepsOverride ?? this.maxSteps, 40);
@@ -204,7 +219,7 @@ export class AgentLoop {
         }
       }
 
-      await this.sleep(this.pacingMs); // pacing: rustig en mensachtig
+      await this.sleep(this.humanPause()); // pacing: rustig en mensachtig (gejitterd)
 
       this.hand.update({ status: "bezig", step, message: describe(action), action });
       let result: ActResult;
