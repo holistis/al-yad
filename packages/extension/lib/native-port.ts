@@ -106,11 +106,15 @@ export function startNativePort(): void {
   // SPA-navigatie: history.pushState houdt tab.status === 'complete', dus
   // waitForLoad() eindigt meteen terwijl React/Vue de nieuwe pagina nog opbouwt.
   // We voegen een korte extra wacht in zodat het content-script een frisse snapshot geeft.
-  chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
-    if (runInProgress && details.tabId === runTabId && details.frameId === 0) {
-      spaJustNavigated = true;
-    }
-  });
+  // Guard: als de webNavigation-permissie (nog) niet actief is in deze SW, is de API
+  // undefined — dan deze optionele verbetering overslaan i.p.v. de hele init laten crashen.
+  if (chrome.webNavigation?.onHistoryStateUpdated) {
+    chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+      if (runInProgress && details.tabId === runTabId && details.frameId === 0) {
+        spaJustNavigated = true;
+      }
+    });
+  }
 }
 
 async function startGoal(goal: string, maxSteps?: number): Promise<void> {
@@ -120,7 +124,13 @@ async function startGoal(goal: string, maxSteps?: number): Promise<void> {
     toSidepanel({ type: "YAD_RUN_UPDATE", status: "geweigerd", message: "Er loopt al een taak." });
     return;
   }
+  // Claim de run SYNCHROON, vóór elke await: anders kunnen twee snel na elkaar
+  // binnenkomende GOAL-berichten allebei de guard passeren en elk een tab aanmaken
+  // (TOCTOU-race -> ongelimiteerd tabs). JS is single-threaded, dus dit blok is atomair.
+  runInProgress = true;
+
   if (!(await isAccepted())) {
+    runInProgress = false;
     toSidepanel({
       type: "YAD_RUN_UPDATE",
       status: "geweigerd",
@@ -131,6 +141,7 @@ async function startGoal(goal: string, maxSteps?: number): Promise<void> {
 
   const tabId = await resolveRunTab();
   if (tabId == null) {
+    runInProgress = false;
     toSidepanel({
       type: "YAD_RUN_UPDATE",
       status: "geweigerd",
@@ -140,7 +151,6 @@ async function startGoal(goal: string, maxSteps?: number): Promise<void> {
   }
 
   runTabId = tabId;
-  runInProgress = true;
   port.postMessage(handMessage("GOAL", { goal, ...(maxSteps ? { maxSteps } : {}) }));
 }
 
