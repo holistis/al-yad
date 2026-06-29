@@ -1,5 +1,7 @@
-import { handMessage, isEnvelope, type Action, type Snapshot } from "@yad/shared";
+import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, settingsToEnv } from "@yad/shared";
 import { isAccepted } from "./acceptance";
+import { getSettings, getSiteOverrides, addHistoryEntry } from "./storage";
+import { captureSession, getActiveWebTab } from "./session-capture";
 
 /**
  * Beheert de native-messaging-poort naar het Brein (companion) EN vertaalt de
@@ -65,7 +67,7 @@ export function startNativePort(): void {
         sendResponse(getStatus());
         return true;
       case "YAD_GOAL":
-        void startGoal(String(msg.goal ?? ""), msg.maxSteps);
+        void startGoal(String(msg.goal ?? ""), msg.maxSteps, msg.attachments as Attachment[] | undefined);
         sendResponse({ ok: true });
         return true;
       case "YAD_CONFIRM_RESPONSE":
@@ -74,6 +76,23 @@ export function startNativePort(): void {
           replyToBrain("CONFIRM_RESULT", { approved: Boolean(msg.approved) }, msg.id);
         }
         return undefined;
+      case "YAD_UPDATE_CONFIG":
+        // Instellingen opgeslagen in de sidepanel → doorsturen naar de companion.
+        void sendConfigUpdate();
+        sendResponse({ ok: true });
+        return true;
+      case "YAD_GET_CURRENT_TAB_URL":
+        void (async () => {
+          const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+          tabs.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
+          const url = tabs[0]?.url ?? "";
+          sendResponse({ url });
+        })();
+        return true;
+      case "YAD_CAPTURE_SESSION":
+        void handleCaptureSession(msg.label as "A" | "B");
+        sendResponse({ ok: true });
+        return true;
       default:
         return undefined;
     }
@@ -117,7 +136,7 @@ export function startNativePort(): void {
   }
 }
 
-async function startGoal(goal: string, maxSteps?: number): Promise<void> {
+async function startGoal(goal: string, maxSteps?: number, attachments?: Attachment[]): Promise<void> {
   if (!goal.trim() || !port) return;
 
   if (runInProgress) {
@@ -151,7 +170,11 @@ async function startGoal(goal: string, maxSteps?: number): Promise<void> {
   }
 
   runTabId = tabId;
-  port.postMessage(handMessage("GOAL", { goal, ...(maxSteps ? { maxSteps } : {}) }));
+  port.postMessage(handMessage("GOAL", {
+    goal,
+    ...(maxSteps ? { maxSteps } : {}),
+    ...(attachments?.length ? { attachments } : {}),
+  }));
 }
 
 /**
@@ -246,6 +269,8 @@ function onMessage(raw: unknown): void {
       endRun();
       setStatus("verbonden", raw.payload);
       startHeartbeat();
+      // Stuur direct de UI-instellingen zodat de companion pool bijgewerkt wordt.
+      void sendConfigUpdate();
       break;
     case "PONG":
       lastPongAt = Date.now();
@@ -274,15 +299,59 @@ function onMessage(raw: unknown): void {
       break;
     }
     case "RUN_UPDATE": {
-      const p = raw.payload as { status?: string };
+      const p = raw.payload as { status?: string; step?: number; message?: string; summary?: string };
       toSidepanel({ type: "YAD_RUN_UPDATE", ...(raw.payload as object) });
       if (p.status && ["klaar", "fout", "gestopt", "geweigerd"].includes(p.status)) {
         endRun();
       }
       break;
     }
+    case "COMPANION_CONFIG": {
+      const p = raw.payload as { activeProviders: string[] };
+      toSidepanel({ type: "YAD_COMPANION_CONFIG", activeProviders: p.activeProviders });
+      break;
+    }
+    case "SESSION_RESULT": {
+      const p = raw.payload as { ok: boolean; brand?: string; path?: string; authType?: string; detail?: string };
+      toSidepanel({ type: "YAD_SESSION_RESULT", ...p });
+      break;
+    }
     default:
       break;
+  }
+}
+
+/** Leest UI-instellingen en stuurt ze als UPDATE_CONFIG naar de companion. */
+async function sendConfigUpdate(): Promise<void> {
+  if (!port) return;
+  const settings = await getSettings();
+  const env = settingsToEnv(settings);
+  port.postMessage(
+    handMessage("UPDATE_CONFIG", {
+      env,
+      maxSteps: settings.maxSteps,
+      autonomy: settings.autonomy,
+      language: settings.language,
+    }),
+  );
+}
+
+async function handleCaptureSession(label: "A" | "B"): Promise<void> {
+  if (!port) {
+    toSidepanel({ type: "YAD_SESSION_RESULT", ok: false, detail: "Niet verbonden met de companion." });
+    return;
+  }
+  toSidepanel({ type: "YAD_SESSION_CAPTURING", label });
+  try {
+    const tab = await getActiveWebTab();
+    if (!tab || typeof tab.id !== "number") {
+      toSidepanel({ type: "YAD_SESSION_RESULT", ok: false, detail: "Geen actieve web-tab gevonden. Open een REDACTED-site en probeer opnieuw." });
+      return;
+    }
+    const captured = await captureSession(tab.id);
+    port.postMessage(handMessage("SESSION_CAPTURE", { ...captured, label }));
+  } catch (e) {
+    toSidepanel({ type: "YAD_SESSION_RESULT", ok: false, detail: (e as Error).message });
   }
 }
 
@@ -332,7 +401,9 @@ async function handleSnapshot(corr: string): Promise<void> {
   try {
     await ensureContentScript(runTabId);
     const snapshot = (await chrome.tabs.sendMessage(runTabId, { type: "YAD_SNAPSHOT" })) as Snapshot;
-    replyToBrain("SNAPSHOT_RESULT", { snapshot }, corr);
+    // Verrijk de snapshot met een eventuele site-override van de gebruiker.
+    const enriched = await augmentSnapshot(snapshot);
+    replyToBrain("SNAPSHOT_RESULT", { snapshot: enriched }, corr);
   } catch (e) {
     replyToBrain(
       "SNAPSHOT_RESULT",
@@ -340,6 +411,19 @@ async function handleSnapshot(corr: string): Promise<void> {
       corr,
     );
   }
+}
+
+/** Voegt siteProfileOverride toe als de gebruiker een override heeft ingesteld. */
+async function augmentSnapshot(snapshot: Snapshot): Promise<Snapshot> {
+  try {
+    const overrides = await getSiteOverrides();
+    const hostname = new URL(snapshot.url).hostname.replace(/^www\./, "").toLowerCase();
+    const tier = overrides[hostname];
+    if (tier) return { ...snapshot, siteProfileOverride: tier };
+  } catch {
+    /* ongeldige URL of storage-fout → snapshot ongewijzigd */
+  }
+  return snapshot;
 }
 
 async function handleAct(corr: string, action: Action): Promise<void> {

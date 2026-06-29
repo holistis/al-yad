@@ -1,8 +1,14 @@
 export type ChatRole = "system" | "user" | "assistant";
 
+/** Vision-inhoud (OpenAI-formaat: array van tekst + afbeelding-blokken). */
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 export interface ChatMessage {
   role: ChatRole;
-  content: string;
+  /** Tekst of een vision-array (alleen voor "user"-berichten met bijlagen). */
+  content: string | ContentPart[];
 }
 
 export interface ChatRequest {

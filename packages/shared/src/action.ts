@@ -5,8 +5,8 @@
  */
 export type Action =
   | { kind: "navigate"; url: string }
-  | { kind: "click"; ref: string }
-  | { kind: "type"; ref: string; text: string; submit?: boolean }
+  | { kind: "click"; ref: string; scrollPause?: number }
+  | { kind: "type"; ref: string; text: string; submit?: boolean; typeDelay?: number }
   | { kind: "select"; ref: string; value: string }
   | { kind: "extract"; what: string; ref?: string }
   | { kind: "wait"; ms: number }
