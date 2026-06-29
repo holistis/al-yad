@@ -3,8 +3,8 @@ import type { Snapshot, SnapshotNode } from "@yad/shared";
 /**
  * De Ogen: bouwt een compacte perceptie van de pagina. Verzamelt alleen
  * interactieve, zichtbare elementen met een stabiel ref-id (e1, e2, ...) en een
- * korte tekst-samenvatting. De ref->element map wordt gevuld zodat de executor
- * later op ref kan handelen i.p.v. op broze selectors.
+ * korte tekst-samenvatting. Open shadow DOM wordt meegenomen (web components);
+ * onzichtbare unicode en aria-hidden worden geweerd (anti prompt-injectie / ruis).
  */
 
 const INTERACTIVE_SELECTOR = [
@@ -23,13 +23,47 @@ const INTERACTIVE_SELECTOR = [
   "summary",
 ].join(",");
 
+// Zero-width (200B-200D), word-joiner (2060), BOM (FEFF) en bidi-controls
+// (202A-202E, 2066-2069): strippen voordat tekst de prompt raakt. Opgebouwd uit
+// code-punten zodat er geen onzichtbare tekens in de broncode staan.
+const INVISIBLE_CODES = [
+  0x200b, 0x200c, 0x200d, 0x2060, 0xfeff, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067,
+  0x2068, 0x2069,
+];
+const INVISIBLE = new RegExp(
+  "[" + INVISIBLE_CODES.map((c) => "\\u" + c.toString(16).padStart(4, "0")).join("") + "]",
+  "g",
+);
+
+function sanitize(s: string): string {
+  return s.replace(INVISIBLE, "");
+}
+
 function isVisible(el: Element): boolean {
   const he = el as HTMLElement;
   if (he.hidden) return false;
+  if (el.getAttribute("aria-hidden") === "true") return false;
+  if (el.closest("[aria-hidden=true]")) return false;
   const rect = he.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return false;
   const style = getComputedStyle(he);
   return style.visibility !== "hidden" && style.display !== "none" && style.opacity !== "0";
+}
+
+/** Verzamelt interactieve elementen inclusief open shadow DOM (web components). */
+function collectInteractive(
+  root: Document | ShadowRoot,
+  selector: string,
+  out: Element[],
+  budget = { n: 4000 },
+): void {
+  const all = root.querySelectorAll("*");
+  for (const el of all) {
+    if (budget.n-- <= 0) return;
+    if (el.matches(selector)) out.push(el);
+    const sr = (el as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot;
+    if (sr) collectInteractive(sr, selector, out, budget);
+  }
 }
 
 function roleOf(el: Element): string {
@@ -98,7 +132,9 @@ export function buildSnapshot(refMap: Map<string, Element>, maxNodes = 150): Sna
   const nodes: SnapshotNode[] = [];
   const seen = new Set<Element>();
 
-  const elements = document.querySelectorAll(INTERACTIVE_SELECTOR);
+  const elements: Element[] = [];
+  collectInteractive(document, INTERACTIVE_SELECTOR, elements);
+
   let i = 0;
   for (const el of elements) {
     if (nodes.length >= maxNodes) break;
@@ -110,19 +146,22 @@ export function buildSnapshot(refMap: Map<string, Element>, maxNodes = 150): Sna
     const node: SnapshotNode = {
       ref,
       role: roleOf(el),
-      name: nameOf(el).slice(0, 120),
+      name: sanitize(nameOf(el)).slice(0, 120),
     };
     const value = valueOf(el);
-    if (value) node.value = value;
+    if (value) node.value = sanitize(value);
     if ((el as HTMLButtonElement).disabled) node.disabled = true;
     nodes.push(node);
   }
 
-  const textDigest = (document.body?.innerText || "").replace(/\s+/g, " ").trim().slice(0, 1500);
+  const textDigest = sanitize((document.body?.innerText || "").replace(/\s+/g, " ").trim()).slice(
+    0,
+    1500,
+  );
 
   return {
     url: location.href,
-    title: document.title,
+    title: sanitize(document.title),
     nodes,
     textDigest,
   };

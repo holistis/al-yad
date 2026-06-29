@@ -58,6 +58,14 @@ export async function executeAction(
       } else {
         return { ok: false, detail: "element is geen invoerveld" };
       }
+      // Lees terug: meld geen succes als het veld leeg bleef.
+      const after =
+        el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+          ? el.value
+          : (el as HTMLElement).textContent || "";
+      if (action.text && !after) {
+        return { ok: false, detail: "invoer kwam niet aan (veld bleef leeg)" };
+      }
       if (action.submit) {
         const form = (el as HTMLElement).closest("form");
         if (form) {

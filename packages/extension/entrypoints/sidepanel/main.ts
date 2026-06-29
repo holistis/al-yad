@@ -156,6 +156,10 @@ function startApp(): void {
         addLog(msg.status as RunStatus, msg.message ?? "", msg.step);
       } else if (msg?.type === "YAD_CONFIRM_REQUEST" && msg.id) {
         showConfirm(msg.id, msg.action, msg.reason ?? "Bevestig deze actie");
+      } else if (msg?.type === "YAD_CONFIRM_EXPIRED") {
+        const box = $("#confirm");
+        box.classList.add("hidden");
+        box.innerHTML = "";
       }
     },
   );

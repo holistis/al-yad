@@ -2,25 +2,64 @@ import { ACTION_KINDS, type Action } from "@yad/shared";
 
 export type ParseResult = { ok: true; action: Action } | { ok: false; error: string };
 
-/** Haalt het eerste JSON-object uit een LLM-antwoord (ook door ```json fences). */
+/** Scant vanaf een '{' het eerste syntactisch complete object (strings/escapes-bewust). */
+function scanObject(s: string, start: number): string | null {
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/** Haalt het eerste geldige JSON-object uit een LLM-antwoord (ook met prose of ```json fences). */
 function extractJson(raw: string): string | null {
-  let s = raw.trim();
-  s = s.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
-  if (s.startsWith("{") && s.endsWith("}")) return s;
-  const first = s.indexOf("{");
-  const last = s.lastIndexOf("}");
-  if (first === -1 || last === -1 || last <= first) return null;
-  return s.slice(first, last + 1);
+  const s = raw.replace(/```(?:json)?/gi, "").replace(/```/g, "");
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] !== "{") continue;
+    const candidate = scanObject(s, i);
+    if (candidate) {
+      try {
+        JSON.parse(candidate);
+        return candidate;
+      } catch {
+        /* geen geldig object hier; probeer de volgende '{' */
+      }
+    }
+  }
+  return null;
 }
 
 function isStr(v: unknown): v is string {
   return typeof v === "string";
 }
 
+function isHttpUrl(url: string): boolean {
+  try {
+    const p = new URL(url).protocol;
+    return p === "http:" || p === "https:";
+  } catch {
+    return false;
+  }
+}
+
 /** Parset en valideert precies één Action uit een LLM-antwoord. */
 export function parseAction(raw: string): ParseResult {
   const json = extractJson(raw);
-  if (!json) return { ok: false, error: "geen JSON-object gevonden" };
+  if (!json) return { ok: false, error: "geen geldig JSON-object gevonden" };
 
   let obj: Record<string, unknown>;
   try {
@@ -35,9 +74,13 @@ export function parseAction(raw: string): ParseResult {
   }
 
   switch (kind) {
-    case "navigate":
+    case "navigate": {
       if (!isStr(obj["url"])) return { ok: false, error: "navigate mist url" };
+      if (!isHttpUrl(obj["url"])) {
+        return { ok: false, error: "navigate vereist een geldige http/https-URL" };
+      }
       return { ok: true, action: { kind, url: obj["url"] } };
+    }
     case "click":
       if (!isStr(obj["ref"])) return { ok: false, error: "click mist ref" };
       return { ok: true, action: { kind, ref: obj["ref"] } };

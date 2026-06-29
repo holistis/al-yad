@@ -55,4 +55,43 @@ describe("Poort: confirm-before-act", () => {
   it("select vereist altijd bevestiging", () => {
     expect(needsConfirm({ kind: "select", ref: "e1", value: "NL" }, { currentUrl: "https://x.nl/" })).toBe(true);
   });
+
+  it("klik op een muterende ROL vereist bevestiging, ook zonder label", () => {
+    expect(needsConfirm({ kind: "click", ref: "e1" }, { currentUrl: "https://x.nl/", role: "button" })).toBe(true);
+    expect(needsConfirm({ kind: "click", ref: "e1" }, { currentUrl: "https://x.nl/", role: "checkbox" })).toBe(true);
+    expect(needsConfirm({ kind: "click", ref: "e1" }, { currentUrl: "https://x.nl/", role: "link" })).toBe(false);
+  });
+});
+
+describe("Poort: scheme-allowlist", () => {
+  it("weigert javascript:/data:/file:/chrome: als navigatie-doel", () => {
+    const base = { currentUrl: "https://shop.nl/" };
+    expect(checkDenied({ kind: "navigate", url: "javascript:alert(1)" }, base).denied).toBe(true);
+    expect(checkDenied({ kind: "navigate", url: "data:text/html,<b>x" }, base).denied).toBe(true);
+    expect(checkDenied({ kind: "navigate", url: "file:///etc/passwd" }, base).denied).toBe(true);
+    expect(checkDenied({ kind: "navigate", url: "chrome://settings" }, base).denied).toBe(true);
+  });
+
+  it("staat http/https toe", () => {
+    expect(checkDenied({ kind: "navigate", url: "https://shop.nl/zoeken" }, { currentUrl: "https://shop.nl/" }).denied).toBe(false);
+  });
+});
+
+describe("Poort: percent-encoding bypass", () => {
+  it("weigert percent-geencodeerde checkout-paden", () => {
+    expect(pathIsDenied("https://shop.nl/che%63kout")).toBe(true);
+    expect(pathIsDenied("https://shop.nl/%2Fcheckout")).toBe(true);
+    expect(pathIsDenied("https://shop.nl/CheckOut")).toBe(true);
+  });
+
+  it("weigert een navigate naar een geencodeerd checkout-pad", () => {
+    expect(checkDenied({ kind: "navigate", url: "https://shop.nl/che%63kout" }, { currentUrl: "https://shop.nl/" }).denied).toBe(true);
+  });
+});
+
+describe("Poort: fail-safe bij onbekende URL", () => {
+  it("weigert muterende acties bij een lege of niet-http pagina-URL", () => {
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "" }).denied).toBe(true);
+    expect(checkDenied({ kind: "type", ref: "e1", text: "x" }, { currentUrl: "chrome://newtab" }).denied).toBe(true);
+  });
 });

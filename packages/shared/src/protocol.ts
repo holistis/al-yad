@@ -49,6 +49,8 @@ export interface HandPayloads {
   ACT_RESULT: ActResult;
   /** antwoord op REQUEST_CONFIRM */
   CONFIRM_RESULT: { approved: boolean };
+  /** breek de lopende run af (bv. de run-tab is gesloten) */
+  ABORT_RUN: { reason: string };
 }
 
 /** Berichten van het Brein naar de Hand. */

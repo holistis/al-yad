@@ -32,4 +32,20 @@ describe("parseAction", () => {
     expect(parseAction('{"kind":"click"}').ok).toBe(false);
     expect(parseAction("geen json hier").ok).toBe(false);
   });
+
+  it("kiest het eerste GELDIGE object voorbij losse accolades", () => {
+    const r = parseAction('Let op {dit is geen json} actie: {"kind":"finish","summary":"ok"}');
+    expect(r.ok && r.action.kind === "finish").toBe(true);
+  });
+
+  it("pakt het eerste van twee objecten", () => {
+    const r = parseAction('{"kind":"wait","ms":5}{"kind":"finish","summary":"x"}');
+    expect(r.ok && r.action.kind === "wait").toBe(true);
+  });
+
+  it("weigert navigate met een niet-http scheme", () => {
+    expect(parseAction('{"kind":"navigate","url":"javascript:alert(1)"}').ok).toBe(false);
+    expect(parseAction('{"kind":"navigate","url":"file:///x"}').ok).toBe(false);
+    expect(parseAction('{"kind":"navigate","url":"https://ok.nl"}').ok).toBe(true);
+  });
 });
