@@ -143,3 +143,79 @@ describe("AgentLoop", () => {
     expect(hand.acts).toHaveLength(0);
   });
 });
+
+// ── Sessie-verloop detectie ───────────────────────────────────────────────────
+
+const LOGIN_SNAP: Snapshot = {
+  url: "https://shop.nl/login",
+  title: "Inloggen",
+  nodes: [],
+  textDigest: "",
+};
+
+class DynamicMockHand implements HandBridge {
+  acts: Action[] = [];
+  updates: Array<{ status: RunStatus; message: string }> = [];
+  confirmReturn = true;
+  confirmCalls = 0;
+  private snapCall = 0;
+
+  constructor(private readonly snaps: Snapshot[]) {}
+
+  async requestSnapshot(): Promise<Snapshot> {
+    const s = this.snaps[this.snapCall] ?? this.snaps[this.snaps.length - 1] ?? SNAP;
+    this.snapCall++;
+    return s;
+  }
+  async act(a: Action): Promise<ActResult> {
+    this.acts.push(a);
+    return { ok: true };
+  }
+  async requestConfirm(): Promise<boolean> {
+    this.confirmCalls++;
+    return this.confirmReturn;
+  }
+  update(u: { status: RunStatus; message: string }): void {
+    this.updates.push({ status: u.status, message: u.message });
+  }
+}
+
+describe("AgentLoop — sessie-verloop detectie", () => {
+  it("detecteert een login-omleiding na stap 1 en vraagt bevestiging", async () => {
+    // Volgorde: initSnap (voor cache), stap-1 snap, stap-2 snap (login!), stap-3 snap (na confirm)
+    const hand = new DynamicMockHand([SNAP, SNAP, LOGIN_SNAP, SNAP]);
+    hand.confirmReturn = true;
+    const router = new MockRouter([
+      '{"kind":"navigate","url":"https://shop.nl/account"}', // stap 1
+      '{"kind":"finish","summary":"hervat"}',                 // stap 3 (stap 2 → continue)
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    const out = await loop.run("ga naar account");
+    expect(hand.confirmCalls).toBe(1);
+    expect(hand.updates.some((u) => u.message.includes("Sessie verlopen"))).toBe(true);
+    expect(out.status).toBe("klaar");
+  });
+
+  it("stopt de run als de gebruiker login-bevestiging weigert", async () => {
+    // initSnap, stap-1, stap-2 (login → weigeren → gestopt)
+    const hand = new DynamicMockHand([SNAP, SNAP, LOGIN_SNAP]);
+    hand.confirmReturn = false;
+    const router = new MockRouter([
+      '{"kind":"navigate","url":"https://shop.nl/account"}',
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    const out = await loop.run("ga naar account");
+    expect(hand.confirmCalls).toBe(1);
+    expect(out.status).toBe("gestopt");
+  });
+
+  it("triggert login-detectie NIET op stap 1 (startpagina kan al een loginpagina zijn)", async () => {
+    // initSnap = login, stap-1 = login → guard step > 1 beschermt
+    const hand = new DynamicMockHand([LOGIN_SNAP, LOGIN_SNAP, SNAP]);
+    const router = new MockRouter(['{"kind":"finish","summary":"klaar"}']);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    const out = await loop.run("doe iets");
+    expect(hand.confirmCalls).toBe(0);
+    expect(out.status).toBe("klaar");
+  });
+});

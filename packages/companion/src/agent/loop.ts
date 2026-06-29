@@ -41,6 +41,24 @@ export interface LoopOptions {
   cacheStore?: CacheStore;
 }
 
+/** URL-patronen die duiden op een loginpagina (voor sessie-verloop detectie). */
+const LOGIN_PATH_PATTERNS = [
+  /\/log[io]n\b/i,
+  /\/sign[_-]?in\b/i,
+  /\/inloggen\b/i,
+  /\/authenticate\b/i,
+  /\/account\/login/i,
+];
+
+function isLoginPage(url: string): boolean {
+  if (!url) return false;
+  try {
+    return LOGIN_PATH_PATTERNS.some((p) => p.test(new URL(url).pathname));
+  } catch {
+    return false;
+  }
+}
+
 export interface RunOutcome {
   status: RunStatus;
   summary?: string;
@@ -204,6 +222,28 @@ export class AgentLoop {
           message: "Op een betaal-/bestel-pagina beland; de run is gestopt.",
         });
         return { status: "geweigerd", steps: step - 1 };
+      }
+
+      // Sessie-verloop detectie: als we halverwege een run op een loginpagina belanden,
+      // is de sessie waarschijnlijk verlopen. We pauzeren en vragen de gebruiker te herinloggen.
+      if (step > 1 && isLoginPage(snapshot.url)) {
+        this.hand.update({
+          status: "bezig",
+          step,
+          message: "Sessie verlopen — doorgestuurd naar de loginpagina. Log handmatig in en bevestig om door te gaan.",
+        });
+        const dummy: Action = { kind: "wait", ms: 0 };
+        const approved = await this.hand.requestConfirm(
+          dummy,
+          "Sessie verlopen. Log in op de site en klik op Goedkeuren om de taak te hervatten, of op Weigeren om te stoppen.",
+        );
+        if (!approved) {
+          this.hand.update({ status: "gestopt", step, message: "Run gestopt wegens verlopen sessie (door gebruiker geannuleerd)." });
+          return { status: "gestopt", steps: step - 1 };
+        }
+        // Gebruiker is ingelogd — verse snapshot ophalen en doorgaan.
+        this.hand.update({ status: "bezig", step, message: "Inloggen bevestigd — taak wordt hervat." });
+        continue;
       }
 
       let content: string;
