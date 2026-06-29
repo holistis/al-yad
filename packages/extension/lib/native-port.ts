@@ -28,6 +28,7 @@ let heartbeat: ReturnType<typeof setInterval> | null = null;
 let lastPongAt = 0;
 
 let runTabId: number | null = null;
+let lastWebTabId: number | null = null; // de meest recente http/https-tab die de user bezocht
 let runInProgress = false;
 const confirmPending = new Set<string>();
 const confirmTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -79,10 +80,25 @@ export function startNativePort(): void {
 
   // Een gesloten run-tab breekt de lopende run netjes af.
   chrome.tabs.onRemoved.addListener((tabId) => {
+    if (lastWebTabId === tabId) lastWebTabId = null;
     if (runInProgress && tabId === runTabId) {
       if (port) port.postMessage(handMessage("ABORT_RUN", { reason: "run-tab gesloten" }));
       toSidepanel({ type: "YAD_RUN_UPDATE", status: "gestopt", message: "De tab is gesloten; de taak is gestopt." });
       endRun();
+    }
+  });
+
+  // Bijhouden welke web-tab de user het meest recent actief had.
+  // Zo weet startGoal de doeltab, ook als het side-panel de focus heeft.
+  chrome.tabs.onActivated.addListener(({ tabId }) => {
+    chrome.tabs.get(tabId, (tab) => {
+      if (chrome.runtime.lastError) return;
+      if (tab.url && /^https?:\/\//i.test(tab.url)) lastWebTabId = tabId;
+    });
+  });
+  chrome.tabs.onUpdated.addListener((_tabId, _info, tab) => {
+    if (tab.active && tab.url && /^https?:\/\//i.test(tab.url) && typeof tab.id === "number") {
+      lastWebTabId = tab.id;
     }
   });
 }
@@ -119,11 +135,32 @@ async function startGoal(goal: string, maxSteps?: number): Promise<void> {
 }
 
 async function captureActiveWebTab(): Promise<number | null> {
-  const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  const tab = tabs[0];
-  if (!tab || typeof tab.id !== "number") return null;
-  if (!tab.url || !/^https?:\/\//i.test(tab.url)) return null; // geen chrome://, extensie-pagina, etc.
-  return tab.id;
+  // Poging 1: actieve tab in het laatste gefocuste window.
+  const focused = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const ft = focused[0];
+  if (ft && typeof ft.id === "number" && ft.url && /^https?:\/\//i.test(ft.url)) return ft.id;
+
+  // Poging 2: de meest recent bezochte web-tab (opgeslagen via onActivated/onUpdated).
+  // Vangt het geval op dat het side-panel zelf de focus heeft.
+  if (lastWebTabId != null) {
+    try {
+      const known = await chrome.tabs.get(lastWebTabId);
+      if (known.url && /^https?:\/\//i.test(known.url)) return lastWebTabId;
+    } catch {
+      lastWebTabId = null; // tab is weg
+    }
+  }
+
+  // Poging 3: zoek over alle windows naar de meest recent actieve http/https-tab.
+  const all = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+  if (!all.length) return null;
+  all.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
+  const best = all[0];
+  if (typeof best.id === "number") {
+    lastWebTabId = best.id;
+    return best.id;
+  }
+  return null;
 }
 
 function connect(): void {
