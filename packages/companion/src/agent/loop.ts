@@ -87,6 +87,8 @@ export class AgentLoop {
     this.hand.update({ status: "plannen", message: `Doel: ${goal}` });
 
     let parseFails = 0;
+    let lastActionSig = "";
+    let repeatCount = 0;
 
     for (let step = 1; step <= maxSteps; step++) {
       let snapshot: Snapshot;
@@ -115,15 +117,9 @@ export class AgentLoop {
 
       let content: string;
       try {
-        const res = await this.router.chat({
-          messages: buildMessages(goal, snapshot, history),
-          temperature: 0,
-          json: true,
-          maxTokens: 400,
-        });
-        content = res.content;
+        content = await this.chatWithRetry(goal, snapshot, history, step);
       } catch (e) {
-        this.hand.update({ status: "fout", step, message: `Het model gaf geen antwoord: ${(e as Error).message}` });
+        this.hand.update({ status: "fout", step, message: friendlyLlmError(e) });
         return { status: "fout", steps: step - 1 };
       }
 
@@ -145,6 +141,41 @@ export class AgentLoop {
         this.hand.update({ status: "klaar", step, message: action.summary, action });
         return { status: "klaar", summary: action.summary, steps: step };
       }
+
+      // Veiligheidsklep tegen quota-verbrandende lussen: herhaalt het model exact
+      // dezelfde actie, dan zit het vast (bv. 8x op dezelfde knop klikken). Na 3x
+      // stoppen we i.p.v. dure model-calls te blijven verbranden.
+      const sig = JSON.stringify(action);
+      if (sig === lastActionSig) {
+        repeatCount++;
+        if (repeatCount >= 2) {
+          const benign = action.kind === "extract" || action.kind === "wait";
+          if (benign) {
+            // lezen/wachten herhaald -> waarschijnlijk klaar met kijken
+            this.hand.update({
+              status: "klaar",
+              step,
+              message: "Taak afgerond (het model herhaalde dezelfde leesstap).",
+              action,
+            });
+            return { status: "klaar", summary: "afgerond na herhaalde leesstap", steps: step };
+          }
+          // klik/typ/select herhaald -> EERLIJK melden dat het vastliep (niet 'klaar' faken)
+          this.hand.update({
+            status: "gestopt",
+            step,
+            message:
+              "Vastgelopen: het model bleef dezelfde knop/stap herhalen. " +
+              "Deze pagina is te complex voor het gratis model — probeer een concretere opdracht, " +
+              "een eenvoudigere site, of zet een betaalde sleutel.",
+            action,
+          });
+          return { status: "gestopt", steps: step };
+        }
+      } else {
+        repeatCount = 0;
+      }
+      lastActionSig = sig;
 
       const node = refNode(snapshot, action);
       const ctx: GateContext = {
@@ -193,4 +224,71 @@ export class AgentLoop {
     this.hand.update({ status: "klaar", message: `Gestopt na ${maxSteps} stappen.` });
     return { status: "klaar", steps: maxSteps };
   }
+
+  /**
+   * Vraagt het model om de volgende actie, met terugval bij een tijdelijke
+   * overbelasting van de gratis providers (429/rate-limit). De router schakelt al
+   * door alle providers; faalt de HELE pool tijdelijk, dan wachten we hier even en
+   * proberen we de stap opnieuw — i.p.v. de run hard te laten sterven. Per-minuut
+   * rate-limits hebben seconden nodig, dus de backoff is bewust ruim.
+   */
+  private async chatWithRetry(
+    goal: string,
+    snapshot: Snapshot,
+    history: HistoryItem[],
+    step: number,
+  ): Promise<string> {
+    const backoffs = [0, 4000, 9000]; // eerste poging direct, dan oplopend wachten
+    let lastErr: unknown;
+    for (const wait of backoffs) {
+      if (wait > 0) {
+        this.hand.update({
+          status: "bezig",
+          step,
+          message: `De gratis modellen zijn even druk; opnieuw over ${Math.round(wait / 1000)}s…`,
+        });
+        await this.sleep(wait);
+        if (this.isAborted()) throw new Error("afgebroken tijdens wachten op een vrij model");
+      }
+      try {
+        const res = await this.router.chat({
+          messages: buildMessages(goal, snapshot, history),
+          temperature: 0,
+          json: true,
+          maxTokens: 400,
+        });
+        return res.content;
+      } catch (e) {
+        lastErr = e;
+        if (!isTransient(e)) throw e; // auth/ongeldig model: opnieuw proberen heeft geen zin
+      }
+    }
+    throw lastErr;
+  }
+}
+
+/** Tijdelijke fout (rate-limit/netwerk/timeout) -> opnieuw proberen kan helpen. */
+function isTransient(e: unknown): boolean {
+  const m = String((e as Error)?.message ?? e).toLowerCase();
+  return (
+    m.includes("429") ||
+    m.includes("rate") ||
+    m.includes("quota") ||
+    m.includes("timeout") ||
+    m.includes("time-out") ||
+    m.includes("netwerk") ||
+    m.includes("fetch failed") ||
+    m.includes("alle providers")
+  );
+}
+
+/** Mensvriendelijke foutmelding voor de sidepanel-log (geen rauwe stacktrace). */
+function friendlyLlmError(e: unknown): string {
+  if (isTransient(e)) {
+    return (
+      "De gratis AI-modellen zitten even op hun limiet (rate-limit). Wacht een minuutje en " +
+      "probeer opnieuw, of zet een betaalde sleutel (YAD_PAID_API_KEY) voor onbeperkt gebruik."
+    );
+  }
+  return `Het model gaf geen antwoord: ${(e as Error)?.message ?? String(e)}`;
 }
