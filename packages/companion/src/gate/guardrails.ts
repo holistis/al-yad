@@ -129,6 +129,10 @@ export function needsConfirm(action: Action, ctx: GateContext): boolean {
     case "finish":
       return false;
     case "navigate":
+      // Vanaf een lege/onbekende pagina (verse tab, about:blank) is er geen origin
+      // om te beschermen: de eerste navigatie (bv. 'ga naar nu.nl') hoeft geen
+      // bevestiging. checkDenied blokkeert hier nog steeds non-http en betaal-paden.
+      if (isUnknownUrl(ctx.currentUrl)) return false;
       try {
         return new URL(action.url, ctx.currentUrl).origin !== new URL(ctx.currentUrl).origin;
       } catch {
