@@ -133,7 +133,18 @@ export function buildSnapshot(refMap: Map<string, Element>, maxNodes = 150): Sna
   const seen = new Set<Element>();
 
   const elements: Element[] = [];
-  collectInteractive(document, INTERACTIVE_SELECTOR, elements);
+  const budget = { n: 4000 };
+  collectInteractive(document, INTERACTIVE_SELECTOR, elements, budget);
+
+  // Same-origin iframes meenemen (cross-origin gooit een SecurityError bij .contentDocument).
+  for (const iframe of document.querySelectorAll("iframe")) {
+    try {
+      const idoc = iframe.contentDocument;
+      if (idoc) collectInteractive(idoc, INTERACTIVE_SELECTOR, elements, budget);
+    } catch {
+      // cross-origin of gesloten shadow: niet-inspecteerbaar, overslaan
+    }
+  }
 
   let i = 0;
   for (const el of elements) {

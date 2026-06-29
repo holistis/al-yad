@@ -82,13 +82,14 @@ export class OpenAICompatibleProvider implements LlmProvider {
       }
 
       if (!res.ok) {
-        let text = "";
+        // Lees de body weg zodat de verbinding vrij komt, maar log hem NIET verbatim
+        // (kan API-sleutels, PII of interne foutdetails bevatten). Status + naam volstaat.
         try {
-          text = await res.text();
+          await res.text();
         } catch {
-          /* body niet leesbaar; status is genoeg */
+          /* body niet leesbaar; negeer */
         }
-        throw new LlmError(`${this.name}: HTTP ${res.status} ${text.slice(0, 200)}`, {
+        throw new LlmError(`${this.name}: HTTP ${res.status}`, {
           status: res.status,
           retryable: isRetryableStatus(res.status),
         });

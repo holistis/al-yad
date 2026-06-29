@@ -108,8 +108,21 @@ export class BrainSession implements HandBridge {
   }
 
   requestConfirm(action: Action, reason: string): Promise<boolean> {
-    return this.request<{ approved: boolean }>("REQUEST_CONFIRM", { action, reason }).then(
+    // Gebruik een ruimere timeout voor confirm: de mens heeft meer tijd nodig.
+    // Bij time-out geven we FALSE terug (veilig-dicht), maar loggen "geen antwoord"
+    // zodat het onderscheid met een expliciete weigering zichtbaar blijft.
+    return this.request<{ approved: boolean }>(
+      "REQUEST_CONFIRM",
+      { action, reason },
+      120_000,
+    ).then(
       (p) => p.approved,
+      (err: Error) => {
+        if (err.message.includes("time-out")) {
+          this.log("confirm: geen antwoord binnen 120s — behandeld als geweigerd");
+        }
+        return false; // fail-closed
+      },
     );
   }
 

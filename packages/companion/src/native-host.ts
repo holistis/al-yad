@@ -73,8 +73,15 @@ export class NativeHost {
     const json = Buffer.from(JSON.stringify(message), "utf8");
     const header = Buffer.alloc(4);
     header.writeUInt32LE(json.length, 0);
-    this.output.write(header);
-    this.output.write(json);
+    try {
+      this.output.write(header);
+      this.output.write(json);
+    } catch (err) {
+      // EPIPE of andere schrijffout: Chrome heeft de pipe dichtgegooid.
+      // Niet crashen; markeer als gesloten zodat volgende send() direct returnt.
+      this.closed = true;
+      this.onError(err instanceof Error ? err : new Error(String(err)));
+    }
   }
 }
 
