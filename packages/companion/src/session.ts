@@ -16,6 +16,7 @@ import { createHandshakeHandler, type CompanionInfo } from "./handshake.js";
 import { saveREDACTEDSession } from "./adapters/REDACTED.js";
 import { CacheStore } from "./memory/cache-store.js";
 import { REDACTEDSessionReader } from "./key/session-reader.js";
+import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js";
 
 type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE";
 
@@ -43,6 +44,7 @@ export class BrainSession implements HandBridge {
   private router: LlmRouter;
   private readonly cacheStore = new CacheStore();
   private readonly sessionReader = new REDACTEDSessionReader();
+  private readonly runHistory = new RunHistoryStore();
 
   constructor(
     private readonly send: (m: BrainMessage) => void,
@@ -140,6 +142,8 @@ export class BrainSession implements HandBridge {
     }
     this.running = true;
     this.aborted = false;
+    const runStart = Date.now();
+    const runId = Math.random().toString(36).slice(2, 10);
 
     // Sessie-hergebruik: injecteer opgeslagen cookies + localStorage vóór de loop
     // zodat de agent meteen authenticated is op de site zonder handmatige inlog.
@@ -178,12 +182,33 @@ export class BrainSession implements HandBridge {
       language: this.language,
       cacheStore: this.cacheStore,
     });
+    let outcome: RunHistoryEntry | undefined;
     try {
-      await loop.run(goal, maxSteps, attachments);
+      const result = await loop.run(goal, maxSteps, attachments);
+      outcome = {
+        id: runId,
+        goal,
+        status: result.status,
+        steps: result.steps,
+        summary: result.summary,
+        startedAt: runStart,
+        finishedAt: Date.now(),
+        startingUrl,
+      };
     } catch (e) {
       this.update({ status: "fout", message: (e as Error).message });
+      outcome = {
+        id: runId,
+        goal,
+        status: "fout",
+        steps: 0,
+        startedAt: runStart,
+        finishedAt: Date.now(),
+        startingUrl,
+      };
     } finally {
       this.running = false;
+      if (outcome) this.runHistory.append(outcome);
     }
   }
 
