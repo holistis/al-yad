@@ -29,6 +29,7 @@ let lastPongAt = 0;
 
 let runTabId: number | null = null;
 let lastWebTabId: number | null = null; // de meest recente http/https-tab die de user bezocht
+let spaJustNavigated = false;           // SPA pushState gedetecteerd → extra wacht vereist
 let runInProgress = false;
 const confirmPending = new Set<string>();
 const confirmTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -99,6 +100,15 @@ export function startNativePort(): void {
   chrome.tabs.onUpdated.addListener((_tabId, _info, tab) => {
     if (tab.active && tab.url && /^https?:\/\//i.test(tab.url) && typeof tab.id === "number") {
       lastWebTabId = tab.id;
+    }
+  });
+
+  // SPA-navigatie: history.pushState houdt tab.status === 'complete', dus
+  // waitForLoad() eindigt meteen terwijl React/Vue de nieuwe pagina nog opbouwt.
+  // We voegen een korte extra wacht in zodat het content-script een frisse snapshot geeft.
+  chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+    if (runInProgress && details.tabId === runTabId && details.frameId === 0) {
+      spaJustNavigated = true;
     }
   });
 }
@@ -307,13 +317,18 @@ async function handleAct(corr: string, action: Action): Promise<void> {
 
 /** Wacht tot de tab geladen is; geeft false bij time-out of als de tab verdween. */
 async function waitForLoad(tabId: number, timeoutMs = 15_000): Promise<boolean> {
+  spaJustNavigated = false; // reset vóór we gaan wachten
   const start = Date.now();
   for (;;) {
     if (Date.now() - start > timeoutMs) return false;
     try {
       const tab = await chrome.tabs.get(tabId);
       if (tab.status === "complete") {
-        await new Promise((r) => setTimeout(r, 400)); // korte rust voor late scripts
+        // SPA: als pushState is gevuurd terwijl status al 'complete' was, wacht iets langer
+        // zodat het framework de nieuwe pagina-tree kan renderen.
+        const extraWait = spaJustNavigated ? 800 : 400;
+        spaJustNavigated = false;
+        await new Promise((r) => setTimeout(r, extraWait));
         return true;
       }
     } catch {
