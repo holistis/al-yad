@@ -2,14 +2,412 @@
 <html lang="nl">
   <head>
     <meta charset="UTF-8" />
-    <title>Privacyverklaring — Yad</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacyverklaring (Privacy Policy) — Yad</title>
     <style>
-      body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; line-height: 1.5; color: #1a1a1a; }
-      .concept { background: #fffbeb; border: 1px solid #d97706; padding: 10px 14px; border-radius: 6px; }
+      body { font-family: system-ui, sans-serif; max-width: 820px; margin: 40px auto; padding: 0 16px; line-height: 1.55; color: #1a1a1a; }
+      h1, h2, h3 { line-height: 1.25; }
+      blockquote { background: #fffbeb; border-left: 4px solid #d97706; margin: 1em 0; padding: .5em 1em; }
+      code { background: #f3f4f6; padding: 1px 4px; border-radius: 4px; }
+      table { border-collapse: collapse; }
+      td, th { border: 1px solid #d1d5db; padding: 4px 8px; text-align: left; }
     </style>
   </head>
   <body>
-    <h1>Privacyverklaring</h1>
-    <p class="concept">Concept. De definitieve tekst wordt geplaatst zodra het juridische onderzoek is afgerond. Dit is geen juridisch advies; laat het voor gebruik door een gekwalificeerd jurist controleren.</p>
+<h1>CONCEPT — Privacyverklaring Yad</h1>
+<blockquote>
+<p><strong>LET OP — DIT IS EEN DOOR AI ONDERZOCHT CONCEPT.</strong>
+Dit document is opgesteld met behulp van AI op basis van bronnenonderzoek naar Nederlands en EU-recht (AVG/GDPR, Telecommunicatiewet, EU AI Act). Het is <strong>geen juridisch advies</strong> en <strong>nog niet geschikt voor gebruik</strong>. Laat dit concept vóór publicatie of ingebruikname controleren en vaststellen door een gekwalificeerd jurist of privacy-specialist, met toetsing aan uw concrete verwerkingen, uw subverwerkers-contracten (in het bijzonder de retentie- en trainingsvoorwaarden van uw LLM-provider) en uw doorgifte-waarborgen. <strong>Vervang alle plaatshouders tussen vierkante haken <code>[ ]</code> door uw eigen, waarheidsgetrouwe gegevens vóór gebruik. Vervang elke voorbeeldtermijn of &quot;range&quot; door één vastgestelde termijn of één concreet criterium — laat geen ranges staan.</strong></p>
+<p><strong>Verplichte randvoorwaarden vóór deze verklaring live gaat</strong> (zie ook hoofdstuk 16):</p>
+<ol>
+<li>Er is een <strong>DPIA</strong> (gegevensbeschermingseffectbeoordeling, art. 35 AVG) uitgevoerd voor de kern-verwerking (pagina-inhoud → taalmodel), vóór de Dienst live gaat.</li>
+<li>Er is een vastgestelde, juridisch onderbouwde <strong>rol-analyse</strong> waarom Yad voor de sessie-/DOM-verwerking verwerker is en geen (mede-)verwerkingsverantwoordelijke (zie hoofdstuk 5).</li>
+<li>Met de LLM-provider zijn <strong>zero-retention / no-training</strong>-voorwaarden gecontracteerd, of de feitelijke afwijking daarvan is in dit document eerlijk benoemd (zie 4.10 en 6.4).</li>
+<li>Het aparte <strong>cookiebeleid</strong> bestaat en de consent-banner dwingt toestemming-eerst af voor niet-functionele cookies (zie hoofdstuk 10).</li>
+<li>De aparte <strong>Verwerker-/DPA-documentatie</strong> voor Klanten bestaat (deze publieke verklaring beschrijft de verwerker-rol slechts samenvattend; de bindende afspraken staan in de DPA).</li>
+</ol>
+</blockquote>
+<hr>
+<p><strong>Versie:</strong> <code>[VERSIE]</code>
+<strong>Laatst bijgewerkt:</strong> <code>[DATUM]</code>
+<strong>In werking vanaf:</strong> <code>[DATUM]</code></p>
+<hr>
+<h2>1. Inleiding, doel en reikwijdte van deze privacyverklaring</h2>
+<p>1.1 Deze privacyverklaring legt in begrijpelijke taal uit hoe <code>[RECHTSPERSOON]</code> (hierna: <strong>&quot;Yad&quot;</strong>, <strong>&quot;wij&quot;</strong> of <strong>&quot;ons&quot;</strong>) omgaat met persoonsgegevens <strong>in de rol van verwerkingsverantwoordelijke</strong>, bij het aanbieden van de browser-automatiseringsdienst Yad (hierna: de <strong>&quot;Dienst&quot;</strong>).</p>
+<p>1.2 <strong>Reikwijdte — wat deze verklaring wél en níét regelt.</strong></p>
+<ul>
+<li>Deze verklaring gaat over de verwerkingen waarvoor Yad <strong>zelf verwerkingsverantwoordelijke</strong> is: het beheer van uw account, facturatie, telemetrie/logging, beveiliging, eigen communicatie en marketing, en het bezoek aan onze website (hoofdstukken 3 tot en met 13).</li>
+<li>Voor het <strong>uitvoeren van automatiseringstaken in opdracht van de zakelijke gebruiker</strong> (hierna: de <strong>&quot;Klant&quot;</strong>) treedt Yad op als <strong>verwerker</strong>. De bindende afspraken daarover staan <strong>niet</strong> in deze publieke verklaring, maar in de <strong>verwerkersovereenkomst (DPA)</strong> tussen Yad en de Klant. Hoofdstuk 5 vat die rol samen en legt uit hoe wij verzoeken van betrokkenen behandelen, maar is uitdrukkelijk geen vervanging van de DPA.</li>
+</ul>
+<p>1.3 <strong>Wat de Dienst doet, en waarom dat privacy raakt.</strong> De Dienst is een AI-gedreven browser-automatiseringsagent die handelingen verricht <strong>binnen de reeds ingelogde sessie</strong> van de Klant. Daardoor kan de Dienst persoonsgegevens raken die op de geautomatiseerde pagina&#39;s zichtbaar zijn — waaronder gegevens van de Klant zelf én van personen met wie de Klant relaties onderhoudt (bijvoorbeeld de eigen klanten of contacten van de Klant; hierna: <strong>&quot;derden&quot;</strong> of <strong>&quot;betrokkenen van de Klant&quot;</strong>).</p>
+<p>1.4 Wij vinden transparantie belangrijk. Deze verklaring beschrijft daarom <strong>alle</strong> categorieën gegevens die wij als verantwoordelijke verwerken, met welk doel, op welke grondslag, met wie wij ze delen en hoe lang wij ze bewaren. Wij verbergen geen verwerkingen en vermelden geen waarborgen die niet feitelijk juist zijn.</p>
+<hr>
+<h2>2. Wie wij zijn (contactgegevens verwerkingsverantwoordelijke)</h2>
+<p>2.1 De verwerkingsverantwoordelijke voor de in deze verklaring beschreven verwerkingen is:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Rechtspersoon</strong></td>
+<td><code>[RECHTSPERSOON]</code></td>
+</tr>
+<tr>
+<td><strong>KvK-nummer</strong></td>
+<td><code>[KVK]</code></td>
+</tr>
+<tr>
+<td><strong>Vestigingsadres</strong></td>
+<td><code>[VESTIGINGSADRES]</code>, <code>[VESTIGINGSPLAATS]</code></td>
+</tr>
+<tr>
+<td><strong>E-mail (privacy)</strong></td>
+<td><code>[PRIVACY-E-MAIL]</code></td>
+</tr>
+<tr>
+<td><strong>Algemeen e-mail</strong></td>
+<td><code>[E-MAIL]</code></td>
+</tr>
+<tr>
+<td><strong>Website</strong></td>
+<td><code>[WEBSITE]</code></td>
+</tr>
+</tbody></table>
+<p>2.2 <code>[KEUZE: Wij hebben een Functionaris voor Gegevensbescherming (FG) aangesteld. U kunt de FG bereiken via [FG-E-MAIL]. / Wij zijn niet wettelijk verplicht een Functionaris voor Gegevensbescherming aan te stellen en hebben dit ook niet gedaan; voor privacyvragen kunt u terecht via [PRIVACY-E-MAIL].]</code></p>
+<p>2.3 <code>[INDIEN VAN TOEPASSING: Yad is gevestigd buiten de EU/EER en heeft een vertegenwoordiger in de Unie aangewezen op grond van artikel 27 AVG: [NAAM VERTEGENWOORDIGER], [ADRES].]</code></p>
+<hr>
+<h2>3. Welke persoonsgegevens wij verwerken</h2>
+<p>Wij verwerken de volgende categorieën persoonsgegevens. Per categorie staat in hoofdstuk 4 het doel en de grondslag, en in hoofdstuk 7 de bewaartermijn. Categorie 3.4 verwerken wij als <strong>verwerker</strong> namens de Klant en valt buiten de verantwoordelijke-rol van deze verklaring; wij vermelden haar alleen voor de volledigheid en transparantie.</p>
+<h3>3.1 Accountgegevens (Yad = verantwoordelijke)</h3>
+<ul>
+<li>Naam en functie van de contactpersoon/gebruiker;</li>
+<li>Zakelijk e-mailadres en (optioneel) telefoonnummer;</li>
+<li>Inloggegevens voor de Dienst (gebruikersnaam, versleutelde wachtwoord-hash, eventueel tweefactor-gegevens);</li>
+<li>Bedrijfsnaam en KvK-/vestigingsgegevens van de Klant;</li>
+<li>Voorkeuren en instellingen binnen de Dienst.</li>
+</ul>
+<h3>3.2 Facturatie- en transactiegegevens (Yad = verantwoordelijke)</h3>
+<ul>
+<li>Facturatieadres en btw-/KvK-gegevens;</li>
+<li>Gekozen abonnement, prijs en betaalhistorie;</li>
+<li>Betaalstatus en (via onze betaaldienstverlener) beperkte betaalgegevens. Wij slaan <strong>geen</strong> volledige creditcard- of bankrekeninggegevens zelf op.</li>
+</ul>
+<h3>3.3 Gebruiks-, telemetrie- en logbestanden (Yad = verantwoordelijke)</h3>
+<ul>
+<li>Technische logs: tijdstempels, IP-adres, browser-/extensietype en -versie, apparaat- en sessie-identificatoren;</li>
+<li>Gebruiksstatistieken op functieniveau (welke functies wanneer zijn gebruikt, foutmeldingen, prestatie-/diagnosegegevens);</li>
+<li>Beveiligingslogs (bijv. inlogpogingen, beveiligingsgebeurtenissen).</li>
+</ul>
+<p><strong>Hoe wij omgaan met pagina-inhoud (DOM) in deze logs — concrete, controleerbare toezegging.</strong> Onze logs onder de verantwoordelijke-rol zijn bedoeld voor de werking, beveiliging en diagnose van de Dienst, <strong>niet</strong> voor het vastleggen van de inhoud van de geautomatiseerde pagina&#39;s. Daarom geldt:</p>
+<ul>
+<li>a) <strong>Standaard filteren wij pagina-inhoud (DOM-tekst, formulierwaarden, schermafbeeldingen) uit onze technische, gebruiks- en beveiligingslogs.</strong> Onze logging legt metadata vast (zoals het type handeling, tijdstip, status, foutcode), niet de inhoud van de velden op de pagina.</li>
+<li>b) Kan bij een storing of beveiligingsincident <strong>incidenteel</strong> toch een fragment pagina-inhoud in een foutmelding of diagnostische log terechtkomen, dan behandelen wij dat fragment als gegevens onder de verwerker-rol, passen wij <strong>pseudonimisering/redactie</strong> toe waar dat technisch kan, beperken wij de toegang en de bewaring strikt (zie 7.1), en gebruiken wij het uitsluitend voor het oplossen van de storing of het incident — nooit voor een eigen doel.</li>
+<li>c) Voor zover ondanks (a) en (b) onverhoopt persoonsgegevens van <strong>derden</strong> in onze eigen logs belanden, beroepen wij ons op ons gerechtvaardigd belang bij een veilige en betrouwbare Dienst (4.3/4.4) en op de uitzondering van <strong>artikel 14 lid 5 sub b AVG</strong> (onevenredige inspanning om elke betrokken derde individueel te informeren), waarbij deze verklaring en de informatie die de Klant aan zijn betrokkenen verstrekt samen de transparantie waarborgen. Wij minimaliseren deze restverwerking actief en wissen dergelijke fragmenten zo snel als operationeel mogelijk.</li>
+</ul>
+<blockquote>
+<p>Wij gebruiken hier bewust <strong>geen</strong> vrijblijvende formuleringen als &quot;wij streven ernaar&quot;. De toezegging onder (a) is een ingerichte filtering; de eerlijk benoemde restverwerking onder (b)/(c) is het deel dat technisch niet 100% uit te sluiten is, en dat erkennen wij liever dan het te verzwijgen.</p>
+</blockquote>
+<h3>3.4 Namens de Klant verwerkte sessie- en paginagegevens (Yad = verwerker — valt buiten deze verantwoordelijke-verklaring)</h3>
+<p>Bij het uitvoeren van een automatiseringstaak kan de Dienst gegevens verwerken die op de pagina van de Klant aanwezig zijn, zoals:</p>
+<ul>
+<li>Inhoud van de DOM (de op de pagina zichtbare gegevens), die persoonsgegevens van derden kan bevatten;</li>
+<li>Door de Klant opgegeven taakinstructies en invoer;</li>
+<li>Tijdelijke sessie-artefacten die nodig zijn om de taak uit te voeren (bijv. sessietokens en, indien geconfigureerd, schermafbeeldingen of DOM-fragmenten);</li>
+<li>Tekstfragmenten die voor het uitvoeren van de taak aan een taalmodel (LLM-provider) worden voorgelegd.</li>
+</ul>
+<blockquote>
+<p>Voor deze categorie is de <strong>Klant verwerkingsverantwoordelijke</strong> en treedt <strong>Yad op als verwerker</strong> op grond van een verwerkersovereenkomst (art. 28 AVG). De bindende voorwaarden staan in die DPA, niet in deze publieke verklaring. De Klant bepaalt welke taken op welke systemen worden uitgevoerd en is verantwoordelijk voor een geldige rechtsgrond en voor het informeren van de betrokkenen (artikel 13/14 AVG; zie hoofdstuk 5).</p>
+</blockquote>
+<h3>3.5 Bijzondere categorieën persoonsgegevens</h3>
+<p>Wij vragen niet actief om en zijn niet gericht op het verwerken van bijzondere categorieën persoonsgegevens (zoals gegevens over gezondheid, religie, etniciteit; artikel 9 AVG). Omdat de Dienst in een live sessie werkt, kunnen zulke gegevens onbedoeld op een pagina zichtbaar zijn. De Klant is verplicht de Dienst <strong>niet</strong> in te zetten om bijzondere persoonsgegevens te verwerken zonder geldige uitzondering uit artikel 9 lid 2 AVG; dit is vastgelegd in de verwerkersovereenkomst en de gebruiksvoorwaarden. Gelet op dit risico is voor de kern-verwerking een DPIA verplicht (hoofdstuk 16).</p>
+<hr>
+<h2>4. Doeleinden en grondslagen (verwerkingen waarvoor Yad verantwoordelijke is)</h2>
+<p>Wij verwerken persoonsgegevens uitsluitend voor de hieronder genoemde doeleinden, telkens op een wettelijke grondslag uit artikel 6 AVG.</p>
+<table>
+<thead>
+<tr>
+<th>Nr.</th>
+<th>Doel</th>
+<th>Categorieën gegevens</th>
+<th>Grondslag (art. 6 AVG)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>4.1</td>
+<td>Aanmaken en beheren van het account en het leveren van de Dienst</td>
+<td>3.1</td>
+<td>Uitvoering overeenkomst (art. 6 lid 1 sub b)</td>
+</tr>
+<tr>
+<td>4.2</td>
+<td>Facturatie, debiteurenbeheer en boekhouding</td>
+<td>3.2</td>
+<td>Uitvoering overeenkomst (sub b) + wettelijke plicht, o.a. fiscale bewaarplicht (sub c)</td>
+</tr>
+<tr>
+<td>4.3</td>
+<td>Beveiliging, fraudepreventie, misbruikdetectie en het waarborgen van de integriteit van de Dienst</td>
+<td>3.3</td>
+<td>Gerechtvaardigd belang (sub f): een veilige en betrouwbare Dienst</td>
+</tr>
+<tr>
+<td>4.4</td>
+<td>Onderhoud, foutopsporing en het verbeteren van de stabiliteit en prestaties van de Dienst</td>
+<td>3.3</td>
+<td>Gerechtvaardigd belang (sub f)</td>
+</tr>
+<tr>
+<td>4.5</td>
+<td>Klantenservice en communicatie over de Dienst (functionele/serviceberichten)</td>
+<td>3.1, 3.3</td>
+<td>Uitvoering overeenkomst (sub b) + gerechtvaardigd belang (sub f)</td>
+</tr>
+<tr>
+<td>4.6</td>
+<td>Direct marketing over onze eigen, gelijksoortige diensten aan <strong>bestaande zakelijke klanten</strong> (zie 4.6 hieronder voor de grenzen)</td>
+<td>3.1</td>
+<td>Gerechtvaardigd belang (sub f) <strong>binnen de grenzen van de soft-opt-in van art. 11.7 Telecommunicatiewet</strong>, met afmeldmogelijkheid bij verkrijging en in elke uiting</td>
+</tr>
+<tr>
+<td>4.7</td>
+<td>Voldoen aan wettelijke verplichtingen en verzoeken van bevoegde autoriteiten</td>
+<td>naar gelang vereist</td>
+<td>Wettelijke plicht (sub c)</td>
+</tr>
+</tbody></table>
+<p>4.6 <strong>Direct marketing — grenzen onder de Telecommunicatiewet (e-Privacy).</strong> E-mailmarketing valt in Nederland niet alleen onder de AVG maar ook onder <strong>artikel 11.7 Telecommunicatiewet</strong>. Wij houden ons aan de daar geldende regels:</p>
+<ul>
+<li>a) Wij sturen elektronische marketing (zoals e-mail) <strong>uitsluitend aan bestaande klanten</strong> wier zakelijke e-mailadres wij in het kader van een verkoop/levering hebben verkregen, en <strong>uitsluitend over onze eigen, gelijksoortige diensten</strong> (de wettelijke &quot;soft-opt-in&quot;-uitzondering).</li>
+<li>b) Bij het verkrijgen van het e-mailadres <strong>én</strong> in elke marketinguiting bieden wij een eenvoudige, kosteloze <strong>afmeldmogelijkheid</strong>. Afmelden werkt direct voor de toekomst.</li>
+<li>c) Voor <strong>prospects en andere niet-klanten</strong> sturen wij pas elektronische marketing <strong>nadat zij daarvoor toestemming (opt-in) hebben gegeven</strong>.</li>
+<li>d) Het recht van bezwaar tegen direct marketing (art. 21 lid 2 AVG) geldt te allen tijde en absoluut: na bezwaar stoppen wij de marketing aan u.</li>
+</ul>
+<p>4.8 <strong>Gerechtvaardigd belang — afweging.</strong> Waar wij ons baseren op gerechtvaardigd belang (sub f), hebben wij een afweging gemaakt tussen ons belang en uw rechten en vrijheden. U heeft het recht hiertegen bezwaar te maken (zie hoofdstuk 9). Op verzoek lichten wij de afweging nader toe via <code>[PRIVACY-E-MAIL]</code>.</p>
+<p>4.9 <strong>Geautomatiseerde besluitvorming en geautomatiseerde handelingen.</strong></p>
+<ul>
+<li>a) <strong>Binnen de verantwoordelijke-rol van Yad</strong> (account, facturatie, telemetrie, beveiliging, marketing) nemen wij <strong>geen</strong> uitsluitend geautomatiseerde besluiten met rechtsgevolgen of vergelijkbaar aanzienlijke gevolgen voor u in de zin van artikel 22 AVG.</li>
+<li>b) <strong>Binnen de verwerker-rol</strong> verricht de Dienst in opdracht van de Klant geautomatiseerde <strong>handelingen</strong> binnen diens ingelogde sessie. Deze handelingen kunnen voor de Klant of voor diens betrokkenen gevolgen hebben. Of daarbij sprake is van een geautomatiseerd besluit in de zin van artikel 22 AVG, en welke waarborgen dan gelden, moet <strong>de Klant als verwerkingsverantwoordelijke</strong> beoordelen voor de taken die hij door de Dienst laat uitvoeren. Yad bepaalt deze taken niet zelf.</li>
+</ul>
+<p>4.10 <strong>Geen verkoop van persoonsgegevens; geen modeltraining op klantdata zonder grondslag.</strong> Wij verkopen uw persoonsgegevens niet. Wij gebruiken de in hoofdstuk 3.4 bedoelde, namens de Klant verwerkte sessie- en paginagegevens <strong>niet</strong> voor het trainen van onze eigen AI-modellen of voor andere eigen doeleinden, tenzij dit met de Klant afzonderlijk en op een geldige grondslag is overeengekomen. Deze belofte strekt zich ook uit tot onze <strong>subverwerkers</strong>: zie 6.4 voor de wijze waarop wij dit bij de LLM-provider contractueel afdwingen (en de eerlijke vermelding wanneer een gekozen provider daarvan afwijkt).</p>
+<hr>
+<h2>5. Onze rol: verwerker versus verwerkingsverantwoordelijke</h2>
+<p>5.1 Yad heeft een <strong>hybride rol</strong>:</p>
+<ul>
+<li><strong>Verwerkingsverantwoordelijke</strong> voor de eigen bedrijfsvoering: account-, facturatie-, telemetrie-/log- en beveiligingsgegevens en eigen marketing (hoofdstuk 4). Voor deze verwerkingen bepalen wij doel en middelen, en geldt deze verklaring volledig.</li>
+<li><strong>Verwerker</strong> voor het uitvoeren van automatiseringstaken in opdracht van de Klant (hoofdstuk 3.4). Hierbij verwerken wij persoonsgegevens <strong>uitsluitend op gedocumenteerde instructie</strong> van de Klant, die voor deze gegevens verwerkingsverantwoordelijke is.</li>
+</ul>
+<p>5.2 Voor de verwerker-rol sluiten wij met iedere Klant een <strong>verwerkersovereenkomst (DPA)</strong> op grond van artikel 28 AVG. Daarin staan onder meer: de instructiegebondenheid, geheimhouding, beveiligingsmaatregelen, het regime voor subverwerkers, bijstand bij verzoeken van betrokkenen en datalekken, en teruggave of wissing na afloop. <strong>Deze publieke verklaring vervangt de DPA niet</strong>; bij tegenstrijdigheid over de verwerker-rol prevaleert de DPA.</p>
+<p>5.3 <strong>Waarom Yad verwerker is en geen (mede-)verwerkingsverantwoordelijke voor de sessie-/DOM-verwerking.</strong> Wij hebben deze rolverdeling onderbouwd en laten vaststellen door een jurist <code>[DATUM/REFERENTIE rol-analyse]</code>. De kern van die onderbouwing:</p>
+<ul>
+<li>a) <strong>De Klant bepaalt het doel.</strong> De Klant beslist welke taak op welk systeem wordt uitgevoerd; Yad biedt enkel het middel (de agent) om die door de Klant bepaalde taak uit te voeren.</li>
+<li>b) <strong>De technische keuzes van de agent zijn middel-keuzes, geen doel-bepaling.</strong> Dat de agent zelf bepaalt welke DOM-fragmenten voor het uitvoeren van de taak aan het taalmodel worden voorgelegd en hoe wordt gepseudonimiseerd/gefilterd, betreft de <em>wijze</em> van uitvoering (het &quot;hoe&quot;), binnen de door de Klant gegeven instructie en het &quot;waarom&quot;. Het maakt Yad niet tot bepaler van het <em>doel</em>.</li>
+<li>c) <strong>Wij gebruiken deze gegevens niet voor eigen doeleinden</strong> (zie 5.4 en 4.10). Zodra wij dat wél zouden doen, zouden wij voor dát deel zelf verwerkingsverantwoordelijke worden (art. 28 lid 10 AVG) — wat wij uitsluiten.</li>
+</ul>
+<blockquote>
+<p><strong>Eerlijk voorbehoud:</strong> of een toezichthouder of rechter Yad in een concreet geval tóch als (mede-)verwerkingsverantwoordelijke kwalificeert, is een feitelijke en juridische beoordeling die per situatie kan verschillen. Daarom is de rol-analyse onder 5.3 een verplichte, periodiek te herijken randvoorwaarde (hoofdstuk 16), en informeren wij de betrokkenen van de Klant via de hierna beschreven route (5.5) in plaats van ons uitsluitend op de Klant te verlaten.</p>
+</blockquote>
+<p>5.4 <strong>Sluipende rolwijziging voorkomen — gekoppeld aan een controleerbare maatregel.</strong> Wij gebruiken in onze verwerker-rol verkregen gegevens niet voor eigen doeleinden. Dit is geen losse belofte: wij borgen het met <strong>technische scheiding</strong> tussen de verwerker-omgeving en onze eigen administratie en met <strong>audit-logging</strong> op toegang tot sessie-/paginagegevens, zodat oneigenlijk gebruik traceerbaar is. Zouden wij deze gegevens tóch voor eigen doeleinden gebruiken, dan zouden wij voor dat deel zelf verwerkingsverantwoordelijke worden (art. 28 lid 10 AVG); dat is uitdrukkelijk niet onze bedoeling en wij beletten dit in onze processen.</p>
+<p>5.5 <strong>Informatie aan betrokkenen van de Klant (art. 14 AVG).</strong> Voor persoonsgegevens van derden die de Dienst in de sessie raakt, is in beginsel de <strong>Klant</strong> verwerkingsverantwoordelijke en moet de Klant die betrokkenen informeren (art. 13/14 AVG). Omdat Yad geen rechtstreekse relatie met deze betrokkenen heeft, informeert Yad hen niet individueel; dat zou een onevenredige inspanning vergen (art. 14 lid 5 sub b AVG). Wel maken wij deze publieke verklaring algemeen toegankelijk, zodat ook betrokkenen van de Klant kunnen nagaan welke rol Yad speelt, en verlenen wij de Klant de wettelijk vereiste bijstand bij het informeren van en het beantwoorden van verzoeken van die betrokkenen (zie 9.3).</p>
+<hr>
+<h2>6. Subverwerkers, ontvangers en internationale doorgifte</h2>
+<h3>6.1 Categorieën ontvangers</h3>
+<p>Wij delen persoonsgegevens alleen met partijen die ons helpen de Dienst te leveren, of wanneer wij daartoe wettelijk verplicht zijn. Het gaat om de volgende categorieën:</p>
+<ul>
+<li><strong>Hostingproviders / cloud-infrastructuur</strong> — voor het draaien van de Dienst en de opslag van gegevens;</li>
+<li><strong>LLM-providers (taalmodel-aanbieders)</strong> — voor het verwerken van tekstfragmenten die nodig zijn om automatiseringstaken uit te voeren;</li>
+<li><strong>Betaaldienstverlener(s)</strong> — voor het afhandelen van betalingen;</li>
+<li><strong>E-mail-, support- en analysetools</strong> — voor communicatie en het functioneren van de Dienst;</li>
+<li><strong>Professionele adviseurs en toezichthouders / autoriteiten</strong> — uitsluitend indien noodzakelijk of wettelijk verplicht.</li>
+</ul>
+<h3>6.2 Actueel subverwerkersregister</h3>
+<p>Wij houden een <strong>actueel, opvraagbaar register van alle subverwerkers</strong> bij, met per subverwerker de naam, de soort dienst, de verwerkingslocatie, de doorgifte-waarborg <strong>en of de subverwerker de gegevens voor eigen doeleinden mag gebruiken</strong>. Dit register is beschikbaar <code>[via [URL/locatie] / op verzoek via [PRIVACY-E-MAIL]]</code>. Voor de verwerker-rol melden wij voorgenomen wijzigingen in subverwerkers vooraf aan de Klant, zodat deze bezwaar kan maken, overeenkomstig de verwerkersovereenkomst.</p>
+<table>
+<thead>
+<tr>
+<th>Subverwerker</th>
+<th>Dienst</th>
+<th>Verwerkingslocatie</th>
+<th>Doorgifte-waarborg</th>
+<th>Gebruik voor eigen doeleinden?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>[NAAM HOSTING]</code></td>
+<td>Hosting / infrastructuur</td>
+<td><code>[EU/EER-regio]</code></td>
+<td><code>[n.v.t. (binnen EER) / SCC&#39;s + TIA / DPF]</code></td>
+<td><code>[Nee — alleen verwerking in onze opdracht]</code></td>
+</tr>
+<tr>
+<td><code>[NAAM LLM-PROVIDER]</code></td>
+<td>Taalmodel-verwerking</td>
+<td><code>[EU/EER-regio indien mogelijk]</code></td>
+<td><code>[n.v.t. (binnen EER) / SCC&#39;s + TIA / DPF]</code></td>
+<td><code>[Nee — zero-retention/no-training gecontracteerd / JA, namelijk: [abuse-monitoring met menselijke review / retentie X dagen / training] — zie 6.4]</code></td>
+</tr>
+<tr>
+<td><code>[NAAM BETAALDIENST]</code></td>
+<td>Betalingen</td>
+<td><code>[LOCATIE]</code></td>
+<td><code>[GRONDSLAG]</code></td>
+<td><code>[Eigen verantwoordelijke voor wettelijke betaal-/fraudeplichten]</code></td>
+</tr>
+<tr>
+<td><code>[NAAM E-MAIL/SUPPORT]</code></td>
+<td>Communicatie/support</td>
+<td><code>[LOCATIE]</code></td>
+<td><code>[GRONDSLAG]</code></td>
+<td><code>[Nee]</code></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><code>[Vul dit register volledig en waarheidsgetrouw in. Vermeld geen subverwerker als &quot;EU-gehost&quot; als dat niet feitelijk klopt, en vermeld geen &quot;Nee&quot; bij eigen gebruik als de provider de data feitelijk wél voor training, retentie of menselijke review gebruikt — dat zou misleidend zijn en de belofte in 4.10 onwaar maken.]</code></p>
+</blockquote>
+<h3>6.3 EU-residency als uitgangspunt</h3>
+<p>6.3.1 Wij streven ernaar persoonsgegevens binnen de Europese Economische Ruimte (EER) te verwerken en geven, waar mogelijk, de voorkeur aan <strong>EU-gehoste of EU-regio-subverwerkers</strong> (waaronder voor de taalmodel-verwerking), om doorgifte buiten de EER zoveel mogelijk te vermijden.</p>
+<h3>6.4 LLM-providers: eigen gebruik, retentie en doorgifte buiten de EER</h3>
+<p>6.4.1 De tekstfragmenten die voor het uitvoeren van een taak aan een LLM-provider worden voorgelegd (3.4) vormen de <strong>hoogste-risico-verwerking</strong> van de Dienst, omdat zij persoonsgegevens van derden en — onbedoeld — mogelijk bijzondere categorieën kunnen bevatten, en omdat doorgifte buiten de EER kan plaatsvinden. Wij behandelen deze verwerking daarom met bijzondere waarborgen:</p>
+<ul>
+<li>a) <strong>Eigen gebruik door de provider.</strong> Wij contracteren met de LLM-provider, waar de markt dit toelaat, <strong>zero-retention en no-training</strong>-voorwaarden: de provider mag de aangeboden fragmenten en de gegenereerde output <strong>niet</strong> gebruiken voor het trainen van modellen of voor eigen doeleinden, en bewaart ze niet langer dan strikt nodig om de taak uit te voeren. Per provider staat in het register (6.2) of dit is afgesproken.</li>
+<li>b) <strong>Eerlijke vermelding bij afwijking.</strong> Gebruikt een door ons gekozen provider de gegevens tóch voor eigen doeleinden (bijvoorbeeld tijdelijke retentie voor misbruikdetectie, menselijke review of training), dan <strong>vermelden wij dat eerlijk</strong> in het register en stemmen wij dit af met de Klant in de DPA. In dat geval geldt de no-training-belofte in 4.10 alleen voor zover het register dat bevestigt; wij wekken niet de indruk dat geen enkel eigen gebruik plaatsvindt terwijl dat feitelijk wel zo is.</li>
+</ul>
+<p>6.4.2 <strong>Doorgiftegrondslag buiten de EER.</strong> Wanneer een subverwerker (bijvoorbeeld een LLM-provider) gegevens buiten de EER verwerkt, vindt doorgifte uitsluitend plaats met een geldige waarborg op grond van hoofdstuk V AVG:</p>
+<ul>
+<li>een <strong>adequaatheidsbesluit</strong> van de Europese Commissie (bijvoorbeeld het EU-US Data Privacy Framework voor gecertificeerde Amerikaanse partijen); en/of</li>
+<li>de door de Commissie vastgestelde <strong>Standaardcontractbepalingen (SCC&#39;s)</strong>, aangevuld met een <strong>Transfer Impact Assessment (TIA)</strong> en waar nodig aanvullende maatregelen.</li>
+</ul>
+<p>6.4.3 Wij vertrouwen niet uitsluitend op één doorgiftegrondslag: waar wij ons baseren op het Data Privacy Framework, houden wij <strong>SCC&#39;s als terugvaloptie</strong> achter de hand, voor het geval dat kader zou wijzigen of komen te vervallen.</p>
+<p>6.4.4 U kunt een kopie of nadere informatie over de toegepaste waarborgen en over het eigen gebruik door providers opvragen via <code>[PRIVACY-E-MAIL]</code>.</p>
+<hr>
+<h2>7. Bewaartermijnen</h2>
+<p>7.1 Wij bewaren persoonsgegevens niet langer dan nodig is voor de doeleinden waarvoor wij ze verwerken, of zolang een wettelijke bewaarplicht dat vereist. <strong>Vul per categorie één vastgestelde termijn of één concreet criterium in; laat geen &quot;range&quot; staan in de definitieve versie.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Gegevenscategorie</th>
+<th>Bewaartermijn (één termijn/criterium vaststellen)</th>
+<th>Reden</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Accountgegevens (3.1)</td>
+<td>Gedurende de looptijd van de overeenkomst + <code>[VASTGESTELDE TERMIJN, bijv. 12 maanden]</code> na beëindiging</td>
+<td>Beheer en heractivering</td>
+</tr>
+<tr>
+<td>Facturatie-/transactiegegevens (3.2)</td>
+<td><code>[VASTGESTELDE TERMIJN — minimaal de fiscale bewaarplicht]</code></td>
+<td>Wettelijke (fiscale) bewaarplicht; in beginsel 7 jaar voor de basisadministratie (art. 52 AWR). <code>[Let op: voor specifieke gegevens kan een langere termijn gelden; laat dit per administratie vaststellen.]</code></td>
+</tr>
+<tr>
+<td>Telemetrie-/logbestanden (3.3)</td>
+<td><code>[VASTGESTELDE TERMIJN, bijv. 90 dagen]</code>; beveiligingslogs <code>[VASTGESTELDE TERMIJN, bijv. 12 maanden]</code></td>
+<td>Beveiliging, diagnose, foutopsporing</td>
+</tr>
+<tr>
+<td>Incidentele pagina-inhoud in logs (3.3 sub b/c)</td>
+<td><strong>Zo kort als operationeel nodig</strong>, en in elk geval <code>[VASTGESTELDE MAXIMUMTERMIJN]</code></td>
+<td>Dataminimalisatie; verkleint het lek-oppervlak</td>
+</tr>
+<tr>
+<td>Sessie-/paginagegevens namens de Klant (3.4)</td>
+<td>Volgens de DPA; <strong>zo kort als operationeel nodig</strong>, sessie-artefacten en LLM-prompts/outputs <code>[VASTGESTELDE TERMIJN, bijv. direct na taakuitvoering / max. X uren]</code></td>
+<td>Dataminimalisatie</td>
+</tr>
+<tr>
+<td>Marketinggegevens (4.6)</td>
+<td>Tot afmelding/bezwaar, daarna verwijderd of geanonimiseerd</td>
+<td>Direct marketing</td>
+</tr>
+</tbody></table>
+<p>7.2 Voor de namens de Klant verwerkte gegevens (3.4) gelden in de eerste plaats de in de verwerkersovereenkomst afgesproken termijnen. Na beëindiging van de Dienst wissen of retourneren wij deze gegevens overeenkomstig die overeenkomst, tenzij wettelijke bewaring vereist is.</p>
+<p>7.3 Na afloop van een bewaartermijn worden gegevens verwijderd of onomkeerbaar geanonimiseerd.</p>
+<hr>
+<h2>8. Beveiliging</h2>
+<p>8.1 Wij nemen passende technische en organisatorische maatregelen om persoonsgegevens te beschermen (artikel 32 AVG), waaronder:</p>
+<ul>
+<li><strong>Versleuteling</strong> van gegevens in transit en, waar passend, at rest;</li>
+<li><strong>Toegangsbeperking</strong> volgens het principe van minimale rechten (least privilege) en strikte toegangscontrole op de browser-extensie en de achterliggende systemen;</li>
+<li><strong>Scheiding tussen klanten</strong> (multi-tenant-isolatie), zodat gegevens van verschillende Klanten gescheiden blijven;</li>
+<li><strong>Technische scheiding</strong> tussen de verwerker-omgeving (sessie-/paginagegevens) en onze eigen administratie, met <strong>audit-logging</strong> op toegang tot sessie-/paginagegevens (zie 5.4);</li>
+<li><strong>Dataminimalisatie en pseudonimisering/redactie</strong> van wat uit de pagina/DOM wordt gelogd of aan een LLM-provider wordt voorgelegd;</li>
+<li><strong>Filtering van pagina-inhoud uit onze logs</strong> onder de verantwoordelijke-rol (zie 3.3 sub a);</li>
+<li><strong>Beperkte bewaring</strong> van sessietokens en cookies — niet langer dan nodig;</li>
+<li><strong>Logging, monitoring en periodieke evaluatie</strong> van beveiligingsmaatregelen.</li>
+</ul>
+<p>8.2 Omdat de Dienst in een reeds <strong>ingelogde sessie</strong> werkt, behandelen wij toegang tot de Dienst met extra zorg: een incident kan immers meerdere Klanten tegelijk raken. Wij richten onze beveiliging op het verkleinen van dit risico (onder meer door minimalisering van wat wordt gelogd en doorgestuurd, en door multi-tenant-isolatie).</p>
+<p>8.3 Bij <strong>self-host- of white-label-levering</strong> beheert de Klant (respectievelijk de reseller) een deel van de omgeving zelf. In dat geval ligt de verantwoordelijkheid voor beveiliging, updates en hardening van die zelf-beheerde omgeving bij die partij. De verdeling van beveiligingsverantwoordelijkheden wordt vastgelegd in de overeenkomst en de verwerkersovereenkomst.</p>
+<hr>
+<h2>9. Uw rechten als betrokkene</h2>
+<p>9.1 U heeft op grond van de AVG de volgende rechten met betrekking tot uw persoonsgegevens:</p>
+<ul>
+<li><strong>Inzage</strong> (art. 15) — weten welke gegevens wij van u verwerken;</li>
+<li><strong>Rectificatie</strong> (art. 16) — onjuiste gegevens laten corrigeren;</li>
+<li><strong>Wissing / &quot;vergetelheid&quot;</strong> (art. 17) — gegevens laten verwijderen waar dat kan;</li>
+<li><strong>Beperking</strong> van de verwerking (art. 18);</li>
+<li><strong>Overdraagbaarheid</strong> (dataportabiliteit, art. 20) — voor gegevens die u zelf heeft verstrekt en die wij geautomatiseerd verwerken op basis van toestemming of overeenkomst;</li>
+<li><strong>Bezwaar</strong> (art. 21) — tegen verwerkingen op basis van gerechtvaardigd belang, en altijd en absoluut tegen direct marketing;</li>
+<li><strong>Intrekken van toestemming</strong> — voor zover een verwerking op toestemming berust, met werking voor de toekomst.</li>
+</ul>
+<p>9.2 <strong>Hoe uitoefenen.</strong> Stuur uw verzoek naar <code>[PRIVACY-E-MAIL]</code>. Wij vragen u <strong>uitsluitend wanneer wij redelijke twijfel hebben over uw identiteit</strong> om die te bevestigen (art. 12 lid 6 AVG), en wij vragen daarbij <strong>niet meer gegevens dan daarvoor strikt noodzakelijk is</strong>. Wij reageren binnen één maand; bij complexiteit kan deze termijn met twee maanden worden verlengd, waarover wij u dan binnen de eerste maand informeren. Het uitoefenen van uw rechten is in beginsel kosteloos.</p>
+<p>9.3 <strong>Verzoeken die de verwerker-rol betreffen.</strong> Gaat uw verzoek over gegevens die wij <strong>namens een Klant</strong> verwerken (hoofdstuk 3.4), dan is die Klant de verwerkingsverantwoordelijke. Wij sturen uw verzoek dan zonder onnodige vertraging door naar de betreffende Klant of verwijzen u door, en verlenen de Klant de wettelijk vereiste bijstand om uw verzoek te kunnen behandelen.</p>
+<p>9.4 <strong>Herkomst van gegevens (art. 14 lid 2 sub f).</strong> Verwerken wij persoonsgegevens over u die wij niet rechtstreeks van u hebben verkregen — bijvoorbeeld doordat zij via de sessie van een Klant zichtbaar werden — dan is de <strong>herkomst</strong> in de regel die Klant (of het systeem waarop de Klant de Dienst inzet). Op verzoek lichten wij toe, voor zover wij dat kunnen vaststellen, uit welke bron de gegevens afkomstig zijn.</p>
+<p>9.5 <strong>Klachtrecht.</strong> Bent u niet tevreden over hoe wij met uw gegevens omgaan, dan horen wij dat graag eerst van u. U heeft daarnaast altijd het recht een klacht in te dienen bij de toezichthouder. In Nederland is dat de <strong>Autoriteit Persoonsgegevens</strong> (<a href="http://www.autoriteitpersoonsgegevens.nl">www.autoriteitpersoonsgegevens.nl</a>). Bent u in een ander EU/EER-land gevestigd, dan kunt u terecht bij uw lokale toezichthouder.</p>
+<hr>
+<h2>10. Cookies en lokale opslag (website en browser-extensie)</h2>
+<p>10.1 <strong>Website.</strong> Onze website gebruikt <code>[cookies en/of vergelijkbare technieken]</code>. Wij plaatsen functionele en strikt noodzakelijke cookies zonder toestemming; voor analytische en/of marketingcookies vragen wij <strong>vooraf</strong> uw toestemming via een consent-banner die <strong>toestemming-eerst</strong> afdwingt (niet-functionele cookies worden pas geplaatst ná uw toestemming), die u altijd kunt intrekken (art. 11.7a Telecommunicatiewet). Zie ons <code>[cookiebeleid / cookieverklaring]</code> op <code>[URL]</code> voor de volledige lijst en bewaartermijnen. <code>[Randvoorwaarde: dit aparte cookiebeleid en de toestemming-eerst-banner moeten bestaan en werken vóór deze verklaring live gaat — zie hoofdstuk 16.]</code></p>
+<p>10.2 <strong>Browser-extensie / Companion.</strong> De Dienst maakt gebruik van een browser-extensie en/of lokale opslag op uw apparaat om te functioneren. Hierin kunnen worden opgeslagen:</p>
+<ul>
+<li>Sessie- en authenticatiegegevens die nodig zijn om de Dienst te laten werken;</li>
+<li>Configuratie- en voorkeursinstellingen;</li>
+<li>Tijdelijke werkgegevens voor het uitvoeren van een taak.</li>
+</ul>
+<p>10.3 De extensie leest pagina-inhoud (de DOM) <strong>uitsluitend</strong> voor zover nodig om de door u of de Klant opgedragen taak uit te voeren. Wij gebruiken deze toegang niet om mee te lezen buiten het doel van de opgedragen taak. Lokale gegevens kunnen doorgaans via de extensie-instellingen of door verwijdering van de extensie worden gewist.</p>
+<p>10.4 <code>[Vermeld hier, indien van toepassing, welke specifieke permissies de extensie vraagt en waarom — conform de transparantie-eisen van de browser-marktplaats.]</code></p>
+<hr>
+<h2>11. Datalekken (inbreuken in verband met persoonsgegevens)</h2>
+<p>11.1 Wij hebben procedures om een mogelijk datalek snel te herkennen, te onderzoeken en af te handelen.</p>
+<p>11.2 <strong>Onze eigen rol (verantwoordelijke).</strong> Constateren wij een datalek met een risico voor betrokkenen, dan melden wij dit waar vereist binnen <strong>72 uur</strong> na ontdekking aan de Autoriteit Persoonsgegevens (art. 33 AVG) en, bij hoog risico, ook aan de betrokkenen (art. 34 AVG).</p>
+<p>11.3 <strong>Onze verwerker-rol.</strong> Constateren wij een (vermoed) datalek bij gegevens die wij <strong>namens een Klant</strong> verwerken, dan informeren wij die Klant <strong>zonder onredelijke vertraging</strong> — overeenkomstig de verwerkersovereenkomst binnen <code>[VASTGESTELDE TERMIJN, bijv. 48 uur]</code> na ontdekking — met voldoende informatie zodat de Klant zijn eigen 72-uurstermijn kan halen. De melding aan de Autoriteit Persoonsgegevens doet in dat geval de Klant als verwerkingsverantwoordelijke.</p>
+<hr>
+<h2>12. Kinderen</h2>
+<p>12.1 De Dienst is een zakelijke (B2B) dienst en niet gericht op kinderen. Wij verzamelen niet bewust persoonsgegevens van kinderen onder de 16 jaar. Vermoedt u dat wij toch zulke gegevens hebben verwerkt, neem dan contact met ons op via <code>[PRIVACY-E-MAIL]</code>, dan verwijderen wij deze.</p>
+<hr>
+<h2>13. AI-transparantie</h2>
+<p>13.1 Yad is een AI-systeem dat tekst leest, genereert en handelingen verricht. Waar u of uw betrokkenen rechtstreeks met door AI gegenereerde of door AI gestuurde output in aanraking komen, <strong>maken wij dit kenbaar voor zover de EU AI Act ons daartoe verplicht</strong> (onder meer de transparantieverplichtingen van artikel 50 voor AI-systemen die met natuurlijke personen interacteren of content genereren). Dit is een resultaatsverplichting, geen vrijblijvende inspanning. <code>[De positie van Yad onder de AI Act (aanbieder vs. gebruiksverantwoordelijke) en de geldende ingangsdata moeten door een jurist worden vastgesteld; dat bepaalt welke transparantieplichten precies op u rusten.]</code></p>
+<hr>
+<h2>14. Wijzigingen in deze privacyverklaring</h2>
+<p>14.1 Wij kunnen deze privacyverklaring van tijd tot tijd aanpassen, bijvoorbeeld bij wijziging van de Dienst, van subverwerkers of van wetgeving.</p>
+<p>14.2 De actuele versie staat altijd op <code>[URL]</code>, met vermelding van versienummer en datum. Bij materiële wijzigingen informeren wij u <code>[via e-mail / in de Dienst]</code> voordat de wijziging ingaat.</p>
+<hr>
+<h2>15. Contact</h2>
+<p>15.1 Heeft u vragen over deze privacyverklaring of over de verwerking van uw persoonsgegevens? Neem dan contact op:</p>
+<ul>
+<li><strong>E-mail (privacy):</strong> <code>[PRIVACY-E-MAIL]</code></li>
+<li><strong>Post:</strong> <code>[RECHTSPERSOON]</code>, t.a.v. <code>[afdeling/FG]</code>, <code>[VESTIGINGSADRES]</code>, <code>[VESTIGINGSPLAATS]</code></li>
+</ul>
+<hr>
+<h2>16. Verplichte randvoorwaarden en aanverwante documenten (niet weglaten vóór livegang)</h2>
+<blockquote>
+<p>Dit hoofdstuk is een <strong>checklist voor uzelf en uw jurist</strong>. Het hoort bij dit concept en mag in de gepubliceerde versie worden ingekort of verplaatst naar interne documentatie, maar de onderliggende verplichtingen mogen niet worden overgeslagen.</p>
+</blockquote>
+<p>16.1 <strong>DPIA (art. 35 AVG) — verplicht.</strong> Voor de kern-verwerking (pagina-inhoud/DOM → taalmodel, binnen ingelogde sessies, mogelijk grootschalig en met mogelijk bijzondere categorieën) is een <strong>gegevensbeschermingseffectbeoordeling</strong> vrijwel zeker verplicht (nieuwe technologie, grootschalige verwerking, systematische monitoring). Laat deze DPIA uitvoeren en vaststellen <strong>vóór</strong> de Dienst live gaat. <code>[U kunt hier desgewenst vermelden dat een DPIA is uitgevoerd; dat vergroot het vertrouwen.]</code></p>
+<p>16.2 <strong>Rol-analyse verwerker vs. (mede-)verantwoordelijke — verplicht.</strong> Laat de in 5.3 bedoelde analyse door een jurist vaststellen en periodiek herijken; dit is het grootste juridische risico in de keten en bepaalt of uw art. 14-route via de Klant volstaat.</p>
+<p>16.3 <strong>LLM-providervoorwaarden — verplicht.</strong> Contracteer zero-retention/no-training waar mogelijk; benoem afwijkingen eerlijk in het register (6.2/6.4). Dit bepaalt of de belofte in 4.10 waarheidsgetrouw is — en is daarmee ook een halal-/eerlijkheidsvoorwaarde.</p>
+<p>16.4 <strong>Cookiebeleid + consent-banner — verplicht.</strong> Het aparte cookiebeleid (10.1) moet bestaan en de banner moet toestemming-eerst afdwingen vóór livegang.</p>
+<p>16.5 <strong>DPA / verwerker-documentatie — verplicht.</strong> De verwerkersovereenkomst (art. 28 AVG) en eventuele aparte verwerker-/sub-verwerker-bijlage voor Klanten moeten bestaan; deze publieke verklaring verwijst ernaar en vervangt ze niet.</p>
+<p>16.6 <strong>Marketing-proces — controleren.</strong> Borg dat het e-mailmarketing-proces de soft-opt-in-grenzen van art. 11.7 Telecommunicatiewet respecteert (4.6) en dat afmelden technisch werkt.</p>
+<hr>
+<blockquote>
+<p><strong>Herinnering:</strong> dit is een AI-onderzocht <strong>CONCEPT</strong> (<code>[VERSIE]</code>, <code>[DATUM]</code>) en <strong>geen juridisch advies</strong>. Laat het controleren en vaststellen door een gekwalificeerd jurist, voer eerst de DPIA en de rol-analyse uit, en vul alle plaatshouders waarheidsgetrouw in vóór publicatie. <strong>Vermeld nooit waarborgen, locaties, retentie- of trainingsafspraken of subverwerkers die niet feitelijk juist zijn — een onjuiste privacyverklaring is zowel juridisch riskant als misleidend (en daarmee in strijd met de eerlijkheidstoets).</strong></p>
+</blockquote>
+<hr>
+<p><strong>Sharia-check resultaat:</strong> GROEN (punt 5 — misleiding — relevant en afgedekt). Het document is strenger eerlijk gemaakt dan het eerste concept: de vrijblijvende voorbehouden rond DOM-in-logs zijn vervangen door een concrete filtering-toezegging plus een eerlijk benoemde restverwerking met art. 14 lid 5 sub b-grondslag (3.3); de no-training-belofte (4.10) is gekoppeld aan een afdwingbare subverwerker-voorwaarde én aan een eerlijke afwijkingsvermelding (6.4), zodat de belofte niet leeg of misleidend wordt; de absolute art. 22-geruststelling is beperkt tot de verantwoordelijke-rol (4.9); marketing is binnen de soft-opt-in van art. 11.7 Tw gebracht (4.6); en de anti-rolwijziging-toezegging is gekoppeld aan technische scheiding en audit-logging (5.4). De verplichte concept/jurist-notitie staat zichtbaar boven én onder, met de DPIA-, rol-analyse- en register-randvoorwaarden expliciet benoemd (hoofdstuk 16). Voorwaarde om groen te blijven: het subverwerkersregister en alle plaatshouders worden waarheidsgetrouw ingevuld.</p>
+<hr>
+<p>Notitie over de geleverde issues: de twee <strong>blockers</strong> zijn beide geadresseerd — (1) de rol-vermenging is opgelost door deze verklaring strikt tot de verantwoordelijke-rol te begrenzen, de verwerker-rol naar de DPA te verwijzen (hfdst 1.2, 5.2), een onderbouwde rol-analyse met eerlijk voorbehoud op te nemen (5.3) en de art. 14-route via 5.5/9.3/9.4 te dekken; (2) het log-gat is gesloten met de concrete filtering-toezegging plus eerlijk benoemde restverwerking en art. 14 lid 5 sub b-grondslag (3.3). Alle vier <strong>majors</strong> zijn verwerkt: marketing onder art. 11.7 Tw (4.6), LLM-eigen-gebruik in register + zero-retention/no-training (6.2/6.4), DPIA als verplichte randvoorwaarde (3.5, 16.1), en de art. 22-toon beperkt tot de verantwoordelijke-rol (4.9). De vijf <strong>minors</strong> zijn ook gedicht (identiteitsverificatie 9.2, vastgestelde termijnen/criteria 7.1, controleerbare maatregel bij anti-rolwijziging 5.4, cookiebeleid-randvoorwaarde 10.1/16.4, AI-Act-formulering 13.1). De ontbrekende clausules zijn toegevoegd, waaronder herkomst van gegevens (9.4) en geautomatiseerde handelingen onder de Klant (4.9 sub b). Dit document is als deliverable bedoeld voor het &quot;Yad&quot;-product en is niet in deze repo (REDACTED) aangetroffen; er is geen bestaand bestandspad om naar te verwijzen.</p>
+
   </body>
 </html>

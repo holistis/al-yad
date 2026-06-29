@@ -102,8 +102,10 @@ function showConfirm(id: string, action: unknown, reason: string): void {
   const row = document.createElement("div");
   row.className = "row";
   const yes = document.createElement("button");
+  yes.type = "button";
   yes.textContent = "Goedkeuren";
   const no = document.createElement("button");
+  no.type = "button";
   no.className = "secondary";
   no.textContent = "Weigeren";
   const answer = (approved: boolean): void => {
