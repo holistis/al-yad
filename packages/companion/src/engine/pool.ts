@@ -6,7 +6,10 @@ export interface PoolEnv {
   GROQ_API_KEY?: string;
   CEREBRAS_API_KEY?: string;
   GEMINI_API_KEY?: string;
+  GEMINI_API_KEY_2?: string;
   OPENROUTER_API_KEY?: string;
+  GITHUB_TOKEN?: string;
+  ALLOW_PAID_GEMINI?: string;
   YAD_PAID_API_KEY?: string;
   YAD_PAID_BASE_URL?: string;
   YAD_PAID_MODEL?: string;
@@ -16,6 +19,9 @@ export interface PoolEnv {
   CEREBRAS_MODEL?: string;
   GEMINI_MODEL?: string;
   OPENROUTER_MODEL?: string;
+  GITHUB_MODELS_MODEL?: string;
+  GITHUB_MODELS_URL?: string;
+  [key: string]: string | undefined;
 }
 
 /**
@@ -48,13 +54,28 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
       }),
     );
   }
-  if (env.GEMINI_API_KEY) {
+  // Gemini met sleutel-rotatie: elke sleutel is een eigen provider, dus de router
+  // schakelt automatisch door bij quota/429. Halal-discipline (gespiegeld van
+  // REDACTED): KEY + KEY_2 zijn GRATIS; KEY_3..9 zijn BETAALD en doen
+  // alleen mee als ALLOW_PAID_GEMINI=true — zo kan een betaalde sleutel nooit
+  // ongemerkt kosten maken.
+  const geminiModel = env.GEMINI_MODEL ?? "gemini-2.0-flash";
+  const geminiKeys: Array<{ key: string; name: string }> = [];
+  if (env.GEMINI_API_KEY) geminiKeys.push({ key: env.GEMINI_API_KEY, name: "gemini" });
+  if (env.GEMINI_API_KEY_2) geminiKeys.push({ key: env.GEMINI_API_KEY_2, name: "gemini2" });
+  if ((env.ALLOW_PAID_GEMINI ?? "").toLowerCase() === "true") {
+    for (let i = 3; i <= 9; i++) {
+      const k = env[`GEMINI_API_KEY_${i}`];
+      if (k) geminiKeys.push({ key: k, name: `gemini${i}` });
+    }
+  }
+  for (const g of geminiKeys) {
     providers.push(
       new OpenAICompatibleProvider({
-        name: "gemini",
+        name: g.name,
         baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-        apiKey: env.GEMINI_API_KEY,
-        model: env.GEMINI_MODEL ?? "gemini-2.0-flash",
+        apiKey: g.key,
+        model: geminiModel,
         tier: 0,
       }),
     );
@@ -66,6 +87,19 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
         baseUrl: "https://openrouter.ai/api/v1",
         apiKey: env.OPENROUTER_API_KEY,
         model: env.OPENROUTER_MODEL ?? "meta-llama/llama-3.3-70b-instruct:free",
+        tier: 0,
+      }),
+    );
+  }
+  // GitHub Models: aparte gratis pool voor GitHub-gebruikers (OpenAI-compatibel,
+  // auth met GITHUB_TOKEN). Geeft extra ademruimte als de andere tier-0 vol zitten.
+  if (env.GITHUB_TOKEN) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "github-models",
+        baseUrl: (env.GITHUB_MODELS_URL ?? "https://models.github.ai/inference").replace(/\/+$/, ""),
+        apiKey: env.GITHUB_TOKEN,
+        model: env.GITHUB_MODELS_MODEL ?? "openai/gpt-4o-mini",
         tier: 0,
       }),
     );
