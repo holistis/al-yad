@@ -12,7 +12,11 @@ export default defineConfig({
   manifest: {
     name: "Yad — de hand",
     description: "Yad companion-extensie (de Hand): verbindt met het lokale Brein.",
-    permissions: ["nativeMessaging", "sidePanel", "storage"],
+    // tabs + host_permissions zijn nodig om de actieve tab te bedienen.
+    // LET OP: <all_urls> is breed; vóór een Web Store-inzending versmallen naar
+    // activeTab/optionele host-permissions (zie bouwplan, Web Store-risico).
+    permissions: ["nativeMessaging", "sidePanel", "storage", "tabs"],
+    host_permissions: ["<all_urls>"],
     action: {},
     side_panel: { default_path: "sidepanel.html" },
     ...(manifestKey ? { key: manifestKey } : {}),
