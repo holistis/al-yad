@@ -2,7 +2,8 @@ import type { Action, ActResult, RunStatus, Snapshot } from "@yad/shared";
 import type { ChatRequest } from "../engine/types.js";
 import { buildMessages, type HistoryItem } from "./prompt.js";
 import { parseAction } from "./parse.js";
-import { checkDenied, needsConfirm, type GateContext } from "../gate/guardrails.js";
+import { checkDenied, needsConfirm, pathIsDenied, type GateContext } from "../gate/guardrails.js";
+import type { SnapshotNode } from "@yad/shared";
 
 export interface ChatLike {
   chat(req: ChatRequest): Promise<{ content: string; provider: string }>;
@@ -20,6 +21,8 @@ export interface LoopOptions {
   pacingMs?: number;
   sleep?: (ms: number) => Promise<void>;
   log?: (m: string) => void;
+  /** wordt elke stap gecheckt; true = run netjes afbreken (bv. tab gesloten) */
+  isAborted?: () => boolean;
 }
 
 export interface RunOutcome {
@@ -28,10 +31,10 @@ export interface RunOutcome {
   steps: number;
 }
 
-function refName(snapshot: Snapshot, action: Action): string | undefined {
+function refNode(snapshot: Snapshot, action: Action): SnapshotNode | undefined {
   const ref = (action as { ref?: string }).ref;
   if (!ref) return undefined;
-  return snapshot.nodes.find((n) => n.ref === ref)?.name;
+  return snapshot.nodes.find((n) => n.ref === ref);
 }
 
 function describe(action: Action): string {
@@ -73,7 +76,10 @@ export class AgentLoop {
     this.pacingMs = opts.pacingMs ?? 1000;
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.log = opts.log ?? (() => {});
+    this.isAborted = opts.isAborted ?? (() => false);
   }
+
+  private readonly isAborted: () => boolean;
 
   async run(goal: string, maxStepsOverride?: number): Promise<RunOutcome> {
     const maxSteps = Math.min(maxStepsOverride ?? this.maxSteps, 40);
@@ -89,6 +95,22 @@ export class AgentLoop {
       } catch (e) {
         this.hand.update({ status: "fout", step, message: `Kon de pagina niet lezen: ${(e as Error).message}` });
         return { status: "fout", steps: step - 1 };
+      }
+
+      if (this.isAborted()) {
+        this.hand.update({ status: "gestopt", step, message: "Run afgebroken (bijvoorbeeld: tab gesloten)." });
+        return { status: "gestopt", steps: step - 1 };
+      }
+
+      // Hercontrole op de WERKELIJKE URL: een neutraal gelabelde klik kan op een
+      // betaal-/bestel-pagina zijn beland. Dan stoppen we de run hard.
+      if (pathIsDenied(snapshot.url)) {
+        this.hand.update({
+          status: "geweigerd",
+          step,
+          message: "Op een betaal-/bestel-pagina beland; de run is gestopt.",
+        });
+        return { status: "geweigerd", steps: step - 1 };
       }
 
       let content: string;
@@ -124,7 +146,12 @@ export class AgentLoop {
         return { status: "klaar", summary: action.summary, steps: step };
       }
 
-      const ctx: GateContext = { currentUrl: snapshot.url, targetName: refName(snapshot, action) };
+      const node = refNode(snapshot, action);
+      const ctx: GateContext = {
+        currentUrl: snapshot.url,
+        targetName: node?.name,
+        role: node?.role,
+      };
 
       const denied = checkDenied(action, ctx);
       if (denied.denied) {

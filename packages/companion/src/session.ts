@@ -30,6 +30,7 @@ export class BrainSession implements HandBridge {
   private readonly pending = new Map<string, Pending>();
   private readonly handshake: (raw: unknown) => void;
   private running = false;
+  private aborted = false;
 
   constructor(
     private readonly send: (m: BrainMessage) => void,
@@ -55,6 +56,10 @@ export class BrainSession implements HandBridge {
         if (typeof p?.goal === "string") void this.startRun(p.goal, p.maxSteps);
         return;
       }
+      case "ABORT_RUN": {
+        this.aborted = true;
+        return;
+      }
       case "SNAPSHOT_RESULT":
       case "ACT_RESULT":
       case "CONFIRM_RESULT": {
@@ -78,7 +83,11 @@ export class BrainSession implements HandBridge {
       return;
     }
     this.running = true;
-    const loop = new AgentLoop({ chat: (req) => this.router.chat(req) }, this, { log: this.log });
+    this.aborted = false;
+    const loop = new AgentLoop({ chat: (req) => this.router.chat(req) }, this, {
+      log: this.log,
+      isAborted: () => this.aborted,
+    });
     try {
       await loop.run(goal, maxSteps);
     } catch (e) {
