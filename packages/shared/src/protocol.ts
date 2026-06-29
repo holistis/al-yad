@@ -51,7 +51,7 @@ export interface HandPayloads {
   HELLO: { extId: string; clientVersion: string; capabilities: Capability[] };
   PING: { t: number };
   /** start een nieuwe agent-run (vanuit de sidepanel) */
-  GOAL: { goal: string; maxSteps?: number; attachments?: Attachment[] };
+  GOAL: { goal: string; maxSteps?: number; attachments?: Attachment[]; startingUrl?: string };
   /** antwoord op REQUEST_SNAPSHOT (correlationId verwijst naar de aanvraag) */
   SNAPSHOT_RESULT: { snapshot: Snapshot };
   /** antwoord op ACT */
@@ -69,6 +69,8 @@ export interface HandPayloads {
     localStorage: Record<string, string>;
     label: "A" | "B";
   };
+  /** antwoord op INJECT_COOKIES (correlationId verwijst naar de aanvraag) */
+  INJECT_COOKIES_RESULT: { ok: boolean; count: number };
 }
 
 /** Berichten van het Brein naar de Hand. */
@@ -99,6 +101,8 @@ export interface BrainPayloads {
     authType?: string;
     detail?: string;
   };
+  /** vraag de Hand om cookies te injecteren voor een URL (sessie-hergebruik) */
+  INJECT_COOKIES: { url: string; cookies: Array<{ name: string; value: string }> };
 }
 
 export type HandMessage = {

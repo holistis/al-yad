@@ -2,6 +2,7 @@ import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, s
 import { isAccepted } from "./acceptance";
 import { getSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { captureSession, getActiveWebTab } from "./session-capture";
+import { injectCookies } from "./session-inject";
 
 /**
  * Beheert de native-messaging-poort naar het Brein (companion) EN vertaalt de
@@ -170,8 +171,15 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
   }
 
   runTabId = tabId;
+  // Startpagina-URL meesturen zodat de companion de juiste sessie kan injecteren.
+  let startingUrl: string | undefined;
+  try {
+    const runTab = await chrome.tabs.get(tabId);
+    if (runTab.url && /^https?:\/\//i.test(runTab.url)) startingUrl = runTab.url;
+  } catch { /* tab onleesbaar → geen startingUrl */ }
   port.postMessage(handMessage("GOAL", {
     goal,
+    ...(startingUrl ? { startingUrl } : {}),
     ...(maxSteps ? { maxSteps } : {}),
     ...(attachments?.length ? { attachments } : {}),
   }));
@@ -244,7 +252,7 @@ function connect(): void {
 }
 
 function replyToBrain(
-  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT",
+  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT",
   payload: object,
   correlationId: string,
 ): void {
@@ -314,6 +322,15 @@ function onMessage(raw: unknown): void {
     case "SESSION_RESULT": {
       const p = raw.payload as { ok: boolean; brand?: string; path?: string; authType?: string; detail?: string };
       toSidepanel({ type: "YAD_SESSION_RESULT", ...p });
+      break;
+    }
+    case "INJECT_COOKIES": {
+      const p = raw.payload as { url: string; cookies: Array<{ name: string; value: string }> };
+      void injectCookies(p.url, p.cookies).then((count) => {
+        replyToBrain("INJECT_COOKIES_RESULT", { ok: true, count }, raw.id);
+      }).catch(() => {
+        replyToBrain("INJECT_COOKIES_RESULT", { ok: false, count: 0 }, raw.id);
+      });
       break;
     }
     default:
