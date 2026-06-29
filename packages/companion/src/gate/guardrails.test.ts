@@ -52,6 +52,14 @@ describe("Poort: confirm-before-act", () => {
     expect(needsConfirm({ kind: "navigate", url: "https://x.nl/b" }, { currentUrl: "https://x.nl/a" })).toBe(false);
   });
 
+  it("eerste navigatie vanaf een lege/onbekende pagina hoeft geen bevestiging", () => {
+    expect(needsConfirm({ kind: "navigate", url: "https://nu.nl/" }, { currentUrl: "about:blank" })).toBe(false);
+    expect(needsConfirm({ kind: "navigate", url: "https://nu.nl/" }, { currentUrl: "" })).toBe(false);
+    // maar een verboden doel blijft hard geweigerd door checkDenied (los van confirm):
+    expect(checkDenied({ kind: "navigate", url: "https://shop.nl/checkout" }, { currentUrl: "about:blank" }).denied).toBe(true);
+    expect(checkDenied({ kind: "navigate", url: "javascript:alert(1)" }, { currentUrl: "about:blank" }).denied).toBe(true);
+  });
+
   it("select vereist altijd bevestiging", () => {
     expect(needsConfirm({ kind: "select", ref: "e1", value: "NL" }, { currentUrl: "https://x.nl/" })).toBe(true);
   });

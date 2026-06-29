@@ -129,12 +129,12 @@ async function startGoal(goal: string, maxSteps?: number): Promise<void> {
     return;
   }
 
-  const tabId = await captureActiveWebTab();
+  const tabId = await resolveRunTab();
   if (tabId == null) {
     toSidepanel({
       type: "YAD_RUN_UPDATE",
       status: "geweigerd",
-      message: "Geen geschikte web-pagina actief (open een http/https-pagina en klik op Start).",
+      message: "Kon geen tab openen om de taak uit te voeren. Probeer het opnieuw.",
     });
     return;
   }
@@ -144,8 +144,13 @@ async function startGoal(goal: string, maxSteps?: number): Promise<void> {
   port.postMessage(handMessage("GOAL", { goal, ...(maxSteps ? { maxSteps } : {}) }));
 }
 
-async function captureActiveWebTab(): Promise<number | null> {
-  // Poging 1: actieve tab in het laatste gefocuste window.
+/**
+ * Bepaalt de tab waarop de taak draait. Voorkeur voor een al-open web-pagina;
+ * staat er geen enkele open, dan maakt Yad zelf een verse tab aan, zodat een
+ * 'ga naar X'-taak ook werkt vanaf chrome://newtab of een verse install.
+ */
+async function resolveRunTab(): Promise<number | null> {
+  // Poging 1: actieve tab in het laatste gefocuste window (de tab die de user ziet).
   const focused = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   const ft = focused[0];
   if (ft && typeof ft.id === "number" && ft.url && /^https?:\/\//i.test(ft.url)) return ft.id;
@@ -163,12 +168,25 @@ async function captureActiveWebTab(): Promise<number | null> {
 
   // Poging 3: zoek over alle windows naar de meest recent actieve http/https-tab.
   const all = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
-  if (!all.length) return null;
-  all.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
-  const best = all[0];
-  if (typeof best.id === "number") {
-    lastWebTabId = best.id;
-    return best.id;
+  if (all.length) {
+    all.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
+    const best = all[0];
+    if (typeof best.id === "number") {
+      lastWebTabId = best.id;
+      return best.id;
+    }
+  }
+
+  // Poging 4: geen enkele web-tab open -> maak een verse, lege tab aan. De eerste
+  // navigate-actie van de agent vult hem. Zo werkt 'ga naar nu.nl' altijd.
+  try {
+    const created = await chrome.tabs.create({ url: "about:blank", active: true });
+    if (typeof created.id === "number") {
+      lastWebTabId = created.id;
+      return created.id;
+    }
+  } catch {
+    /* aanmaken mislukt -> null */
   }
   return null;
 }
@@ -276,6 +294,29 @@ async function ensureContentScript(tabId: number): Promise<void> {
 async function handleSnapshot(corr: string): Promise<void> {
   if (runTabId == null) {
     replyToBrain("SNAPSHOT_RESULT", { snapshot: errorSnapshot("geen actieve tab") }, corr);
+    return;
+  }
+  // Niet-inspecteerbare pagina (about:blank, chrome://, verse tab): geef een schone
+  // LEGE snapshot i.p.v. een fout, zodat het model gewoon kan navigeren.
+  try {
+    const tab = await chrome.tabs.get(runTabId);
+    if (!tab.url || !/^https?:\/\//i.test(tab.url)) {
+      replyToBrain(
+        "SNAPSHOT_RESULT",
+        {
+          snapshot: {
+            url: tab.url ?? "",
+            title: tab.title ?? "",
+            nodes: [],
+            textDigest: "(lege pagina — er is nog niet genavigeerd)",
+          },
+        },
+        corr,
+      );
+      return;
+    }
+  } catch {
+    replyToBrain("SNAPSHOT_RESULT", { snapshot: errorSnapshot("tab verdween") }, corr);
     return;
   }
   try {
