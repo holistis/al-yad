@@ -66,7 +66,10 @@ writeFileSync(resolve(keysDir, "ext-id.txt"), extId, "utf8");
 // 5. Windows-launcher: Chrome native-messaging "path" mag geen argumenten dragen,
 //    dus we wrappen `node <companion>` in een .bat.
 const launcherPath = resolve(nmDir, "yad-companion-launcher.bat");
-const launcher = `@echo off\r\nnode "${companionEntry}" %*\r\n`;
+// Gebruik het absolute pad naar node.exe zodat Chrome de host kan starten
+// ook als Node.js niet in de systeem-PATH staat (Chrome erft PATH niet altijd).
+const nodeBin = process.execPath.replace(/"/g, '""');
+const launcher = `@echo off\r\n"${nodeBin}" "${companionEntry}" %*\r\n`;
 writeFileSync(launcherPath, launcher, "utf8");
 
 // 6. Host-manifest met allowed_origins op de afgeleide extensie-ID.
