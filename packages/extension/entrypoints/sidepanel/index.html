@@ -59,7 +59,7 @@
       .gate-item { display: flex; gap: 8px; margin: 10px 0; align-items: flex-start; }
       .gate-item input { margin-top: 3px; }
       .docs a { display: block; margin: 4px 0; color: #2563eb; }
-      .summary { background: #f3f4f6; padding: 10px; border-radius: 6px; line-height: 1.4; }
+      .summary { background: #f3f4f6; padding: 10px; border-radius: 6px; line-height: 1.4; white-space: pre-line; }
       #log {
         margin-top: 12px;
         max-height: 320px;
@@ -94,7 +94,7 @@
         <a href="#" data-doc="gebruiksbeleid">Gebruiksbeleid</a>
       </div>
       <div id="gate-items"></div>
-      <button id="accept" disabled>Akkoord en starten</button>
+      <button id="accept" type="button" disabled>Akkoord en starten</button>
       <p class="note">Dit is een concept. Laat het bij twijfel door een jurist bekijken.</p>
     </section>
 
@@ -105,8 +105,8 @@
 
       <textarea id="goal" placeholder="Wat moet ik doen op deze pagina?"></textarea>
       <div class="row">
-        <button id="start" disabled>Start taak</button>
-        <button id="clear" class="secondary">Wis log</button>
+        <button id="start" type="button" disabled>Start taak</button>
+        <button id="clear" type="button" class="secondary">Wis log</button>
       </div>
 
       <div id="confirm" class="hidden"></div>
