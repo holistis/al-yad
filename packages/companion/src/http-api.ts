@@ -17,6 +17,8 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFileSync } from "node:fs";
+import { readSteps } from "./history/step-reader.js";
+import { verifySteps } from "./verify/verifier.js";
 import type { BrainSession } from "./session.js";
 
 const PORT = 3747;
@@ -126,7 +128,46 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       return;
     }
 
-    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result"] });
+    if (url === "/verify" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const body = await readBody(req);
+        const parsed = JSON.parse(body) as {
+          runId?: string;
+          stepStart?: number;
+          stepEnd?: number;
+          retries?: number;
+        };
+        if (typeof parsed.runId !== "string" || !parsed.runId) {
+          json(res, 400, { ok: false, detail: "runId is verplicht" });
+          return;
+        }
+        const stepLogPath = process.env["YAD_STEP_LOG_PATH"] ?? "C:\\Code\\yad-step-log.jsonl";
+        const stepStart = typeof parsed.stepStart === "number" ? parsed.stepStart : 1;
+        const stepEnd = typeof parsed.stepEnd === "number" ? parsed.stepEnd : 9999;
+        const retries = Math.min(typeof parsed.retries === "number" ? parsed.retries : 2, 5);
+
+        const steps = readSteps(stepLogPath, parsed.runId, stepStart, stepEnd);
+        if (steps.length === 0) {
+          json(res, 404, {
+            ok: false,
+            detail: `Geen stappen in log voor runId=${parsed.runId} stap ${stepStart}-${stepEnd}`,
+          });
+          return;
+        }
+
+        const result = await verifySteps(parsed.runId, steps, retries, session);
+        json(res, 200, { ok: true, ...result });
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result", "POST /verify"] });
   });
 
   server.listen(PORT, "127.0.0.1", () => {
