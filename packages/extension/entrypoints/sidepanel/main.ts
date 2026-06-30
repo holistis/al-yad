@@ -70,6 +70,10 @@ const STRINGS = {
     captureA: "📸 Account A",
     captureB: "📸 Account B",
     capturingMsg: "Sessie vastleggen…",
+    claudeBridgeTitle: "Claude-brug",
+    claudeBridgeHint: "Stuur de huidige pagina naar Claude Code. Claude leest hem direct via C:\\Code\\yad-claude-bridge.json.",
+    claudeCaptureBtn: "🔗 Stuur naar Claude",
+    claudeCapturingMsg: "Pagina sturen…",
   },
   en: {
     tabTask: "Task", tabSaved: "Saved", tabSettings: "Settings", tabStats: "Stats",
@@ -111,6 +115,10 @@ const STRINGS = {
     captureA: "📸 Account A",
     captureB: "📸 Account B",
     capturingMsg: "Capturing session…",
+    claudeBridgeTitle: "Claude bridge",
+    claudeBridgeHint: "Send the current page to Claude Code. Claude reads it directly from C:\\Code\\yad-claude-bridge.json.",
+    claudeCaptureBtn: "🔗 Send to Claude",
+    claudeCapturingMsg: "Sending page…",
   },
 } as const;
 
@@ -760,6 +768,20 @@ function startApp(): void {
     void chrome.runtime.sendMessage({ type: "YAD_CAPTURE_SESSION", label: "B" });
   });
 
+  // Claude bridge
+  const claudeMsg = document.getElementById("claude-capture-msg") as HTMLElement | null;
+  function setClaudeMsg(text: string, type: "ok" | "err" | ""): void {
+    if (!claudeMsg) return;
+    claudeMsg.textContent = text;
+    claudeMsg.className = type;
+  }
+  document.getElementById("claude-capture-btn")?.addEventListener("click", () => {
+    setClaudeMsg(t("claudeCapturingMsg"), "");
+    const btn = document.getElementById("claude-capture-btn") as HTMLButtonElement | null;
+    if (btn) btn.disabled = true;
+    void chrome.runtime.sendMessage({ type: "YAD_CAPTURE_FOR_CLAUDE" });
+  });
+
   // Save settings
   $<HTMLFormElement>("#settings-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -828,6 +850,24 @@ function startApp(): void {
     else if (msg?.type === "YAD_SESSION_CAPTURING") {
       const lbl = document.getElementById("capture-msg");
       if (lbl) { lbl.textContent = t("capturingMsg"); lbl.className = ""; }
+    }
+    else if (msg?.type === "YAD_CLAUDE_BRIDGE_CAPTURING") {
+      const el = document.getElementById("claude-capture-msg");
+      if (el) { el.textContent = t("claudeCapturingMsg"); el.className = ""; }
+    }
+    else if (msg?.type === "YAD_CLAUDE_BRIDGE_RESULT") {
+      const el = document.getElementById("claude-capture-msg");
+      const btn = document.getElementById("claude-capture-btn") as HTMLButtonElement | null;
+      if (btn) btn.disabled = false;
+      if (el) {
+        if (msg.ok) {
+          el.textContent = `✓ Pagina verstuurd → ${msg.path ?? "yad-claude-bridge.json"}`;
+          el.className = "ok";
+        } else {
+          el.textContent = `✗ ${msg.detail ?? "Onbekende fout"}`;
+          el.className = "err";
+        }
+      }
     }
     else if (msg?.type === "YAD_SESSION_RESULT") {
       const captMsgEl = document.getElementById("capture-msg");
