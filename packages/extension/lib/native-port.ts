@@ -349,7 +349,8 @@ function onMessage(raw: unknown): void {
     case "REQUEST_NAVIGATE": {
       const p = raw.payload as { url: string };
       void (async () => {
-        const tabId = lastWebTabId;
+        let tabId = lastWebTabId;
+        if (tabId == null) tabId = await resolveRunTab();
         if (tabId == null) {
           replyToBrain("NAVIGATE_RESULT", { ok: false, detail: "geen actieve tab" }, raw.id);
           return;
@@ -366,11 +367,11 @@ function onMessage(raw: unknown): void {
     }
     case "INJECT_LOCALSTORAGE": {
       const p = raw.payload as { items: Record<string, string> };
-      if (runTabId == null) {
+      const tabId = runTabId ?? lastWebTabId;
+      if (tabId == null) {
         replyToBrain("INJECT_LOCALSTORAGE_RESULT", { ok: false, count: 0 }, raw.id);
         break;
       }
-      const tabId = runTabId;
       void injectLocalStorage(tabId, p.items).then((count) => {
         replyToBrain("INJECT_LOCALSTORAGE_RESULT", { ok: true, count }, raw.id);
       }).catch(() => {
@@ -414,13 +415,23 @@ async function handleCaptureForClaude(): Promise<void> {
     }
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: () => (document.body?.innerText ?? "").slice(0, 20000),
+      func: () => {
+        const text = (document.body?.innerText ?? "").slice(0, 20000);
+        const links = Array.from(document.querySelectorAll("a[href]"))
+          .map((a) => ({ href: (a as HTMLAnchorElement).href, text: (a.textContent ?? "").trim() }))
+          .filter((l) => l.href.startsWith("http") && l.text.length > 0)
+          .slice(0, 100);
+        return { text, links };
+      },
     });
-    const text = (results[0]?.result as string | undefined) ?? "";
+    const result = results[0]?.result as { text: string; links: Array<{ href: string; text: string }> } | undefined;
+    const text = result?.text ?? "";
+    const links = result?.links ?? [];
     port.postMessage(handMessage("PAGE_CAPTURE", {
       url: tab.url ?? "",
       title: tab.title ?? "",
       text,
+      links,
       capturedAt: new Date().toISOString(),
     }));
   } catch (e) {
@@ -463,9 +474,16 @@ async function ensureContentScript(tabId: number): Promise<void> {
 }
 
 async function handleSnapshot(corr: string): Promise<void> {
+  // HTTP API-pad: companion startte direct zonder GOAL via extensie → runTabId niet gezet.
+  // Adopteer de best beschikbare tab zodat synchrone /goal-runs werken.
   if (runTabId == null) {
-    replyToBrain("SNAPSHOT_RESULT", { snapshot: errorSnapshot("geen actieve tab") }, corr);
-    return;
+    const adopted = await resolveRunTab();
+    if (adopted == null) {
+      replyToBrain("SNAPSHOT_RESULT", { snapshot: errorSnapshot("geen actieve tab") }, corr);
+      return;
+    }
+    runTabId = adopted;
+    runInProgress = true;
   }
   // Niet-inspecteerbare pagina (about:blank, chrome://, verse tab): geef een schone
   // LEGE snapshot i.p.v. een fout, zodat het model gewoon kan navigeren.
@@ -519,9 +537,15 @@ async function augmentSnapshot(snapshot: Snapshot): Promise<Snapshot> {
 }
 
 async function handleAct(corr: string, action: Action): Promise<void> {
+  // Zelfde HTTP API-adoptie als handleSnapshot.
   if (runTabId == null) {
-    replyToBrain("ACT_RESULT", { ok: false, detail: "geen actieve tab" }, corr);
-    return;
+    const adopted = await resolveRunTab();
+    if (adopted == null) {
+      replyToBrain("ACT_RESULT", { ok: false, detail: "geen actieve tab" }, corr);
+      return;
+    }
+    runTabId = adopted;
+    runInProgress = true;
   }
   try {
     if (action.kind === "navigate") {
