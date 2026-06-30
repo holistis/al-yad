@@ -167,7 +167,9 @@ export class AgentLoop {
     let repeatCount = 0;
     let lastTier = "";
     // Judge: telt opeenvolgende "unknown"-verdicts. Bij 3 → escaleer naar mens.
+    // Reset automatisch als de URL verandert — URL-change = voortgang, niet vastzitten.
     let consecutiveUnknowns = 0;
+    let lastKnownUrl = "";
     // Geëxtraheerde informatie tijdens de run; dit wordt het eind-antwoord aan de
     // gebruiker. Zonder dit ziet de mens alleen "klaar" en niet wat er gevonden is.
     const findings: string[] = [];
@@ -221,6 +223,13 @@ export class AgentLoop {
         this.hand.update({ status: "gestopt", step, message: "Run afgebroken (bijvoorbeeld: tab gesloten)." });
         return { status: "gestopt", steps: step - 1 };
       }
+
+      // URL veranderd tussen stappen → echte voortgang, unknown-teller gereset.
+      if (lastKnownUrl && snapshot.url !== lastKnownUrl && consecutiveUnknowns > 0) {
+        this.log(`URL veranderd → unknown-teller gereset (was ${consecutiveUnknowns})`);
+        consecutiveUnknowns = 0;
+      }
+      lastKnownUrl = snapshot.url;
 
       const tierOverride = snapshot.siteProfileOverride as SiteTier | undefined;
       const profile = tierOverride ? getProfileByTier(tierOverride) : getSiteProfile(snapshot.url);
@@ -414,10 +423,11 @@ export class AgentLoop {
       }
 
       // Judge: beoordeel of de uitkomst overeenkwam met de verwachting.
-      // Alleen aanroepen als: expected aanwezig + actie is geslaagd (mechanische
-      // mislukkingen zijn al afgehandeld door de plan-reset hieronder).
+      // Niet aanroepen voor navigate/wait — die zijn mechanisch (succes = URL bereikt).
+      // Alleen bij click/type/select/extract: die hebben semantische uitkomsten.
+      const judgeApplies = action.kind !== "navigate" && action.kind !== "wait";
       let judgeDetail = "";
-      if (expectedOutcome && result.ok) {
+      if (expectedOutcome && result.ok && judgeApplies) {
         const jResult = await callJudge(this.router, {
           expected: expectedOutcome,
           url: snapshot.url,
