@@ -15,7 +15,8 @@ Output format:
 { "steps": [action1, action2?, action3?], "rationale": "why these 1-3 steps" }
 - Plan 1 to 3 steps. Never 0, never more than 3.
 - Plan ONLY steps that are certain given the CURRENT page state. Never guess what a future page looks like.
-- Each step is one of the available actions below (same JSON format).
+- Each step is one of the available actions below (same JSON format), plus an optional "expected" field.
+- "expected": one concise sentence on what should be visible or changed after this step. Omit if you cannot predict.
 - If the goal is done or impossible: steps = [{ "kind": "finish", "summary": "..." }]
 
 Available actions (use inside "steps" array):

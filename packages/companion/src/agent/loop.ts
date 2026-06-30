@@ -1,7 +1,8 @@
 import type { Action, ActResult, RunStatus, Snapshot, Attachment } from "@yad/shared";
 import type { ChatRequest } from "../engine/types.js";
 import { buildMessages, type HistoryItem } from "./prompt.js";
-import { parseMicroPlan } from "./parse.js";
+import { parseMicroPlan, type PlannedStep } from "./parse.js";
+import { callJudge } from "../judge/judge.js";
 import { checkDenied, needsConfirm, pathIsDenied, type GateContext } from "../gate/guardrails.js";
 import type { SnapshotNode } from "@yad/shared";
 import { getSiteProfile, getProfileByTier, type SiteProfile, type SiteTier } from "../engine/site-profile.js";
@@ -120,7 +121,7 @@ export class AgentLoop {
   private readonly stepLogger: LoopOptions["stepLogger"];
   private readonly runId: string;
   /** Actieve micro-plan buffer. Leeg → LLM aanroepen. Gevuld → volgende stap pakken. */
-  private currentPlan: import("./parse.js").MicroPlan["steps"] = [];
+  private currentPlan: PlannedStep[] = [];
 
   constructor(
     private readonly router: ChatLike,
@@ -165,6 +166,8 @@ export class AgentLoop {
     let lastActionSig = "";
     let repeatCount = 0;
     let lastTier = "";
+    // Judge: telt opeenvolgende "unknown"-verdicts. Bij 3 → escaleer naar mens.
+    let consecutiveUnknowns = 0;
     // Geëxtraheerde informatie tijdens de run; dit wordt het eind-antwoord aan de
     // gebruiker. Zonder dit ziet de mens alleen "klaar" en niet wat er gevonden is.
     const findings: string[] = [];
@@ -295,8 +298,10 @@ export class AgentLoop {
         this.log(`microPlan (${this.currentPlan.length} stap${this.currentPlan.length !== 1 ? "pen" : ""}): ${planResult.plan.rationale.slice(0, 80)}`);
       }
 
-      const action = this.currentPlan.shift();
-      if (!action) continue; // defensief — zou nooit mogen
+      const planned = this.currentPlan.shift();
+      if (!planned) continue; // defensief — zou nooit mogen
+      const action = planned.action;
+      const expectedOutcome = planned.expected;
 
       if (action.kind === "finish") {
         const answer = composeAnswer(action.summary, findings);
@@ -407,10 +412,51 @@ export class AgentLoop {
           ts: Date.now(),
         });
       }
+
+      // Judge: beoordeel of de uitkomst overeenkwam met de verwachting.
+      // Alleen aanroepen als: expected aanwezig + actie is geslaagd (mechanische
+      // mislukkingen zijn al afgehandeld door de plan-reset hieronder).
+      let judgeDetail = "";
+      if (expectedOutcome && result.ok) {
+        const jResult = await callJudge(this.router, {
+          expected: expectedOutcome,
+          url: snapshot.url,
+          extracted: result.extracted,
+          hadEffect: result.ok,
+        });
+        this.log(`Judge: ${jResult.verdict} — ${jResult.evidence.slice(0, 80)}`);
+
+        if (jResult.verdict === "unknown") {
+          consecutiveUnknowns++;
+          judgeDetail = ` [judge:unknown]`;
+          if (consecutiveUnknowns >= 3) {
+            const dummy: Action = { kind: "wait", ms: 0 };
+            const approved = await this.hand.requestConfirm(
+              dummy,
+              `Onzeker over voortgang na ${consecutiveUnknowns} opeenvolgende stappen — de pagina reageert onverwacht. Doorgaan?`,
+            );
+            if (!approved) {
+              this.hand.update({ status: "gestopt", step, message: "Run gestopt — te veel onzekere stappen achter elkaar." });
+              return { status: "gestopt", steps: step };
+            }
+            consecutiveUnknowns = 0;
+          }
+        } else {
+          consecutiveUnknowns = 0;
+          judgeDetail = ` [judge:${jResult.verdict}]`;
+          // Mismatch → rest van het plan weggooien zodat het model opnieuw plant.
+          if (jResult.verdict === "mismatch") {
+            this.currentPlan = [];
+          }
+        }
+      }
+
       history.push({
         action,
         ok: result.ok,
-        detail: result.detail ?? (result.extracted ? result.extracted.slice(0, 200) : undefined),
+        detail: (
+          (result.detail ?? (result.extracted ? result.extracted.slice(0, 200) : "")) + judgeDetail
+        ).trim() || undefined,
       });
       // Actie mislukt → resterende plan-stappen weggooien.
       // Volgende iteratie start met een leeg plan → dwingt nieuwe LLM-aanroep af.
