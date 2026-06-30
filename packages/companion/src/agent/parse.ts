@@ -1,8 +1,15 @@
 import { ACTION_KINDS, type Action } from "@yad/shared";
 
+/** Eén stap in een micro-plan: actie + optionele verwachte uitkomst voor de Judge. */
+export interface PlannedStep {
+  action: Action;
+  /** Wat er zichtbaar of veranderd moet zijn na deze stap. Afwezig → Judge wordt overgeslagen. */
+  expected?: string;
+}
+
 export interface MicroPlan {
-  steps: Action[];   // 1–3 purposeful steps; nooit 0
-  rationale: string; // waarom deze stappen — voor de step-log
+  steps: PlannedStep[]; // 1–3 purposeful steps; nooit 0
+  rationale: string;    // waarom deze stappen — voor de step-log
 }
 
 export type ParseMicroPlanResult =
@@ -145,10 +152,15 @@ export function parseMicroPlan(raw: string): ParseMicroPlanResult {
   // Nieuw formaat: { steps: [...], rationale: "..." }
   if (Array.isArray(obj["steps"])) {
     const rawSteps = (obj["steps"] as unknown[]).slice(0, 3);
-    const steps: Action[] = [];
+    const steps: PlannedStep[] = [];
     for (const s of rawSteps) {
+      const stepObj = s as Record<string, unknown>;
+      const expected =
+        typeof stepObj["expected"] === "string" && stepObj["expected"].trim()
+          ? stepObj["expected"].trim()
+          : undefined;
       const r = parseAction(JSON.stringify(s));
-      if (r.ok) steps.push(r.action);
+      if (r.ok) steps.push({ action: r.action, expected });
     }
     if (steps.length === 0) return { ok: false, error: "plan bevat 0 geldige stappen" };
     return {
@@ -162,7 +174,7 @@ export function parseMicroPlan(raw: string): ParseMicroPlanResult {
 
   // Backward compat: enkel action object → plan van 1 stap
   const single = parseAction(raw);
-  if (single.ok) return { ok: true, plan: { steps: [single.action], rationale: "" } };
+  if (single.ok) return { ok: true, plan: { steps: [{ action: single.action }], rationale: "" } };
 
   return { ok: false, error: `onherkenbaar formaat (${single.error})` };
 }
