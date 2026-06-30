@@ -16,6 +16,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { readFileSync } from "node:fs";
 import type { BrainSession } from "./session.js";
 
 const PORT = 3747;
@@ -71,15 +72,36 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       }
       try {
         const body = await readBody(req);
-        const parsed = JSON.parse(body) as { goal?: string; url?: string };
+        const parsed = JSON.parse(body) as { goal?: string; url?: string; sync?: boolean; maxSteps?: number };
         if (typeof parsed.goal !== "string" || !parsed.goal.trim()) {
           json(res, 400, { ok: false, detail: "goal is verplicht" });
           return;
         }
-        session.triggerGoal(parsed.goal, parsed.url);
-        json(res, 200, { ok: true, goal: parsed.goal });
+        if (parsed.sync === true) {
+          // Wacht op het resultaat zodat de Planner (Claude Code) het kan verwerken.
+          const result = await session.runGoalSync(parsed.goal, {
+            maxSteps: typeof parsed.maxSteps === "number" ? parsed.maxSteps : undefined,
+            startingUrl: parsed.url,
+          });
+          json(res, 200, { ok: true, ...result });
+        } else {
+          // Fire-and-forget: resultaat gaat naar de extension sidepanel (bestaand gedrag).
+          session.triggerGoal(parsed.goal, parsed.url);
+          json(res, 200, { ok: true, goal: parsed.goal });
+        }
       } catch (e) {
         json(res, 400, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    if (url === "/result" && method === "GET") {
+      const resultPath = process.env["YAD_RESULT_PATH"] ?? "C:\\Code\\yad-goal-result.json";
+      try {
+        const content = readFileSync(resultPath, "utf-8");
+        json(res, 200, JSON.parse(content));
+      } catch {
+        json(res, 404, { ok: false, detail: "Geen resultaat beschikbaar — nog geen synchrone run gedraaid" });
       }
       return;
     }
@@ -104,7 +126,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       return;
     }
 
-    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate"] });
+    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result"] });
   });
 
   server.listen(PORT, "127.0.0.1", () => {
