@@ -39,6 +39,19 @@ export interface LoopOptions {
   language?: "nl" | "en";
   /** Action-cache voor deterministisch hergebruik zonder LLM-calls. */
   cacheStore?: CacheStore;
+  /**
+   * Schrijft objectief bewijs (URL, actie, resultaat) per stap naar een bestand.
+   * Geeft de buitenste Planner inzicht zonder de loop-logica te wijzigen.
+   * Bewijs = feiten: URL + actie + ok/fout + geëxtraheerde tekst. Geen evaluatie.
+   */
+  stepLogger?: {
+    append(e: {
+      run: string; step: number; url: string; action: unknown;
+      ok: boolean; extracted?: string; detail?: string; ts: number;
+    }): void;
+  };
+  /** Run-ID voor correlatie in de step-log. */
+  runId?: string;
 }
 
 /** URL-patronen die duiden op een loginpagina (voor sessie-verloop detectie). */
@@ -104,6 +117,8 @@ export class AgentLoop {
   private readonly autonomy: "confirm" | "auto";
   private readonly language: "nl" | "en";
   private readonly cacheStore: CacheStore | undefined;
+  private readonly stepLogger: LoopOptions["stepLogger"];
+  private readonly runId: string;
 
   constructor(
     private readonly router: ChatLike,
@@ -120,6 +135,8 @@ export class AgentLoop {
     this.autonomy = opts.autonomy ?? "confirm";
     this.language = opts.language ?? "nl";
     this.cacheStore = opts.cacheStore;
+    this.stepLogger = opts.stepLogger;
+    this.runId = opts.runId ?? "";
   }
 
   private readonly isAborted: () => boolean;
@@ -363,6 +380,20 @@ export class AgentLoop {
         result = await this.hand.act(enriched);
       } catch (e) {
         result = { ok: false, detail: (e as Error).message };
+      }
+      // Objectief bewijs: URL + actie + resultaat. Feiten, geen evaluatie.
+      // De buitenste Planner leest dit bestand om te beoordelen wat er is gebeurd.
+      if (this.stepLogger) {
+        this.stepLogger.append({
+          run: this.runId,
+          step,
+          url: snapshot.url,
+          action: enriched,
+          ok: result.ok,
+          extracted: result.extracted,
+          detail: result.detail,
+          ts: Date.now(),
+        });
       }
       history.push({
         action,

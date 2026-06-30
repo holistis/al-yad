@@ -12,6 +12,7 @@ import {
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { AgentLoop, type HandBridge } from "./agent/loop.js";
+import { StepLogger } from "./history/step-log.js";
 import { LlmRouter } from "./engine/router.js";
 import { buildPool } from "./engine/pool.js";
 import { createHandshakeHandler, type CompanionInfo } from "./handshake.js";
@@ -21,6 +22,23 @@ import { REDACTEDSessionReader } from "./key/session-reader.js";
 import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js";
 
 type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE";
+
+/**
+ * Wat de Planner (Claude Code) terugkrijgt na een synchrone /goal-run.
+ * Bevat feiten: status, samenvatting, stappen, en paden naar bewijs-bestanden.
+ */
+export interface GoalResult {
+  runId: string;
+  goal: string;
+  status: string;
+  summary?: string;
+  steps: number;
+  startedAt: number;
+  finishedAt: number;
+  startingUrl?: string;
+  resultPath: string;
+  stepLogPath: string;
+}
 
 interface Pending {
   resolve: (payload: unknown) => void;
@@ -211,15 +229,20 @@ export class BrainSession implements HandBridge {
     }
   }
 
-  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[], startingUrl?: string): Promise<void> {
+  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[], startingUrl?: string): Promise<GoalResult> {
+    const resultPath = process.env["YAD_RESULT_PATH"] ?? "C:\\Code\\yad-goal-result.json";
+    const stepLogPath = process.env["YAD_STEP_LOG_PATH"] ?? "C:\\Code\\yad-step-log.jsonl";
+
     if (this.running) {
       this.update({ status: "fout", message: "Er loopt al een taak." });
-      return;
+      const now = Date.now();
+      return { runId: "", goal, status: "fout", summary: "Er loopt al een taak.", steps: 0, startedAt: now, finishedAt: now, startingUrl, resultPath, stepLogPath };
     }
     this.running = true;
     this.aborted = false;
     const runStart = Date.now();
     const runId = Math.random().toString(36).slice(2, 10);
+    const stepLogger = new StepLogger(stepLogPath);
 
     // Sessie-hergebruik: injecteer opgeslagen cookies + localStorage vóór de loop
     // zodat de agent meteen authenticated is op de site zonder handmatige inlog.
@@ -257,6 +280,8 @@ export class BrainSession implements HandBridge {
       autonomy: this.autonomy,
       language: this.language,
       cacheStore: this.cacheStore,
+      stepLogger,
+      runId,
     });
     let outcome: RunHistoryEntry | undefined;
     try {
@@ -286,6 +311,32 @@ export class BrainSession implements HandBridge {
       this.running = false;
       if (outcome) this.runHistory.append(outcome);
     }
+
+    // Schrijf resultaat-bestand zodat de Planner (Claude Code) het kan lezen.
+    // De Planner weet nu: status, samenvatting, stappen, en waar het bewijs staat.
+    const goalResult: GoalResult = {
+      runId,
+      goal,
+      status: outcome?.status ?? "fout",
+      summary: outcome?.summary,
+      steps: outcome?.steps ?? 0,
+      startedAt: runStart,
+      finishedAt: outcome?.finishedAt ?? Date.now(),
+      startingUrl,
+      resultPath,
+      stepLogPath,
+    };
+    try {
+      mkdirSync(dirname(resultPath), { recursive: true });
+      writeFileSync(resultPath, JSON.stringify(goalResult, null, 2), "utf-8");
+      this.log(`resultaat geschreven → ${resultPath}`);
+    } catch { /* schrijffout: nooit de aanroeper onderbreken */ }
+    return goalResult;
+  }
+
+  /** Voert een taak uit en wacht op het resultaat. Gebruikt door POST /goal?sync=true. */
+  async runGoalSync(goal: string, opts?: { maxSteps?: number; startingUrl?: string }): Promise<GoalResult> {
+    return this.startRun(goal, opts?.maxSteps, undefined, opts?.startingUrl);
   }
 
   // ---- HandBridge ----
