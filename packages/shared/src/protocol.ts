@@ -69,6 +69,13 @@ export interface HandPayloads {
     localStorage: Record<string, string>;
     label: "A" | "B";
   };
+  /** pagina-capture voor Claude Code — stuurt URL + titel + tekst naar companion die het naar schijf schrijft */
+  PAGE_CAPTURE: {
+    url: string;
+    title: string;
+    text: string;
+    capturedAt: string;
+  };
   /** antwoord op INJECT_COOKIES (correlationId verwijst naar de aanvraag) */
   INJECT_COOKIES_RESULT: { ok: boolean; count: number };
   /** antwoord op INJECT_LOCALSTORAGE (correlationId verwijst naar de aanvraag) */
@@ -103,6 +110,14 @@ export interface BrainPayloads {
     authType?: string;
     detail?: string;
   };
+  /** resultaat van een PAGE_CAPTURE: is de brug-file geschreven? */
+  CLAUDE_BRIDGE_RESULT: {
+    ok: boolean;
+    path?: string;
+    detail?: string;
+  };
+  /** vraag de Hand om de actieve pagina te capturen en terug te sturen als PAGE_CAPTURE */
+  REQUEST_CAPTURE_FOR_CLAUDE: Record<string, never>;
   /** vraag de Hand om cookies te injecteren voor een URL (sessie-hergebruik) */
   INJECT_COOKIES: { url: string; cookies: Array<{ name: string; value: string }> };
   /** vraag de Hand om localStorage-items te zetten in de actieve run-tab (jwt-bearer sessie-hergebruik) */

@@ -94,6 +94,10 @@ export function startNativePort(): void {
         void handleCaptureSession(msg.label as "A" | "B");
         sendResponse({ ok: true });
         return true;
+      case "YAD_CAPTURE_FOR_CLAUDE":
+        void handleCaptureForClaude();
+        sendResponse({ ok: true });
+        return true;
       default:
         return undefined;
     }
@@ -333,6 +337,15 @@ function onMessage(raw: unknown): void {
       });
       break;
     }
+    case "CLAUDE_BRIDGE_RESULT": {
+      const p = raw.payload as { ok: boolean; path?: string; detail?: string };
+      toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ...p });
+      break;
+    }
+    case "REQUEST_CAPTURE_FOR_CLAUDE": {
+      void handleCaptureForClaude();
+      break;
+    }
     case "INJECT_LOCALSTORAGE": {
       const p = raw.payload as { items: Record<string, string> };
       if (runTabId == null) {
@@ -365,6 +378,36 @@ async function sendConfigUpdate(): Promise<void> {
       language: settings.language,
     }),
   );
+}
+
+async function handleCaptureForClaude(): Promise<void> {
+  if (!port) {
+    toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ok: false, detail: "Niet verbonden met de companion." });
+    return;
+  }
+  toSidepanel({ type: "YAD_CLAUDE_BRIDGE_CAPTURING" });
+  try {
+    const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+    tabs.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
+    const tab = tabs[0];
+    if (!tab || typeof tab.id !== "number") {
+      toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ok: false, detail: "Geen actieve web-tab gevonden." });
+      return;
+    }
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => (document.body?.innerText ?? "").slice(0, 20000),
+    });
+    const text = (results[0]?.result as string | undefined) ?? "";
+    port.postMessage(handMessage("PAGE_CAPTURE", {
+      url: tab.url ?? "",
+      title: tab.title ?? "",
+      text,
+      capturedAt: new Date().toISOString(),
+    }));
+  } catch (e) {
+    toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ok: false, detail: (e as Error).message });
+  }
 }
 
 async function handleCaptureSession(label: "A" | "B"): Promise<void> {

@@ -9,6 +9,8 @@ import {
   type RunStatus,
   type Snapshot,
 } from "@yad/shared";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { AgentLoop, type HandBridge } from "./agent/loop.js";
 import { LlmRouter } from "./engine/router.js";
 import { buildPool } from "./engine/pool.js";
@@ -40,6 +42,9 @@ export class BrainSession implements HandBridge {
   private defaultMaxSteps = 15;
   private autonomy: "confirm" | "auto" = "confirm";
   private language: "nl" | "en" = "nl";
+  private connected = false;
+  private pendingCapture: ((path: string) => void) | null = null;
+  private pendingCaptureReject: ((e: Error) => void) | null = null;
   // router is niet readonly: UPDATE_CONFIG kan de pool vervangen
   private router: LlmRouter;
   private readonly cacheStore = new CacheStore();
@@ -56,6 +61,27 @@ export class BrainSession implements HandBridge {
     this.handshake = createHandshakeHandler(info, send, log);
   }
 
+  isConnected(): boolean { return this.connected; }
+
+  captureForClaude(): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      this.pendingCapture = resolve;
+      this.pendingCaptureReject = reject;
+      this.send(brainMessage("REQUEST_CAPTURE_FOR_CLAUDE", {}));
+      setTimeout(() => {
+        if (this.pendingCapture) {
+          this.pendingCapture = null;
+          this.pendingCaptureReject = null;
+          reject(new Error("Capture time-out na 15s — is Chrome open met YAD?"));
+        }
+      }, 15_000);
+    });
+  }
+
+  triggerGoal(goal: string, startingUrl?: string): void {
+    void this.startRun(goal, undefined, undefined, startingUrl);
+  }
+
   handle(raw: unknown): void {
     if (!isEnvelope(raw)) {
       this.handshake(raw);
@@ -63,6 +89,9 @@ export class BrainSession implements HandBridge {
     }
     switch (raw.type) {
       case "HELLO":
+        this.connected = true;
+        this.handshake(raw);
+        return;
       case "PING":
         this.handshake(raw);
         return;
@@ -114,6 +143,36 @@ export class BrainSession implements HandBridge {
             ? `sessie opgeslagen: ${result.brand} account-${p.label} → ${result.path}`
             : `sessie-fout: ${result.detail}`,
         );
+        return;
+      }
+      case "PAGE_CAPTURE": {
+        const p = raw.payload as {
+          url: string;
+          title: string;
+          text: string;
+          capturedAt: string;
+        };
+        const bridgePath = process.env["YAD_BRIDGE_PATH"] ?? "C:\\Code\\yad-claude-bridge.json";
+        try {
+          mkdirSync(dirname(bridgePath), { recursive: true });
+          writeFileSync(bridgePath, JSON.stringify(p, null, 2), "utf-8");
+          this.send(brainMessage("CLAUDE_BRIDGE_RESULT", { ok: true, path: bridgePath }));
+          this.log(`claude-brug geschreven → ${bridgePath}`);
+          if (this.pendingCapture) {
+            this.pendingCapture(bridgePath);
+            this.pendingCapture = null;
+            this.pendingCaptureReject = null;
+          }
+        } catch (e) {
+          const detail = (e as Error).message;
+          this.send(brainMessage("CLAUDE_BRIDGE_RESULT", { ok: false, detail }));
+          this.log(`claude-brug mislukt: ${detail}`);
+          if (this.pendingCaptureReject) {
+            this.pendingCaptureReject(e as Error);
+            this.pendingCapture = null;
+            this.pendingCaptureReject = null;
+          }
+        }
         return;
       }
       case "SNAPSHOT_RESULT":

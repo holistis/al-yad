@@ -5,6 +5,7 @@ import { BrainSession } from "./session.js";
 import { buildPool } from "./engine/pool.js";
 import { LlmRouter } from "./engine/router.js";
 import { loadEnvFile } from "./env.js";
+import { startHttpApi } from "./http-api.js";
 import type { CompanionInfo } from "./handshake.js";
 
 const COMPANION_VERSION = "0.1.0";
@@ -48,6 +49,9 @@ function main(): void {
     `gestart (v${COMPANION_VERSION}, tenant=${info.tenantId}, sessie=${info.sessionId}, ` +
       `${router.size} providers)`,
   );
+
+  // Start lokale HTTP trigger-API zodat Claude Code autonoom commando's kan sturen.
+  startHttpApi(session, log);
 
   stdin.on("end", () => {
     log("stdin gesloten door Chrome, companion sluit af");
