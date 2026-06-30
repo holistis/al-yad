@@ -1,4 +1,5 @@
 import { startNativePort } from "../lib/native-port";
+// defineBackground is auto-imported by WXT
 
 // `defineBackground` wordt door WXT auto-geimporteerd (geen import-regel nodig).
 

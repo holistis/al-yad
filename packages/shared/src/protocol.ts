@@ -80,6 +80,8 @@ export interface HandPayloads {
   INJECT_COOKIES_RESULT: { ok: boolean; count: number };
   /** antwoord op INJECT_LOCALSTORAGE (correlationId verwijst naar de aanvraag) */
   INJECT_LOCALSTORAGE_RESULT: { ok: boolean; count: number };
+  /** antwoord op REQUEST_NAVIGATE */
+  NAVIGATE_RESULT: { ok: boolean; detail?: string };
 }
 
 /** Berichten van het Brein naar de Hand. */
@@ -118,6 +120,8 @@ export interface BrainPayloads {
   };
   /** vraag de Hand om de actieve pagina te capturen en terug te sturen als PAGE_CAPTURE */
   REQUEST_CAPTURE_FOR_CLAUDE: Record<string, never>;
+  /** vraag de Hand om de actieve tab te navigeren naar een URL en te wachten tot geladen */
+  REQUEST_NAVIGATE: { url: string };
   /** vraag de Hand om cookies te injecteren voor een URL (sessie-hergebruik) */
   INJECT_COOKIES: { url: string; cookies: Array<{ name: string; value: string }> };
   /** vraag de Hand om localStorage-items te zetten in de actieve run-tab (jwt-bearer sessie-hergebruik) */

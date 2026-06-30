@@ -82,6 +82,22 @@ export class BrainSession implements HandBridge {
     void this.startRun(goal, undefined, undefined, startingUrl);
   }
 
+  navigateTo(url: string): Promise<boolean> {
+    const msg = brainMessage("REQUEST_NAVIGATE", { url });
+    return new Promise<boolean>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(msg.id);
+        reject(new Error("Navigate time-out na 20s"));
+      }, 20_000);
+      this.pending.set(msg.id, {
+        resolve: (p) => resolve((p as { ok: boolean }).ok),
+        reject,
+        timer,
+      });
+      this.send(msg);
+    });
+  }
+
   handle(raw: unknown): void {
     if (!isEnvelope(raw)) {
       this.handshake(raw);
@@ -179,7 +195,8 @@ export class BrainSession implements HandBridge {
       case "ACT_RESULT":
       case "CONFIRM_RESULT":
       case "INJECT_COOKIES_RESULT":
-      case "INJECT_LOCALSTORAGE_RESULT": {
+      case "INJECT_LOCALSTORAGE_RESULT":
+      case "NAVIGATE_RESULT": {
         const cid = raw.correlationId;
         const pend = cid ? this.pending.get(cid) : undefined;
         if (cid && pend) {

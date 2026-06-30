@@ -84,7 +84,27 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       return;
     }
 
-    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal"] });
+    if (url === "/navigate" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const body = await readBody(req);
+        const parsed = JSON.parse(body) as { url?: string };
+        if (typeof parsed.url !== "string" || !/^https?:\/\//i.test(parsed.url)) {
+          json(res, 400, { ok: false, detail: "url is verplicht en moet http(s) zijn" });
+          return;
+        }
+        const ok = await session.navigateTo(parsed.url);
+        json(res, 200, { ok });
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate"] });
   });
 
   server.listen(PORT, "127.0.0.1", () => {

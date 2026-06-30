@@ -256,7 +256,7 @@ function connect(): void {
 }
 
 function replyToBrain(
-  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT",
+  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT",
   payload: object,
   correlationId: string,
 ): void {
@@ -344,6 +344,24 @@ function onMessage(raw: unknown): void {
     }
     case "REQUEST_CAPTURE_FOR_CLAUDE": {
       void handleCaptureForClaude();
+      break;
+    }
+    case "REQUEST_NAVIGATE": {
+      const p = raw.payload as { url: string };
+      void (async () => {
+        const tabId = lastWebTabId;
+        if (tabId == null) {
+          replyToBrain("NAVIGATE_RESULT", { ok: false, detail: "geen actieve tab" }, raw.id);
+          return;
+        }
+        try {
+          await chrome.tabs.update(tabId, { url: p.url });
+          const done = await waitForLoad(tabId);
+          replyToBrain("NAVIGATE_RESULT", { ok: done }, raw.id);
+        } catch (e) {
+          replyToBrain("NAVIGATE_RESULT", { ok: false, detail: (e as Error).message }, raw.id);
+        }
+      })();
       break;
     }
     case "INJECT_LOCALSTORAGE": {
