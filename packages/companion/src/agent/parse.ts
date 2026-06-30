@@ -1,5 +1,14 @@
 import { ACTION_KINDS, type Action } from "@yad/shared";
 
+export interface MicroPlan {
+  steps: Action[];   // 1–3 purposeful steps; nooit 0
+  rationale: string; // waarom deze stappen — voor de step-log
+}
+
+export type ParseMicroPlanResult =
+  | { ok: true; plan: MicroPlan }
+  | { ok: false; error: string };
+
 export type ParseResult = { ok: true; action: Action } | { ok: false; error: string };
 
 /** Scant vanaf een '{' het eerste syntactisch complete object (strings/escapes-bewust). */
@@ -113,4 +122,47 @@ export function parseAction(raw: string): ParseResult {
     default:
       return { ok: false, error: `niet-afgehandelde kind: ${kind}` };
   }
+}
+
+/**
+ * Parseert een micro-plan uit een LLM-antwoord.
+ *
+ * Verwacht formaat: { "steps": [action, ...], "rationale": "..." }
+ * Backward compat: als het model één actie teruggeeft (oud formaat),
+ * wordt dat automatisch ingepakt als plan van 1 stap.
+ */
+export function parseMicroPlan(raw: string): ParseMicroPlanResult {
+  const json = extractJson(raw);
+  if (!json) return { ok: false, error: "geen geldig JSON-object gevonden" };
+
+  let obj: Record<string, unknown>;
+  try {
+    obj = JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return { ok: false, error: "ongeldige JSON" };
+  }
+
+  // Nieuw formaat: { steps: [...], rationale: "..." }
+  if (Array.isArray(obj["steps"])) {
+    const rawSteps = (obj["steps"] as unknown[]).slice(0, 3);
+    const steps: Action[] = [];
+    for (const s of rawSteps) {
+      const r = parseAction(JSON.stringify(s));
+      if (r.ok) steps.push(r.action);
+    }
+    if (steps.length === 0) return { ok: false, error: "plan bevat 0 geldige stappen" };
+    return {
+      ok: true,
+      plan: {
+        steps,
+        rationale: typeof obj["rationale"] === "string" ? obj["rationale"] : "",
+      },
+    };
+  }
+
+  // Backward compat: enkel action object → plan van 1 stap
+  const single = parseAction(raw);
+  if (single.ok) return { ok: true, plan: { steps: [single.action], rationale: "" } };
+
+  return { ok: false, error: `onherkenbaar formaat (${single.error})` };
 }

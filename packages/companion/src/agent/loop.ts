@@ -1,7 +1,7 @@
 import type { Action, ActResult, RunStatus, Snapshot, Attachment } from "@yad/shared";
 import type { ChatRequest } from "../engine/types.js";
 import { buildMessages, type HistoryItem } from "./prompt.js";
-import { parseAction } from "./parse.js";
+import { parseMicroPlan } from "./parse.js";
 import { checkDenied, needsConfirm, pathIsDenied, type GateContext } from "../gate/guardrails.js";
 import type { SnapshotNode } from "@yad/shared";
 import { getSiteProfile, getProfileByTier, type SiteProfile, type SiteTier } from "../engine/site-profile.js";
@@ -119,6 +119,8 @@ export class AgentLoop {
   private readonly cacheStore: CacheStore | undefined;
   private readonly stepLogger: LoopOptions["stepLogger"];
   private readonly runId: string;
+  /** Actieve micro-plan buffer. Leeg → LLM aanroepen. Gevuld → volgende stap pakken. */
+  private currentPlan: import("./parse.js").MicroPlan["steps"] = [];
 
   constructor(
     private readonly router: ChatLike,
@@ -157,6 +159,7 @@ export class AgentLoop {
     const history: HistoryItem[] = [];
     this.hand.update({ status: "plannen", message: `Doel: ${goal}` });
 
+    this.currentPlan = []; // reset per run — vorige plan-rest nooit meenemen
     let parseFails = 0;
     let cleanRun = true; // false zodra er een parse-fout is geweest; vuile runs worden niet gecached.
     let lastActionSig = "";
@@ -263,28 +266,37 @@ export class AgentLoop {
         continue;
       }
 
-      let content: string;
-      try {
-        content = await this.chatWithRetry(goal, snapshot, history, step, attachments);
-      } catch (e) {
-        this.hand.update({ status: "fout", step, message: friendlyLlmError(e) });
-        return { status: "fout", steps: step - 1 };
+      // LLM alleen aanroepen als het plan leeg is.
+      // Bevat het plan nog stappen? Volgende pakken zonder model-aanroep.
+      // Dit is de kern van microPlan: 1 LLM-call dekt 1-3 browser-acties.
+      if (this.currentPlan.length === 0) {
+        let content: string;
+        try {
+          content = await this.chatWithRetry(goal, snapshot, history, step, attachments);
+        } catch (e) {
+          this.hand.update({ status: "fout", step, message: friendlyLlmError(e) });
+          return { status: "fout", steps: step - 1 };
+        }
+
+        const planResult = parseMicroPlan(content);
+        if (!planResult.ok) {
+          parseFails++;
+          cleanRun = false;
+          this.log(`plan parse-fout: ${planResult.error}`);
+          history.push({ action: { kind: "wait", ms: 0 }, ok: false, detail: `plan parse-fout (${planResult.error})` });
+          if (parseFails >= 3) {
+            this.hand.update({ status: "fout", step, message: "Model bleef onleesbare plannen geven." });
+            return { status: "fout", steps: step };
+          }
+          continue;
+        }
+        parseFails = 0;
+        this.currentPlan = [...planResult.plan.steps];
+        this.log(`microPlan (${this.currentPlan.length} stap${this.currentPlan.length !== 1 ? "pen" : ""}): ${planResult.plan.rationale.slice(0, 80)}`);
       }
 
-      const parsed = parseAction(content);
-      if (!parsed.ok) {
-        parseFails++;
-        cleanRun = false;
-        this.log(`parse-fout: ${parsed.error}`);
-        history.push({ action: { kind: "wait", ms: 0 }, ok: false, detail: `onleesbaar modelantwoord (${parsed.error})` });
-        if (parseFails >= 3) {
-          this.hand.update({ status: "fout", step, message: "Model bleef onleesbare antwoorden geven." });
-          return { status: "fout", steps: step };
-        }
-        continue;
-      }
-      parseFails = 0;
-      const action = parsed.action;
+      const action = this.currentPlan.shift();
+      if (!action) continue; // defensief — zou nooit mogen
 
       if (action.kind === "finish") {
         const answer = composeAnswer(action.summary, findings);
@@ -400,6 +412,12 @@ export class AgentLoop {
         ok: result.ok,
         detail: result.detail ?? (result.extracted ? result.extracted.slice(0, 200) : undefined),
       });
+      // Actie mislukt → resterende plan-stappen weggooien.
+      // Volgende iteratie start met een leeg plan → dwingt nieuwe LLM-aanroep af.
+      // Dit is het "stops earlier" mechanisme: geen blinde vervolgstap na een fout.
+      if (!result.ok) {
+        this.currentPlan = [];
+      }
       // Bewaar de VOLLEDIGE geëxtraheerde inhoud (niet de 200-tekens-history-versie)
       // voor het eind-antwoord aan de gebruiker.
       if (result.extracted && result.extracted.trim()) {
