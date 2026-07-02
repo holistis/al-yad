@@ -23,15 +23,37 @@ export interface HandBridge {
 /** Waarom de loop vastzit — voor Claude Code om te diagnosticeren. */
 export interface StuckReason {
   why:
-    | "repeat"               // exact dezelfde actie herhaald
-    | "consecutive-unknowns" // judge kan uitkomst niet beoordelen
-    | "parse-fail"           // model geeft onleesbare plannen
-    | "consecutive-act-failures"; // browser weigert acties (DOM-probleem/drift)
+    | "repeat"                   // exact dezelfde actie herhaald
+    | "consecutive-unknowns"     // judge kan uitkomst niet beoordelen
+    | "parse-fail"               // model geeft onleesbare plannen
+    | "consecutive-act-failures" // browser weigert acties (DOM-probleem/drift)
+    | "state-loop"               // dezelfde browserstate keert terug na andere acties
+    | "no-progress";             // geen judge-match in 6+ LLM-aanroepen
   runId: string;
   goal: string;
   url: string;
   lastAction: Action;
   history: HistoryItem[];
+}
+
+/**
+ * Compacte vingerafdruk van een snapshot voor loop-detectie.
+ * Stabiel genoeg om ruis te filteren, gevoelig genoeg voor echte state-changes.
+ * Bevat: URL-pad + gesorteerde interactieve elementen (role:name) + aantal gevulde velden.
+ */
+function snapshotFingerprint(snapshot: Snapshot): string {
+  const path = (() => {
+    try { return new URL(snapshot.url).pathname; } catch { return snapshot.url.slice(0, 80); }
+  })();
+  const elems = snapshot.nodes
+    .slice(0, 60)
+    .filter((n) => !n.disabled)
+    .map((n) => `${n.role}:${n.name.slice(0, 25)}`)
+    .sort()
+    .join("|");
+  // Gevulde inputvelden tellen: typische formulier-voortgang verandert dit getal
+  const filledCount = snapshot.nodes.filter((n) => n.value && n.value.trim()).length;
+  return `${path}||${elems}||f${filledCount}`;
 }
 
 export interface LoopOptions {
@@ -202,6 +224,12 @@ export class AgentLoop {
     // Telt opeenvolgende act()-mislukkingen (ongeacht welke actie). Browser weigert
     // acties wanneer DOM drastisch veranderd is (drift) of een modal alles blokkeert.
     let consecutiveActFailures = 0;
+    // State Loop: circular buffer van fingerprints. Als de huidige staat eerder is
+    // gezien (>=4 stappen geleden), zit de agent in een lus.
+    const stateHistory: string[] = [];
+    // No Progress: telt LLM-aanroepen zonder judge-confirmed "match".
+    // Bij 6+ aanroepen zonder vooruitgang → stoppen voor er meer tokens verbrand worden.
+    let llmCallsSinceProgress = 0;
 
     // Startpagina ophalen voor cache-sleutel en optionele replay.
     let startingUrl = "";
@@ -253,12 +281,47 @@ export class AgentLoop {
         return { status: "gestopt", steps: step - 1 };
       }
 
-      // URL veranderd tussen stappen → echte voortgang, unknown-teller gereset.
-      if (lastKnownUrl && snapshot.url !== lastKnownUrl && consecutiveUnknowns > 0) {
-        this.log(`URL veranderd → unknown-teller gereset (was ${consecutiveUnknowns})`);
+      // URL veranderd → echte navigatie = voortgang. Reset alle voortgangstellers.
+      if (lastKnownUrl && snapshot.url !== lastKnownUrl) {
+        if (consecutiveUnknowns > 0) this.log(`URL veranderd → unknown-teller gereset (was ${consecutiveUnknowns})`);
         consecutiveUnknowns = 0;
+        llmCallsSinceProgress = 0;
+        stateHistory.length = 0; // nieuwe URL = nieuw staat-geheugen
       }
       lastKnownUrl = snapshot.url;
+
+      // State Loop detectie: fingerprint van de huidige browser-staat.
+      // Als we hier al eerder waren (>=4 stappen geleden) en geen vooruitgang hadden,
+      // zit de agent in een lus van verschillende acties op steeds dezelfde pagina.
+      const fingerprint = snapshotFingerprint(snapshot);
+      const prevIdx = stateHistory.lastIndexOf(fingerprint);
+      if (prevIdx !== -1 && stateHistory.length - prevIdx >= 4 && llmCallsSinceProgress >= 2) {
+        this.log(`state-loop: fingerprint gezien ${stateHistory.length - prevIdx} stappen geleden`);
+        if (this.onStuck) {
+          this.hand.update({ status: "hulp-nodig", step, message: "State-lus: zelfde pagina teruggekeerd na andere acties — Claude Code gevraagd." });
+          const hint = await this.onStuck({
+            why: "state-loop",
+            runId: this.runId,
+            goal,
+            url: snapshot.url,
+            lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
+            history,
+          });
+          if (hint) {
+            this.failedHint = hint;
+            llmCallsSinceProgress = 0;
+            stateHistory.length = 0;
+            this.currentPlan = [];
+            this.hand.update({ status: "bezig", step, message: "Herstelplan ontvangen — uitweg uit de lus..." });
+          } else {
+            this.hand.update({ status: "gestopt", step, message: "Run gestopt — state-lus zonder herstelplan (timeout)." });
+            return { status: "gestopt", steps: step };
+          }
+        }
+      }
+      // Voeg huidige fingerprint toe aan history (max 20 entries, oldest-first)
+      stateHistory.push(fingerprint);
+      if (stateHistory.length > 20) stateHistory.shift();
 
       const tierOverride = snapshot.siteProfileOverride as SiteTier | undefined;
       const profile = tierOverride ? getProfileByTier(tierOverride) : getSiteProfile(snapshot.url);
@@ -311,6 +374,33 @@ export class AgentLoop {
       // Bevat het plan nog stappen? Volgende pakken zonder model-aanroep.
       // Dit is de kern van microPlan: 1 LLM-call dekt 1-3 browser-acties.
       if (this.currentPlan.length === 0) {
+        // No Progress detectie: als we 6+ LLM-aanroepen hebben gedaan zonder dat de
+        // judge ooit "match" zei, maakt YAD geld en tokens op zonder richting het doel te gaan.
+        llmCallsSinceProgress++;
+        if (llmCallsSinceProgress >= 6) {
+          this.log(`no-progress: ${llmCallsSinceProgress} LLM-aanroepen zonder judge-match`);
+          if (this.onStuck) {
+            this.hand.update({ status: "hulp-nodig", step, message: `Geen meetbare voortgang na ${llmCallsSinceProgress} AI-aanroepen — Claude Code gevraagd.` });
+            const hint = await this.onStuck({
+              why: "no-progress",
+              runId: this.runId,
+              goal,
+              url: snapshot.url,
+              lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
+              history,
+            });
+            if (hint) {
+              this.failedHint = hint;
+              llmCallsSinceProgress = 0;
+              this.currentPlan = [];
+              this.hand.update({ status: "bezig", step, message: "Herstelplan ontvangen — nieuwe aanpak..." });
+            } else {
+              this.hand.update({ status: "gestopt", step, message: `Run gestopt — ${llmCallsSinceProgress} aanroepen zonder voortgang, geen herstelplan.` });
+              return { status: "gestopt", steps: step };
+            }
+          }
+        }
+
         let content: string;
         try {
           content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint);
@@ -558,8 +648,11 @@ export class AgentLoop {
         } else {
           consecutiveUnknowns = 0;
           judgeDetail = ` [judge:${jResult.verdict}]`;
-          // Mismatch → rest van het plan weggooien zodat het model opnieuw plant.
-          if (jResult.verdict === "mismatch") {
+          if (jResult.verdict === "match") {
+            // Judge bevestigt voortgang → reset no-progress teller
+            llmCallsSinceProgress = 0;
+          } else if (jResult.verdict === "mismatch") {
+            // Mismatch → rest van het plan weggooien zodat het model opnieuw plant.
             this.currentPlan = [];
           }
         }
