@@ -17,6 +17,7 @@
  */
 import { chromium, type Browser, type Page } from "playwright";
 import type { Action, ActResult, RunStatus, Snapshot, SnapshotNode } from "@yad/shared";
+import { normalizeText, SNAPSHOT_LIMITS } from "@yad/shared";
 import type { HandBridge } from "./agent/loop.js";
 
 export interface PlaywrightHandOptions {
@@ -39,7 +40,7 @@ const SNAPSHOT_SCRIPT = `(() => {
     '[role="checkbox"]', '[role="menuitem"]', '[role="tab"]',
     '[role="combobox"]', '[role="textbox"]',
   ].join(',');
-  const els = Array.from(document.querySelectorAll(SELECTOR)).slice(0, 200);
+  const els = Array.from(document.querySelectorAll(SELECTOR)).slice(0, ${SNAPSHOT_LIMITS.MAX_NODES});
   let idx = 1;
   const nodes = [];
   for (const el of els) {
@@ -104,21 +105,25 @@ export class PlaywrightHand implements HandBridge {
 
     let nodes: SnapshotNode[] = [];
     try {
-      nodes = (await page.evaluate(SNAPSHOT_SCRIPT)) as SnapshotNode[];
+      const raw = (await page.evaluate(SNAPSHOT_SCRIPT)) as SnapshotNode[];
+      nodes = raw.map((n) => ({
+        ...n,
+        name: normalizeText(n.name).slice(0, SNAPSHOT_LIMITS.NAME_LIMIT),
+        ...(n.value !== undefined ? { value: normalizeText(n.value).slice(0, SNAPSHOT_LIMITS.NAME_LIMIT) } : {}),
+      }));
     } catch {
       /* pagina blokkeert evaluate (bv. about:blank) — lege nodes */
     }
 
     let textDigest = "";
     try {
-      textDigest = await page.evaluate(
-        "(document.body?.innerText ?? '').slice(0, 3000)",
-      ) as string;
+      const raw = await page.evaluate("document.body?.innerText ?? ''") as string;
+      textDigest = normalizeText(raw).slice(0, SNAPSHOT_LIMITS.DIGEST_LIMIT);
     } catch {
       /* negeer */
     }
 
-    return { url, title, nodes, textDigest };
+    return { url, title: normalizeText(title), nodes, textDigest };
   }
 
   async act(action: Action): Promise<ActResult> {

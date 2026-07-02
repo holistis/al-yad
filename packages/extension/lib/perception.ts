@@ -1,4 +1,5 @@
 import type { Snapshot, SnapshotNode } from "@yad/shared";
+import { normalizeText, SNAPSHOT_LIMITS } from "@yad/shared";
 
 /**
  * De Ogen: bouwt een compacte perceptie van de pagina. Verzamelt alleen
@@ -23,21 +24,6 @@ const INTERACTIVE_SELECTOR = [
   "summary",
 ].join(",");
 
-// Zero-width (200B-200D), word-joiner (2060), BOM (FEFF) en bidi-controls
-// (202A-202E, 2066-2069): strippen voordat tekst de prompt raakt. Opgebouwd uit
-// code-punten zodat er geen onzichtbare tekens in de broncode staan.
-const INVISIBLE_CODES = [
-  0x200b, 0x200c, 0x200d, 0x2060, 0xfeff, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067,
-  0x2068, 0x2069,
-];
-const INVISIBLE = new RegExp(
-  "[" + INVISIBLE_CODES.map((c) => "\\u" + c.toString(16).padStart(4, "0")).join("") + "]",
-  "g",
-);
-
-function sanitize(s: string): string {
-  return s.replace(INVISIBLE, "");
-}
 
 function isVisible(el: Element): boolean {
   const he = el as HTMLElement;
@@ -127,7 +113,7 @@ function valueOf(el: Element): string | undefined {
   return undefined;
 }
 
-export function buildSnapshot(refMap: Map<string, Element>, maxNodes = 150): Snapshot {
+export function buildSnapshot(refMap: Map<string, Element>, maxNodes = SNAPSHOT_LIMITS.MAX_NODES): Snapshot {
   refMap.clear();
   const nodes: SnapshotNode[] = [];
   const seen = new Set<Element>();
@@ -157,22 +143,19 @@ export function buildSnapshot(refMap: Map<string, Element>, maxNodes = 150): Sna
     const node: SnapshotNode = {
       ref,
       role: roleOf(el),
-      name: sanitize(nameOf(el)).slice(0, 120),
+      name: normalizeText(nameOf(el)).slice(0, SNAPSHOT_LIMITS.NAME_LIMIT),
     };
     const value = valueOf(el);
-    if (value) node.value = sanitize(value);
+    if (value) node.value = normalizeText(value);
     if ((el as HTMLButtonElement).disabled) node.disabled = true;
     nodes.push(node);
   }
 
-  const textDigest = sanitize((document.body?.innerText || "").replace(/\s+/g, " ").trim()).slice(
-    0,
-    1500,
-  );
+  const textDigest = normalizeText(document.body?.innerText || "").slice(0, SNAPSHOT_LIMITS.DIGEST_LIMIT);
 
   return {
     url: location.href,
-    title: sanitize(document.title),
+    title: normalizeText(document.title),
     nodes,
     textDigest,
   };
