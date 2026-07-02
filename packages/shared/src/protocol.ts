@@ -22,7 +22,9 @@ export type RunStatus =
   | "klaar"
   | "gestopt"
   | "fout"
-  | "geweigerd";
+  | "geweigerd"
+  /** Loop vastzit; wacht op herstelplan van Claude Code via POST /assist. */
+  | "hulp-nodig";
 
 /** Generieke envelope. Elk bericht heeft een uniek id; antwoorden zetten `correlationId`. */
 export interface Envelope<TType extends string, TPayload> {

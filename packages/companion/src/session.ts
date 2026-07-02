@@ -11,7 +11,7 @@ import {
 } from "@yad/shared";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { AgentLoop, type HandBridge } from "./agent/loop.js";
+import { AgentLoop, type HandBridge, type StuckReason } from "./agent/loop.js";
 import { StepLogger } from "./history/step-log.js";
 import { LlmRouter } from "./engine/router.js";
 import { buildPool } from "./engine/pool.js";
@@ -63,6 +63,9 @@ export class BrainSession implements HandBridge {
   private connected = false;
   private pendingCapture: ((path: string) => void) | null = null;
   private pendingCaptureReject: ((e: Error) => void) | null = null;
+  /** Wacht op herstelplan van Claude Code via POST /assist. */
+  private pendingRecovery: ((plan: string | null) => void) | null = null;
+  private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
   // router is niet readonly: UPDATE_CONFIG kan de pool vervangen
   private router: LlmRouter;
   private readonly cacheStore = new CacheStore();
@@ -80,6 +83,59 @@ export class BrainSession implements HandBridge {
   }
 
   isConnected(): boolean { return this.connected; }
+
+  /**
+   * Ontvangt een herstelplan van Claude Code (via POST /assist).
+   * Als de loop wacht (hulp-nodig), wordt het plan meteen doorgegeven.
+   * Geeft true terug als iemand aan het wachten was, false als niet.
+   */
+  setRecoveryPlan(plan: string): boolean {
+    if (this.pendingRecovery) {
+      const cb = this.pendingRecovery;
+      this.pendingRecovery = null;
+      if (this.recoveryTimer) { clearTimeout(this.recoveryTimer); this.recoveryTimer = null; }
+      cb(plan);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Schrijft een stuck-envelope naar schijf en wacht tot Claude Code een plan stuurt.
+   * Geeft null terug na 120s (timeout) zodat de loop veilig kan stoppen.
+   */
+  private async handleStuck(reason: StuckReason): Promise<string | null> {
+    const stuckPath = process.env["YAD_STUCK_PATH"] ?? "C:\\Code\\yad-stuck.json";
+    const envelope = {
+      stuckAt: Date.now(),
+      runId: reason.runId,
+      goal: reason.goal,
+      url: reason.url,
+      why: reason.why,
+      lastAction: reason.lastAction,
+      recentHistory: reason.history.slice(-6),
+      resolved: false,
+    };
+    try {
+      mkdirSync(dirname(stuckPath), { recursive: true });
+      writeFileSync(stuckPath, JSON.stringify(envelope, null, 2), "utf-8");
+      this.log(`[assist] stuck-envelope geschreven → ${stuckPath} (reden: ${reason.why})`);
+    } catch (e) {
+      this.log(`[assist] kon stuck-envelope niet schrijven: ${(e as Error).message}`);
+    }
+
+    return new Promise<string | null>((resolve) => {
+      this.pendingRecovery = resolve;
+      this.recoveryTimer = setTimeout(() => {
+        this.pendingRecovery = null;
+        this.recoveryTimer = null;
+        this.log("[assist] geen herstelplan binnen 120s — run stopt");
+        // Markeer als opgelost zodat GET /assist niet eeuwig 'stuck' toont
+        try { writeFileSync(stuckPath, JSON.stringify({ resolved: true }), "utf-8"); } catch { /* ignore */ }
+        resolve(null);
+      }, 120_000);
+    });
+  }
 
   captureForClaude(): Promise<string> {
     return new Promise<string>((resolve, reject) => {
@@ -260,6 +316,10 @@ export class BrainSession implements HandBridge {
     const resultPath = process.env["YAD_RESULT_PATH"] ?? "C:\\Code\\yad-goal-result.json";
     const stepLogPath = process.env["YAD_STEP_LOG_PATH"] ?? "C:\\Code\\yad-step-log.jsonl";
 
+    // Reset stuck-envelope van vorige run zodat GET /assist niet oude data toont
+    const stuckPath = process.env["YAD_STUCK_PATH"] ?? "C:\\Code\\yad-stuck.json";
+    try { writeFileSync(stuckPath, JSON.stringify({ resolved: true }), "utf-8"); } catch { /* ignore */ }
+
     if (this.running) {
       this.update({ status: "fout", message: "Er loopt al een taak." });
       const now = Date.now();
@@ -309,6 +369,7 @@ export class BrainSession implements HandBridge {
       cacheStore: this.cacheStore,
       stepLogger,
       runId,
+      onStuck: (r) => this.handleStuck(r),
     });
     let outcome: RunHistoryEntry | undefined;
     try {

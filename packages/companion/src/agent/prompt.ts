@@ -84,6 +84,11 @@ export interface BuildMessagesOpts {
   language?: "nl" | "en";
   /** Bijlagen (afbeeldingen) — alleen meesturen bij stap 1 (history leeg). */
   attachments?: Attachment[];
+  /**
+   * Herstelplan of faal-geheugen van Claude Code — geïnjecteerd als REEDS GEPROBEERD-blok
+   * boven RECENT ACTIONS. Dwingt het model een andere aanpak te kiezen.
+   */
+  failedHint?: string;
 }
 
 /** Bouwt de berichten voor de LLM voor één stap van de lus. */
@@ -93,21 +98,26 @@ export function buildMessages(
   history: HistoryItem[],
   opts: BuildMessagesOpts = {},
 ): EngineChatMessage[] {
-  const { language = "nl", attachments = [] } = opts;
+  const { language = "nl", attachments = [], failedHint } = opts;
 
   const system = SYSTEM + "\n\n" + LANG_INSTRUCTION[language];
 
-  const userText = [
+  const parts: string[] = [
     `GOAL: ${goal}`,
     ``,
     `CURRENT PAGE:`,
     renderSnapshot(snapshot),
     ``,
-    `RECENT ACTIONS:`,
-    renderHistory(history),
-    ``,
-    `Output the single next action as JSON.`,
-  ].join("\n");
+  ];
+  if (failedHint) {
+    parts.push(
+      `REEDS GEPROBEERD (faalde) — kies een ANDERE aanpak dan onderstaande:`,
+      failedHint,
+      ``,
+    );
+  }
+  parts.push(`RECENT ACTIONS:`, renderHistory(history), ``, `Output the single next action as JSON.`);
+  const userText = parts.join("\n");
 
   // Bijlagen alleen in het eerste bericht (history is leeg): stuur ze als vision-blokken mee.
   // Daarna zijn ze al "gezien" door het model en sturen ze opnieuw is verspilling.

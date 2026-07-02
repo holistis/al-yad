@@ -20,6 +20,16 @@ export interface HandBridge {
   update(u: { status: RunStatus; step?: number; message: string; action?: Action }): void;
 }
 
+/** Waarom de loop vastzit — voor Claude Code om te diagnosticeren. */
+export interface StuckReason {
+  why: "repeat" | "consecutive-unknowns" | "parse-fail";
+  runId: string;
+  goal: string;
+  url: string;
+  lastAction: Action;
+  history: HistoryItem[];
+}
+
 export interface LoopOptions {
   maxSteps?: number;
   /** basis-pauze tussen acties (ms); 0 = geen pauze (tests). Echte runs jitteren hierboven. */
@@ -53,6 +63,13 @@ export interface LoopOptions {
   };
   /** Run-ID voor correlatie in de step-log. */
   runId?: string;
+  /**
+   * Wordt aangeroepen als de loop vastzit (herhaling / aanhoudende onzekerheid).
+   * Geeft een herstel-hint terug (string) zodat de loop alternatief kan proberen,
+   * of null als er geen plan kwam (timeout → run stopt veilig).
+   * Niet ingesteld → terugval op requestConfirm (menselijke bevestiging).
+   */
+  onStuck?: (reason: StuckReason) => Promise<string | null>;
 }
 
 /** URL-patronen die duiden op een loginpagina (voor sessie-verloop detectie). */
@@ -120,8 +137,11 @@ export class AgentLoop {
   private readonly cacheStore: CacheStore | undefined;
   private readonly stepLogger: LoopOptions["stepLogger"];
   private readonly runId: string;
+  private readonly onStuck: ((reason: StuckReason) => Promise<string | null>) | undefined;
   /** Actieve micro-plan buffer. Leeg → LLM aanroepen. Gevuld → volgende stap pakken. */
   private currentPlan: PlannedStep[] = [];
+  /** Herstel-hint van Claude Code — geïnjecteerd als REEDS GEPROBEERD-blok in de prompt. */
+  private failedHint: string | undefined = undefined;
 
   constructor(
     private readonly router: ChatLike,
@@ -140,6 +160,7 @@ export class AgentLoop {
     this.cacheStore = opts.cacheStore;
     this.stepLogger = opts.stepLogger;
     this.runId = opts.runId ?? "";
+    this.onStuck = opts.onStuck;
   }
 
   private readonly isAborted: () => boolean;
@@ -161,6 +182,7 @@ export class AgentLoop {
     this.hand.update({ status: "plannen", message: `Doel: ${goal}` });
 
     this.currentPlan = []; // reset per run — vorige plan-rest nooit meenemen
+    this.failedHint = undefined; // reset per run
     let parseFails = 0;
     let cleanRun = true; // false zodra er een parse-fout is geweest; vuile runs worden niet gecached.
     let lastActionSig = "";
@@ -284,7 +306,7 @@ export class AgentLoop {
       if (this.currentPlan.length === 0) {
         let content: string;
         try {
-          content = await this.chatWithRetry(goal, snapshot, history, step, attachments);
+          content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint);
         } catch (e) {
           this.hand.update({ status: "fout", step, message: friendlyLlmError(e) });
           return { status: "fout", steps: step - 1 };
@@ -347,7 +369,27 @@ export class AgentLoop {
             this.hand.update({ status: "klaar", step, message: answer, action });
             return { status: "klaar", summary: answer, steps: step };
           }
-          // klik/typ/select herhaald -> EERLIJK melden dat het vastliep (niet 'klaar' faken)
+          // klik/typ/select herhaald → eerst Claude Code om herstelplan vragen
+          if (this.onStuck) {
+            this.hand.update({ status: "hulp-nodig", step, message: "Vastgelopen (herhaling) — Claude Code om herstelplan gevraagd.", action });
+            const hint = await this.onStuck({
+              why: "repeat",
+              runId: this.runId,
+              goal,
+              url: snapshot.url,
+              lastAction: action,
+              history,
+            });
+            if (hint) {
+              this.failedHint = hint;
+              repeatCount = 0;
+              lastActionSig = "";
+              this.currentPlan = [];
+              this.hand.update({ status: "bezig", step, message: "Herstelplan ontvangen — alternatieve aanpak..." });
+              continue; // geen act() uitgevoerd → continue is veilig
+            }
+          }
+          // Geen onStuck of geen hint → eerlijk melden dat het vastliep
           this.hand.update({
             status: "gestopt",
             step,
@@ -440,16 +482,40 @@ export class AgentLoop {
           consecutiveUnknowns++;
           judgeDetail = ` [judge:unknown]`;
           if (consecutiveUnknowns >= 3) {
-            const dummy: Action = { kind: "wait", ms: 0 };
-            const approved = await this.hand.requestConfirm(
-              dummy,
-              `Onzeker over voortgang na ${consecutiveUnknowns} opeenvolgende stappen — de pagina reageert onverwacht. Doorgaan?`,
-            );
-            if (!approved) {
-              this.hand.update({ status: "gestopt", step, message: "Run gestopt — te veel onzekere stappen achter elkaar." });
-              return { status: "gestopt", steps: step };
+            if (this.onStuck) {
+              // Vraag Claude Code eerst om een herstelplan
+              this.hand.update({ status: "hulp-nodig", step, message: "Aanhoudende onzekerheid — Claude Code om herstelplan gevraagd.", action });
+              const hint = await this.onStuck({
+                why: "consecutive-unknowns",
+                runId: this.runId,
+                goal,
+                url: snapshot.url,
+                lastAction: action,
+                history,
+              });
+              if (hint) {
+                this.failedHint = hint;
+                consecutiveUnknowns = 0;
+                this.currentPlan = [];
+                this.hand.update({ status: "bezig", step, message: "Herstelplan ontvangen — alternatieve aanpak..." });
+                // Geen continue: history.push() hieronder mag nog, actie is al uitgevoerd
+              } else {
+                this.hand.update({ status: "gestopt", step, message: "Run gestopt — geen herstelplan ontvangen (timeout)." });
+                return { status: "gestopt", steps: step };
+              }
+            } else {
+              // Geen onStuck → terugval op menselijke bevestiging
+              const dummy: Action = { kind: "wait", ms: 0 };
+              const approved = await this.hand.requestConfirm(
+                dummy,
+                `Onzeker over voortgang na ${consecutiveUnknowns} opeenvolgende stappen — de pagina reageert onverwacht. Doorgaan?`,
+              );
+              if (!approved) {
+                this.hand.update({ status: "gestopt", step, message: "Run gestopt — te veel onzekere stappen achter elkaar." });
+                return { status: "gestopt", steps: step };
+              }
+              consecutiveUnknowns = 0;
             }
-            consecutiveUnknowns = 0;
           }
         } else {
           consecutiveUnknowns = 0;
@@ -501,6 +567,7 @@ export class AgentLoop {
     history: HistoryItem[],
     step: number,
     attachments?: Attachment[],
+    failedHint?: string,
   ): Promise<string> {
     const backoffs = [0, 4000, 9000]; // eerste poging direct, dan oplopend wachten
     let lastErr: unknown;
@@ -519,6 +586,7 @@ export class AgentLoop {
           messages: buildMessages(goal, snapshot, history, {
             language: this.language,
             attachments,
+            failedHint,
           }),
           temperature: 0,
           json: true,
