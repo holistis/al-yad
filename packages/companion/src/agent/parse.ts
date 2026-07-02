@@ -1,10 +1,18 @@
 import { ACTION_KINDS, type Action } from "@yad/shared";
+import { parsePredicates, type Predicate } from "./predicate.js";
 
 /** Eén stap in een micro-plan: actie + optionele verwachte uitkomst voor de Judge. */
 export interface PlannedStep {
   action: Action;
   /** Wat er zichtbaar of veranderd moet zijn na deze stap. Afwezig → Judge wordt overgeslagen. */
   expected?: string;
+  /**
+   * DONE-predicaten: alleen aanwezig bij finish-stappen. Objectief checkbare beweringen
+   * die WAAR moeten zijn voordat de loop "klaar" mag retourneren. Als de snapshot
+   * mismatcht, weigert de loop de finish en vraagt het model de resterende stappen af te ronden.
+   * Afwezig of leeg → geen check (backwards compat).
+   */
+  done?: Predicate[];
 }
 
 export interface MicroPlan {
@@ -160,7 +168,10 @@ export function parseMicroPlan(raw: string): ParseMicroPlanResult {
           ? stepObj["expected"].trim()
           : undefined;
       const r = parseAction(JSON.stringify(s));
-      if (r.ok) steps.push({ action: r.action, expected });
+      if (r.ok) {
+        const done = r.action.kind === "finish" ? parsePredicates(stepObj["done"]) : undefined;
+        steps.push({ action: r.action, expected, ...(done && done.length > 0 ? { done } : {}) });
+      }
     }
     if (steps.length === 0) return { ok: false, error: "plan bevat 0 geldige stappen" };
     return {

@@ -3,6 +3,7 @@ import type { ChatRequest } from "../engine/types.js";
 import { buildMessages, type HistoryItem } from "./prompt.js";
 import { parseMicroPlan, type PlannedStep } from "./parse.js";
 import { callJudge } from "../judge/judge.js";
+import { evaluatePredicates } from "./predicate.js";
 import { checkDenied, needsConfirm, pathIsDenied, type GateContext } from "../gate/guardrails.js";
 import type { SnapshotNode } from "@yad/shared";
 import { getSiteProfile, getProfileByTier, type SiteProfile, type SiteTier } from "../engine/site-profile.js";
@@ -299,6 +300,10 @@ export class AgentLoop {
     let stepsSinceRealEffect = 0;
     let pendingEffectCheck: { pre: string; step: number } | null = null;
     const MAX_NO_EFFECT = 3;
+    // DONE-predicaat bewaker: telt hoeveel keer een finish-poging is geblokkeerd.
+    // Na 2 weigeringen stopt de loop — voorkomt oneindige weiger-loop.
+    let finishRejections = 0;
+    const MAX_FINISH_REJECTIONS = 2;
 
     // Startpagina ophalen voor cache-sleutel en optionele replay.
     let startingUrl = "";
@@ -378,6 +383,7 @@ export class AgentLoop {
                 recoveryAttempts++;
                 this.failedHint = hint;
                 urlRegressionCount = 0;
+                uniquePathsSeen.clear();
                 this.currentPlan = [];
                 this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — andere navigatiestrategie...` });
               } else {
@@ -418,6 +424,8 @@ export class AgentLoop {
             recoveryAttempts++;
             this.failedHint = hint;
             stepsSinceRealEffect = 0;
+            urlRegressionCount = 0;
+            uniquePathsSeen.clear();
             this.currentPlan = [];
             this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — vorige acties hadden geen effect, andere aanpak...` });
           } else {
@@ -444,6 +452,8 @@ export class AgentLoop {
           this.failedHint = hint;
           llmCallsSinceProgress = 0;
           stateHistory.length = 0;
+          urlRegressionCount = 0;
+          uniquePathsSeen.clear();
           this.currentPlan = [];
           this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — uitweg uit de lus...` });
         } else {
@@ -536,6 +546,8 @@ export class AgentLoop {
               this.failedHint = hint;
               consecutiveSameUrlLlmCalls = 0;
               lastLlmCallUrl = "";
+              urlRegressionCount = 0;
+              uniquePathsSeen.clear();
               this.currentPlan = [];
               this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — doelgericht nieuwe aanpak...` });
             } else {
@@ -563,6 +575,8 @@ export class AgentLoop {
             recoveryAttempts++;
             this.failedHint = hint;
             llmCallsSinceProgress = 0;
+            urlRegressionCount = 0;
+            uniquePathsSeen.clear();
             this.currentPlan = [];
             this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — nieuwe aanpak...` });
           } else {
@@ -602,6 +616,29 @@ export class AgentLoop {
       const expectedOutcome = planned.expected;
 
       if (action.kind === "finish") {
+        // DONE-predicaat check (Stap 4): weiger de finish als de snapshot het doel
+        // niet objectief bevestigt. Voorkomt vals "klaar" (Run 1: model riep finish
+        // maar de sortering/checkout was nog niet voltooid).
+        const donePreds = planned.done ?? [];
+        if (donePreds.length > 0) {
+          const doneResult = evaluatePredicates(donePreds, snapshot);
+          if (doneResult.verdict === "mismatch") {
+            finishRejections++;
+            const evidence = `DONE-predicaten niet gehaald (${doneResult.matched}/${doneResult.total}), URL: ${snapshot.url}`;
+            this.log(`finish geweigerd #${finishRejections}: ${evidence}`);
+            if (finishRejections <= MAX_FINISH_REJECTIONS) {
+              this.failedHint = `Je riep finish aan maar de pagina bevestigt het doel NIET. ${evidence}. Controleer de huidige staat zorgvuldig en voltooi de ontbrekende stappen vóór je finish aanroept.`;
+              this.currentPlan = [];
+              this.hand.update({ status: "bezig", step, message: `Finish geweigerd — ${evidence}` });
+              continue;
+            }
+            // Plafond bereikt: stoppen om oneindige weiger-lus te voorkomen.
+            this.hand.update({ status: "fout", step, message: `Finish ${finishRejections}x geweigerd — ${evidence}` });
+            return { status: "fout", steps: step };
+          }
+          this.log(`finish geaccepteerd: DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total})`);
+        }
+
         const answer = composeAnswer(action.summary, findings);
         this.hand.update({ status: "klaar", step, message: answer, action });
         // Cache schrijven: alleen bij schone runs met echte stappen (geen parse-fouten).
