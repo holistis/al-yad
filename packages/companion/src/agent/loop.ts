@@ -28,7 +28,9 @@ export interface StuckReason {
     | "parse-fail"               // model geeft onleesbare plannen
     | "consecutive-act-failures" // browser weigert acties (DOM-probleem/drift)
     | "state-loop"               // dezelfde browserstate keert terug na andere acties
-    | "no-progress";             // geen judge-match in 6+ LLM-aanroepen
+    | "no-progress"              // geen judge-match in 6+ LLM-aanroepen
+    | "goal-drift"               // agent blijft op zelfde URL maar Judge ziet geen doelvoortgang
+    | "url-regression";          // agent keert terug naar al-bezochte URL (afdwaling)
   runId: string;
   goal: string;
   url: string;
@@ -254,6 +256,15 @@ export class AgentLoop {
     // Zo voorkom je een meta-lus: YAD vraagt hulp → plan faalt → vraagt opnieuw → etc.
     let recoveryAttempts = 0;
     const MAX_RECOVERY_ATTEMPTS = 3;
+    // Goal Drift: telt opeenvolgende LLM-aanroepen op hetzelfde URL-pad.
+    // Na 3+ aanroepen op dezelfde URL → Judge-check of agent richting doel gaat.
+    // Goedkoop alternatief voor goal-proximity: 1 judge-call per 3 LLM-calls op zelfde URL.
+    let consecutiveSameUrlLlmCalls = 0;
+    let lastLlmCallUrl = "";
+    // URL-regressie: bijhouden welke paden al bezocht zijn.
+    // Terugkeer naar een al-bezochte URL na tussentijds een ander pad = objectief bewijs van afdwaling.
+    const uniquePathsSeen = new Set<string>();
+    let urlRegressionCount = 0;
 
     // Startpagina ophalen voor cache-sleutel en optionele replay.
     let startingUrl = "";
@@ -310,7 +321,43 @@ export class AgentLoop {
         if (consecutiveUnknowns > 0) this.log(`URL veranderd → unknown-teller gereset (was ${consecutiveUnknowns})`);
         consecutiveUnknowns = 0;
         llmCallsSinceProgress = 0;
+        consecutiveSameUrlLlmCalls = 0;
+        lastLlmCallUrl = "";
         stateHistory.length = 0; // nieuwe URL = nieuw staat-geheugen
+
+        // URL-regressie: check of het nieuwe pad al eerder is bezocht.
+        // Een enkelvoudige terugkeer is normaal (bijv. productpagina → inventaris);
+        // meerdere regressies duiden op afdwaling. Drempel: 2 regressies → escaleer.
+        // Gaat pas in na stap 3 om false positives bij login-omleiding te vermijden.
+        if (step > 3) {
+          const newPath = (() => { try { return new URL(snapshot.url).pathname; } catch { return snapshot.url.slice(0, 80); } })();
+          if (uniquePathsSeen.has(newPath)) {
+            urlRegressionCount++;
+            this.log(`url-regressie #${urlRegressionCount}: terug naar pad ${newPath}`);
+            if (urlRegressionCount >= 2) {
+              this.hand.update({ status: "hulp-nodig", step, message: `URL-regressie: agent keert terug naar al-bezochte pagina (${newPath}) — Claude Code gevraagd.` });
+              const hint = await this.escalate(
+                { why: "url-regression", runId: this.runId, goal, url: snapshot.url, lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action, history },
+                recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
+              );
+              if (hint) {
+                recoveryAttempts++;
+                this.failedHint = hint;
+                urlRegressionCount = 0;
+                this.currentPlan = [];
+                this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — andere navigatiestrategie...` });
+              } else {
+                this.hand.update({ status: "gestopt", step, message: "Run gestopt — URL-regressie, geen herstelplan." });
+                return { status: "gestopt", steps: step };
+              }
+            }
+          }
+          uniquePathsSeen.add(newPath);
+        }
+      }
+      // Registreer het startpad eenmalig (eerste iteratie)
+      if (!lastKnownUrl && uniquePathsSeen.size === 0) {
+        try { uniquePathsSeen.add(new URL(snapshot.url).pathname); } catch { /* skip */ }
       }
       lastKnownUrl = snapshot.url;
 
@@ -393,6 +440,49 @@ export class AgentLoop {
       // Bevat het plan nog stappen? Volgende pakken zonder model-aanroep.
       // Dit is de kern van microPlan: 1 LLM-call dekt 1-3 browser-acties.
       if (this.currentPlan.length === 0) {
+        // Goal Drift detectie (Layer 2 — state correctness):
+        // Na 3 opeenvolgende LLM-aanroepen op hetzelfde URL-pad vraagt de Judge of
+        // de agent nog richting het doel gaat. Goedkoop: maxTokens=80, temperature=0,
+        // alleen bij "mismatch" (niet bij "unknown") → weinig noise-risico.
+        if (snapshot.url === lastLlmCallUrl) {
+          consecutiveSameUrlLlmCalls++;
+        } else {
+          consecutiveSameUrlLlmCalls = 0;
+          lastLlmCallUrl = snapshot.url;
+        }
+        if (consecutiveSameUrlLlmCalls >= 3) {
+          const recentEvidence = history.slice(-4).map((h) => h.detail).filter(Boolean).join(" ↦ ");
+          const driftCheck = await callJudge(this.router, {
+            expected: `The agent is making measurable forward progress toward: "${goal.slice(0, 120)}"`,
+            url: snapshot.url,
+            extracted: recentEvidence || undefined,
+            hadEffect: history.slice(-4).some((h) => h.ok),
+          });
+          this.log(`goal-drift check (${consecutiveSameUrlLlmCalls} calls op ${snapshot.url}): ${driftCheck.verdict} — ${driftCheck.evidence.slice(0, 80)}`);
+          if (driftCheck.verdict === "mismatch") {
+            this.hand.update({ status: "hulp-nodig", step, message: `Goal drift: ${consecutiveSameUrlLlmCalls} AI-aanroepen op ${snapshot.url} zonder aantoonbare doelvoortgang — Claude Code gevraagd.` });
+            const hint = await this.escalate(
+              { why: "goal-drift", runId: this.runId, goal, url: snapshot.url, lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action, history },
+              recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
+            );
+            if (hint) {
+              recoveryAttempts++;
+              this.failedHint = hint;
+              consecutiveSameUrlLlmCalls = 0;
+              lastLlmCallUrl = "";
+              this.currentPlan = [];
+              this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — doelgericht nieuwe aanpak...` });
+            } else {
+              this.hand.update({ status: "gestopt", step, message: "Run gestopt — goal drift, geen herstelplan." });
+              return { status: "gestopt", steps: step };
+            }
+          }
+          // "unknown" = twijfel → geen escalatie, gewoon doorgaan (anti-noise)
+          // "match" = voortgang bevestigd → reset counter
+          if (driftCheck.verdict === "match") consecutiveSameUrlLlmCalls = 0;
+        }
+        lastLlmCallUrl = snapshot.url;
+
         // No Progress detectie: als we 6+ LLM-aanroepen hebben gedaan zonder dat de
         // judge ooit "match" zei, maakt YAD geld en tokens op zonder richting het doel te gaan.
         llmCallsSinceProgress++;
