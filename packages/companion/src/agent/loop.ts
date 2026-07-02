@@ -568,12 +568,15 @@ export class AgentLoop {
 
       // Derde vastloop-detector: als 3 opeenvolgende acties mislukken, is er
       // waarschijnlijk DOM-drift, een modal die alles blokkeert, of een captcha.
-      // Reset bij elke succesvolle act() of URL-change.
+      // Reset bij expliciete doelgerichte actie of URL-change.
       if (result.ok) {
         consecutiveActFailures = 0;
-        // Betere progress grounding: een succesvolle click/type/select/navigate is
-        // objectief bewijs dat de browser reageerde op de actie. Geen judge nodig.
-        if (action.kind !== "extract" && action.kind !== "wait") {
+        // Progress grounding: alleen acties die duidelijk doelgericht zijn tellen als voortgang.
+        // navigate + select = expliciete keuze; type = formulier-invoer.
+        // Generieke clicks tellen NIET — een klik op het verkeerde element retourneert ook ok=true
+        // maar brengt de agent niet dichter bij het doel (semantische afdwaling).
+        // Judge-"match" (lijn 653) en URL-change (lijn 312) zijn de andere reset-triggers.
+        if (action.kind === "navigate" || action.kind === "select" || action.kind === "type") {
           llmCallsSinceProgress = 0;
         }
       } else {
