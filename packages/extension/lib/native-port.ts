@@ -256,7 +256,7 @@ function connect(): void {
 }
 
 function replyToBrain(
-  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT",
+  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT" | "SESSION_CAPTURE_DATA",
   payload: object,
   correlationId: string,
 ): void {
@@ -344,6 +344,23 @@ function onMessage(raw: unknown): void {
     }
     case "REQUEST_CAPTURE_FOR_CLAUDE": {
       void handleCaptureForClaude();
+      break;
+    }
+    case "REQUEST_SESSION_CAPTURE": {
+      const p = raw.payload as { label: "A" | "B" };
+      void (async () => {
+        try {
+          const tab = await getActiveWebTab();
+          if (!tab || typeof tab.id !== "number") {
+            replyToBrain("SESSION_CAPTURE_DATA", { ok: false, label: p.label, detail: "Geen actieve web-tab" }, raw.id);
+            return;
+          }
+          const captured = await captureSession(tab.id);
+          replyToBrain("SESSION_CAPTURE_DATA", { ok: true, label: p.label, ...captured }, raw.id);
+        } catch (e) {
+          replyToBrain("SESSION_CAPTURE_DATA", { ok: false, label: p.label, detail: (e as Error).message }, raw.id);
+        }
+      })();
       break;
     }
     case "REQUEST_NAVIGATE": {
