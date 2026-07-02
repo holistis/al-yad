@@ -167,6 +167,42 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       return;
     }
 
+    if (url === "/assist" && method === "GET") {
+      const stuckPath = process.env["YAD_STUCK_PATH"] ?? "C:\\Code\\yad-stuck.json";
+      try {
+        const content = JSON.parse(readFileSync(stuckPath, "utf-8")) as Record<string, unknown>;
+        if (content["resolved"] === true) {
+          json(res, 200, { stuck: false });
+        } else {
+          json(res, 200, { stuck: true, ...content });
+        }
+      } catch {
+        json(res, 200, { stuck: false });
+      }
+      return;
+    }
+
+    if (url === "/assist" && method === "POST") {
+      try {
+        const body = await readBody(req);
+        const parsed = JSON.parse(body) as { plan?: string };
+        if (typeof parsed.plan !== "string" || !parsed.plan.trim()) {
+          json(res, 400, { ok: false, detail: "plan is verplicht (string)" });
+          return;
+        }
+        const accepted = session.setRecoveryPlan(parsed.plan.trim());
+        if (accepted) {
+          log(`[assist] herstelplan ontvangen en doorgestuurd naar de loop`);
+          json(res, 200, { ok: true });
+        } else {
+          json(res, 409, { ok: false, detail: "Geen actieve stuck-run om een herstelplan naar te sturen" });
+        }
+      } catch (e) {
+        json(res, 400, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
     if (url === "/save-session" && method === "POST") {
       if (!session.isConnected()) {
         json(res, 503, { ok: false, detail: "Chrome niet verbonden — open Chrome met YAD extensie" });
@@ -184,7 +220,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       return;
     }
 
-    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result", "POST /verify", "POST /save-session"] });
+    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result", "POST /verify", "POST /save-session", "GET /assist", "POST /assist"] });
   });
 
   server.listen(PORT, "127.0.0.1", () => {
