@@ -30,7 +30,8 @@ export interface StuckReason {
     | "state-loop"               // dezelfde browserstate keert terug na andere acties
     | "no-progress"              // geen judge-match in 6+ LLM-aanroepen
     | "goal-drift"               // agent blijft op zelfde URL maar Judge ziet geen doelvoortgang
-    | "url-regression";          // agent keert terug naar al-bezochte URL (afdwaling)
+    | "url-regression"           // agent keert terug naar al-bezochte URL (afdwaling)
+    | "silent-no-effect";        // muterende actie slaagt (ok=true) maar verandert de pagina niet
   runId: string;
   goal: string;
   url: string;
@@ -56,6 +57,31 @@ function snapshotFingerprint(snapshot: Snapshot): string {
   // Gevulde inputvelden tellen: typische formulier-voortgang verandert dit getal
   const filledCount = snapshot.nodes.filter((n) => n.value && n.value.trim()).length;
   return `${path}||${elems}||f${filledCount}`;
+}
+
+/**
+ * Volgorde-GEVOELIGE vingerafdruk — voor effect-nul-detectie (stil falen).
+ *
+ * Anders dan snapshotFingerprint sorteert deze NIET: een herordening van elementen
+ * (bv. een sorteertaak die de productvolgorde omdraait) MOET de afdruk veranderen.
+ * Bevat: URL-pad + eerste 12 elementen in DOM-volgorde (role:name=value) +
+ * aantal gevulde velden + de kop van de zichtbare paginatekst (vangt herordening
+ * van niet-interactieve content, bv. productlijsten die alleen in textDigest leven).
+ *
+ * Doel: een muterende actie die ok=true geeft maar deze afdruk niet verandert,
+ * is een verdachte no-op (Run 2: klik slaagt mechanisch, pagina beweegt niet).
+ */
+export function orderSensitiveFingerprint(snapshot: Snapshot): string {
+  const path = (() => {
+    try { return new URL(snapshot.url).pathname; } catch { return snapshot.url.slice(0, 80); }
+  })();
+  const elems = snapshot.nodes
+    .slice(0, 12)
+    .map((n) => `${n.role}:${n.name.slice(0, 25)}${n.value ? "=" + n.value.slice(0, 20) : ""}`)
+    .join("|");
+  const filledCount = snapshot.nodes.filter((n) => n.value && n.value.trim()).length;
+  const digestHead = (snapshot.textDigest ?? "").slice(0, 200);
+  return `${path}||${elems}||f${filledCount}||${digestHead}`;
 }
 
 export interface LoopOptions {
@@ -265,6 +291,14 @@ export class AgentLoop {
     // Terugkeer naar een al-bezochte URL na tussentijds een ander pad = objectief bewijs van afdwaling.
     const uniquePathsSeen = new Set<string>();
     let urlRegressionCount = 0;
+    // Effect-nul-detector (lost stil falen op — Run 2): een muterende actie (click/type/select)
+    // die ok=true geeft maar de pagina niet verandert, is een verdachte no-op. We onthouden de
+    // volgorde-gevoelige fingerprint VÓÓR de actie en vergelijken hem met de snapshot van de
+    // VOLGENDE iteratie. Identiek = geen waarneembaar effect. Anders dan de andere tellers reset
+    // deze NIET op het mechanische actie-type, maar alleen op een ECHT waargenomen verandering.
+    let stepsSinceRealEffect = 0;
+    let pendingEffectCheck: { pre: string; step: number } | null = null;
+    const MAX_NO_EFFECT = 3;
 
     // Startpagina ophalen voor cache-sleutel en optionele replay.
     let startingUrl = "";
@@ -360,6 +394,38 @@ export class AgentLoop {
         try { uniquePathsSeen.add(new URL(snapshot.url).pathname); } catch { /* skip */ }
       }
       lastKnownUrl = snapshot.url;
+
+      // Effect-nul-detectie: was de vorige muterende actie een no-op? Vergelijk de
+      // volgorde-gevoelige fingerprint van vóór die actie met de huidige snapshot.
+      // Dit vangt STIL FALEN (Run 2): klik/typ/select geeft ok=true maar de pagina
+      // beweegt niet — de agent klikt verkeerde/dode elementen zonder het te merken.
+      if (pendingEffectCheck) {
+        const post = orderSensitiveFingerprint(snapshot);
+        if (post === pendingEffectCheck.pre) {
+          stepsSinceRealEffect++;
+          this.log(`effect-nul: muterende actie (stap ${pendingEffectCheck.step}) veranderde de pagina niet (${stepsSinceRealEffect}/${MAX_NO_EFFECT})`);
+        } else {
+          stepsSinceRealEffect = 0;
+        }
+        pendingEffectCheck = null;
+        if (stepsSinceRealEffect >= MAX_NO_EFFECT) {
+          this.hand.update({ status: "hulp-nodig", step, message: `Stil falen: ${stepsSinceRealEffect} muterende acties zonder waarneembaar effect — Claude Code gevraagd.` });
+          const hint = await this.escalate(
+            { why: "silent-no-effect", runId: this.runId, goal, url: snapshot.url, lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action, history },
+            recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
+          );
+          if (hint) {
+            recoveryAttempts++;
+            this.failedHint = hint;
+            stepsSinceRealEffect = 0;
+            this.currentPlan = [];
+            this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — vorige acties hadden geen effect, andere aanpak...` });
+          } else {
+            this.hand.update({ status: "gestopt", step, message: "Run gestopt — muterende acties zonder waarneembaar effect, geen herstelplan." });
+            return { status: "gestopt", steps: step };
+          }
+        }
+      }
 
       // State Loop detectie: fingerprint van de huidige browser-staat.
       // Als we hier al eerder waren (>=4 stappen geleden) en geen vooruitgang hadden,
@@ -654,6 +720,14 @@ export class AgentLoop {
           detail: result.detail,
           ts: Date.now(),
         });
+      }
+
+      // Effect-nul: onthoud de pre-actie fingerprint voor muterende acties, zodat de
+      // volgende iteratie kan checken of er iets veranderde. navigate telt niet mee
+      // (verandert per definitie de URL); extract/wait zijn niet-muterend.
+      const isMutating = action.kind === "click" || action.kind === "type" || action.kind === "select";
+      if (result.ok && isMutating) {
+        pendingEffectCheck = { pre: orderSensitiveFingerprint(snapshot), step };
       }
 
       // Derde vastloop-detector: als 3 opeenvolgende acties mislukken, is er
