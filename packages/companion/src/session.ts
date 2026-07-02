@@ -89,12 +89,14 @@ export class BrainSession implements HandBridge {
    * Als de loop wacht (hulp-nodig), wordt het plan meteen doorgegeven.
    * Geeft true terug als iemand aan het wachten was, false als niet.
    */
-  setRecoveryPlan(plan: string): boolean {
+  setRecoveryPlan(hint: string, meta?: { reason?: string; confidence?: number; avoid?: string[] }): boolean {
     if (this.pendingRecovery) {
       const cb = this.pendingRecovery;
       this.pendingRecovery = null;
       if (this.recoveryTimer) { clearTimeout(this.recoveryTimer); this.recoveryTimer = null; }
-      cb(plan);
+      const avoidClause = meta?.avoid?.length ? ` | vermijden: [${meta.avoid.join(", ")}]` : "";
+      this.log(`[assist] herstelplan geaccepteerd — reden: ${meta?.reason ?? "?"}, zekerheid: ${meta?.confidence ?? "?"}${avoidClause}`);
+      cb(hint);
       return true;
     }
     return false;
@@ -103,11 +105,13 @@ export class BrainSession implements HandBridge {
   /**
    * Schrijft een stuck-envelope naar schijf en wacht tot Claude Code een plan stuurt.
    * Geeft null terug na 120s (timeout) zodat de loop veilig kan stoppen.
+   * Logt het herstelplan (of timeout) voor toekomstige recovery-store analyse.
    */
   private async handleStuck(reason: StuckReason): Promise<string | null> {
     const stuckPath = process.env["YAD_STUCK_PATH"] ?? "C:\\Code\\yad-stuck.json";
+    const stuckAt = Date.now();
     const envelope = {
-      stuckAt: Date.now(),
+      stuckAt,
       runId: reason.runId,
       goal: reason.goal,
       url: reason.url,
@@ -125,14 +129,22 @@ export class BrainSession implements HandBridge {
     }
 
     return new Promise<string | null>((resolve) => {
-      this.pendingRecovery = resolve;
+      this.pendingRecovery = (plan) => {
+        const waitedMs = Date.now() - stuckAt;
+        if (plan) {
+          this.log(`[assist] herstelplan ontvangen na ${waitedMs}ms — reden: ${reason.why}, url: ${reason.url}`);
+          // Schoon stuck-envelope op
+          try { writeFileSync(stuckPath, JSON.stringify({ resolved: true }), "utf-8"); } catch { /* ignore */ }
+        } else {
+          this.log(`[assist] timeout na ${waitedMs}ms — geen herstelplan voor reden: ${reason.why}`);
+        }
+        resolve(plan);
+      };
       this.recoveryTimer = setTimeout(() => {
+        const cb = this.pendingRecovery;
         this.pendingRecovery = null;
         this.recoveryTimer = null;
-        this.log("[assist] geen herstelplan binnen 120s — run stopt");
-        // Markeer als opgelost zodat GET /assist niet eeuwig 'stuck' toont
-        try { writeFileSync(stuckPath, JSON.stringify({ resolved: true }), "utf-8"); } catch { /* ignore */ }
-        resolve(null);
+        if (cb) cb(null);
       }, 120_000);
     });
   }

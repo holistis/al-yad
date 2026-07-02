@@ -22,7 +22,11 @@ export interface HandBridge {
 
 /** Waarom de loop vastzit — voor Claude Code om te diagnosticeren. */
 export interface StuckReason {
-  why: "repeat" | "consecutive-unknowns" | "parse-fail";
+  why:
+    | "repeat"               // exact dezelfde actie herhaald
+    | "consecutive-unknowns" // judge kan uitkomst niet beoordelen
+    | "parse-fail"           // model geeft onleesbare plannen
+    | "consecutive-act-failures"; // browser weigert acties (DOM-probleem/drift)
   runId: string;
   goal: string;
   url: string;
@@ -195,6 +199,9 @@ export class AgentLoop {
     // Geëxtraheerde informatie tijdens de run; dit wordt het eind-antwoord aan de
     // gebruiker. Zonder dit ziet de mens alleen "klaar" en niet wat er gevonden is.
     const findings: string[] = [];
+    // Telt opeenvolgende act()-mislukkingen (ongeacht welke actie). Browser weigert
+    // acties wanneer DOM drastisch veranderd is (drift) of een modal alles blokkeert.
+    let consecutiveActFailures = 0;
 
     // Startpagina ophalen voor cache-sleutel en optionele replay.
     let startingUrl = "";
@@ -462,6 +469,37 @@ export class AgentLoop {
           detail: result.detail,
           ts: Date.now(),
         });
+      }
+
+      // Derde vastloop-detector: als 3 opeenvolgende acties mislukken, is er
+      // waarschijnlijk DOM-drift, een modal die alles blokkeert, of een captcha.
+      // Reset bij elke succesvolle act() of URL-change.
+      if (result.ok) {
+        consecutiveActFailures = 0;
+      } else {
+        consecutiveActFailures++;
+        if (consecutiveActFailures >= 3 && action.kind !== "navigate" && action.kind !== "wait") {
+          if (this.onStuck) {
+            this.hand.update({ status: "hulp-nodig", step, message: "Browser weigert acties (DOM-drift?) — Claude Code om herstelplan gevraagd.", action });
+            const hint = await this.onStuck({
+              why: "consecutive-act-failures",
+              runId: this.runId,
+              goal,
+              url: snapshot.url,
+              lastAction: action,
+              history,
+            });
+            if (hint) {
+              this.failedHint = hint;
+              consecutiveActFailures = 0;
+              this.currentPlan = [];
+              this.hand.update({ status: "bezig", step, message: "Herstelplan ontvangen — alternatieve aanpak..." });
+            } else {
+              this.hand.update({ status: "gestopt", step, message: "Run gestopt — browser weigerde 3 acties, geen herstelplan (timeout)." });
+              return { status: "gestopt", steps: step };
+            }
+          }
+        }
       }
 
       // Judge: beoordeel of de uitkomst overeenkwam met de verwachting.

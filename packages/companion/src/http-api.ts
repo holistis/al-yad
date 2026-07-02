@@ -185,14 +185,28 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
     if (url === "/assist" && method === "POST") {
       try {
         const body = await readBody(req);
-        const parsed = JSON.parse(body) as { plan?: string };
-        if (typeof parsed.plan !== "string" || !parsed.plan.trim()) {
-          json(res, 400, { ok: false, detail: "plan is verplicht (string)" });
+        // Accepteert gestructureerde RecoveryPlan of backwards-compat { plan: string }
+        const parsed = JSON.parse(body) as {
+          hint?: string;      // voorkeur: instructie voor YAD
+          plan?: string;      // backwards-compat alias voor hint
+          reason?: string;    // diagnostiek: welk type vastloper (bv. "selector_drift")
+          confidence?: number; // 0–1: hoe zeker is de herstelstrategie
+          avoid?: string[];   // acties die YAD NIET opnieuw moet proberen
+        };
+        const hint = (parsed.hint ?? parsed.plan ?? "").trim();
+        if (!hint) {
+          json(res, 400, { ok: false, detail: "hint (of plan) is verplicht" });
           return;
         }
-        const accepted = session.setRecoveryPlan(parsed.plan.trim());
+        log(
+          `[assist] herstelplan: reden="${parsed.reason ?? "onbekend"}" zekerheid=${parsed.confidence ?? "?"} vermijden=${parsed.avoid?.length ?? 0} actie(s)`,
+        );
+        const accepted = session.setRecoveryPlan(hint, {
+          reason: parsed.reason,
+          confidence: parsed.confidence,
+          avoid: parsed.avoid,
+        });
         if (accepted) {
-          log(`[assist] herstelplan ontvangen en doorgestuurd naar de loop`);
           json(res, 200, { ok: true });
         } else {
           json(res, 409, { ok: false, detail: "Geen actieve stuck-run om een herstelplan naar te sturen" });
