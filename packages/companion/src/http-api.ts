@@ -167,7 +167,24 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       return;
     }
 
-    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result", "POST /verify"] });
+    if (url === "/save-session" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden — open Chrome met YAD extensie" });
+        return;
+      }
+      try {
+        const body = await readBody(req);
+        const parsed = JSON.parse(body) as { account?: string };
+        const label: "A" | "B" = parsed.account === "B" ? "B" : "A";
+        const result = await session.captureAndSaveSession(label);
+        json(res, result.ok ? 200 : 422, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result", "POST /verify", "POST /save-session"] });
   });
 
   server.listen(PORT, "127.0.0.1", () => {

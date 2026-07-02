@@ -16,7 +16,7 @@ import { StepLogger } from "./history/step-log.js";
 import { LlmRouter } from "./engine/router.js";
 import { buildPool } from "./engine/pool.js";
 import { createHandshakeHandler, type CompanionInfo } from "./handshake.js";
-import { saveREDACTEDSession } from "./adapters/REDACTED.js";
+import { saveREDACTEDSession, type REDACTEDSessionResult } from "./adapters/REDACTED.js";
 import { CacheStore } from "./memory/cache-store.js";
 import { REDACTEDSessionReader } from "./key/session-reader.js";
 import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js";
@@ -109,6 +109,32 @@ export class BrainSession implements HandBridge {
       }, 20_000);
       this.pending.set(msg.id, {
         resolve: (p) => resolve((p as { ok: boolean }).ok),
+        reject,
+        timer,
+      });
+      this.send(msg);
+    });
+  }
+
+  captureAndSaveSession(label: "A" | "B"): Promise<{ ok: boolean; brand?: string; path?: string; detail?: string }> {
+    const msg = brainMessage("REQUEST_SESSION_CAPTURE", { label });
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(msg.id);
+        reject(new Error("Session capture time-out na 20s — is er een actieve web-tab?"));
+      }, 20_000);
+      this.pending.set(msg.id, {
+        resolve: (p) => {
+          const d = p as { ok: boolean; label: "A" | "B"; url?: string; cookieHeader?: string; localStorage?: Record<string, string>; detail?: string };
+          if (!d.ok) { resolve({ ok: false, detail: d.detail }); return; }
+          const result = saveREDACTEDSession({
+            url: d.url ?? "",
+            cookieHeader: d.cookieHeader ?? "",
+            localStorage: d.localStorage ?? {},
+            label: d.label,
+          });
+          resolve(result);
+        },
         reject,
         timer,
       });
@@ -214,7 +240,8 @@ export class BrainSession implements HandBridge {
       case "CONFIRM_RESULT":
       case "INJECT_COOKIES_RESULT":
       case "INJECT_LOCALSTORAGE_RESULT":
-      case "NAVIGATE_RESULT": {
+      case "NAVIGATE_RESULT":
+      case "SESSION_CAPTURE_DATA": {
         const cid = raw.correlationId;
         const pend = cid ? this.pending.get(cid) : undefined;
         if (cid && pend) {
