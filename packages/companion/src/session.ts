@@ -20,8 +20,17 @@ import { saveREDACTEDSession, type REDACTEDSessionResult } from "./adapters/REDA
 import { CacheStore } from "./memory/cache-store.js";
 import { REDACTEDSessionReader } from "./key/session-reader.js";
 import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js";
+import { RecoveryStore } from "./memory/recovery-store.js";
+import type { Substate } from "./agent/substate.js";
 
 type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE";
+
+function statusToOutcome(status: string): RunHistoryEntry["outcome"] {
+  if (status === "klaar") return "success";
+  if (status === "gestopt" || status === "geweigerd") return "stuck";
+  if (status === "fout") return "error";
+  return "error";
+}
 
 /**
  * Wat de Planner (Claude Code) terugkrijgt na een synchrone /goal-run.
@@ -71,6 +80,7 @@ export class BrainSession implements HandBridge {
   private readonly cacheStore = new CacheStore();
   private readonly sessionReader = new REDACTEDSessionReader();
   private readonly runHistory = new RunHistoryStore();
+  private readonly recoveryStore = new RecoveryStore();
 
   constructor(
     private readonly send: (m: BrainMessage) => void,
@@ -324,7 +334,7 @@ export class BrainSession implements HandBridge {
     }
   }
 
-  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[], startingUrl?: string, autonomyOverride?: "confirm" | "auto"): Promise<GoalResult> {
+  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[], startingUrl?: string, autonomyOverride?: "confirm" | "auto", substates?: Substate[]): Promise<GoalResult> {
     const resultPath = process.env["YAD_RESULT_PATH"] ?? "C:\\Code\\yad-goal-result.json";
     const stepLogPath = process.env["YAD_STEP_LOG_PATH"] ?? "C:\\Code\\yad-step-log.jsonl";
 
@@ -382,10 +392,18 @@ export class BrainSession implements HandBridge {
       stepLogger,
       runId,
       onStuck: (r) => this.handleStuck(r),
+      recoveryStore: this.recoveryStore,
+      substates: substates ?? [],
     });
     let outcome: RunHistoryEntry | undefined;
     try {
       const result = await loop.run(goal, maxSteps, attachments);
+      // Flush bewezen recoveries naar de store zodat toekomstige runs er baat van hebben.
+      if (result.status === "klaar" && loop.hadRecovery) {
+        for (const r of loop.provenRecoveries) {
+          this.recoveryStore.record(r.sitePattern, r.failureCategory, r.hint);
+        }
+      }
       outcome = {
         id: runId,
         goal,
@@ -395,6 +413,10 @@ export class BrainSession implements HandBridge {
         startedAt: runStart,
         finishedAt: Date.now(),
         startingUrl,
+        outcome: statusToOutcome(result.status),
+        failureCategory: loop.lastStuckSignalId,
+        hadRecovery: loop.hadRecovery,
+        schemaVersion: 1,
       };
     } catch (e) {
       this.update({ status: "fout", message: (e as Error).message });
@@ -406,6 +428,9 @@ export class BrainSession implements HandBridge {
         startedAt: runStart,
         finishedAt: Date.now(),
         startingUrl,
+        outcome: "error",
+        hadRecovery: loop.hadRecovery,
+        schemaVersion: 1,
       };
     } finally {
       this.running = false;
@@ -435,8 +460,8 @@ export class BrainSession implements HandBridge {
   }
 
   /** Voert een taak uit en wacht op het resultaat. Gebruikt door POST /goal?sync=true. */
-  async runGoalSync(goal: string, opts?: { maxSteps?: number; startingUrl?: string; autonomy?: "confirm" | "auto" }): Promise<GoalResult> {
-    return this.startRun(goal, opts?.maxSteps, undefined, opts?.startingUrl, opts?.autonomy);
+  async runGoalSync(goal: string, opts?: { maxSteps?: number; startingUrl?: string; autonomy?: "confirm" | "auto"; substates?: Substate[] }): Promise<GoalResult> {
+    return this.startRun(goal, opts?.maxSteps, undefined, opts?.startingUrl, opts?.autonomy, opts?.substates);
   }
 
   // ---- HandBridge ----

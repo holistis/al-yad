@@ -20,6 +20,7 @@ import { readFileSync } from "node:fs";
 import { readSteps } from "./history/step-reader.js";
 import { verifySteps } from "./verify/verifier.js";
 import type { BrainSession } from "./session.js";
+import type { Substate } from "./agent/substate.js";
 
 const PORT = 3747;
 
@@ -74,7 +75,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       }
       try {
         const body = await readBody(req);
-        const parsed = JSON.parse(body) as { goal?: string; url?: string; sync?: boolean; maxSteps?: number; autonomy?: "confirm" | "auto" };
+        const parsed = JSON.parse(body) as { goal?: string; url?: string; sync?: boolean; maxSteps?: number; autonomy?: "confirm" | "auto"; substates?: Substate[] };
         if (typeof parsed.goal !== "string" || !parsed.goal.trim()) {
           json(res, 400, { ok: false, detail: "goal is verplicht" });
           return;
@@ -85,6 +86,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
             maxSteps: typeof parsed.maxSteps === "number" ? parsed.maxSteps : undefined,
             startingUrl: parsed.url,
             autonomy: parsed.autonomy === "auto" ? "auto" : undefined,
+            substates: Array.isArray(parsed.substates) ? parsed.substates : undefined,
           });
           json(res, 200, { ok: true, ...result });
         } else {

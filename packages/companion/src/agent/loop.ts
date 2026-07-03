@@ -9,6 +9,13 @@ import type { SnapshotNode } from "@yad/shared";
 import { getSiteProfile, getProfileByTier, type SiteProfile, type SiteTier } from "../engine/site-profile.js";
 import { CacheStore, makeCacheKey, urlToPattern } from "../memory/cache-store.js";
 import { replayCache } from "../memory/replay.js";
+import { makeSignal, type Signal } from "./arbiter.js";
+import { SubstateTracker, type Substate } from "./substate.js";
+import type { RecoveryStore } from "../memory/recovery-store.js";
+
+/** Plafond op het aantal keren dat één run Claude Code om een herstelplan mag vragen.
+ *  Voorkomt een meta-lus: YAD vraagt hulp → plan faalt → vraagt opnieuw → etc. */
+const MAX_RECOVERY_ATTEMPTS = 3;
 
 export interface ChatLike {
   chat(req: ChatRequest): Promise<{ content: string; provider: string }>;
@@ -125,6 +132,19 @@ export interface LoopOptions {
    * Niet ingesteld → terugval op requestConfirm (menselijke bevestiging).
    */
   onStuck?: (reason: StuckReason) => Promise<string | null>;
+  /**
+   * Optionele geordende checkpoint-lijst voor complexe doelen.
+   * Elk checkpoint heeft eigen predicaten die deterministisch bewijzen dat
+   * die stap klaar is. De tracker injecteert de huidige stap in de prompt
+   * en advance automatisch bij een match. Zie SubstateTracker.
+   */
+  substates?: Substate[];
+  /**
+   * Optionele recovery-store. Bevat bewezen herstelplannen per (site, fail-category).
+   * escalateOrStop() checkt de store VÓÓR Claude Code te bellen — gratis cache-hit.
+   * session.ts schrijft naar de store na een succesvolle run met recovery.
+   */
+  recoveryStore?: RecoveryStore;
 }
 
 /** URL-patronen die duiden op een loginpagina (voor sessie-verloop detectie). */
@@ -149,6 +169,10 @@ export interface RunOutcome {
   status: RunStatus;
   summary?: string;
   steps: number;
+  /** Welk stuck-signaal de run stopte (alleen gevuld bij "gestopt"-einde via escalatie). */
+  stuckSignalId?: string;
+  /** True als minstens één escalatie-poging een herstelplan opleverde (ook al eindigde de run uiteindelijk gestopt). */
+  hadRecovery?: boolean;
 }
 
 function refNode(snapshot: Snapshot, action: Action): SnapshotNode | undefined {
@@ -197,6 +221,24 @@ export class AgentLoop {
   private currentPlan: PlannedStep[] = [];
   /** Herstel-hint van Claude Code — geïnjecteerd als REEDS GEPROBEERD-blok in de prompt. */
   private failedHint: string | undefined = undefined;
+  /** Hoeveel keer deze run al om een herstelplan is gevraagd (plafond: MAX_RECOVERY_ATTEMPTS). */
+  private recoveryAttempts = 0;
+  /** Het laatste stuck-signaal dat de run deed stoppen via give-up (RunRecord-substraat). */
+  private _lastStuckSignalId: string | undefined = undefined;
+  /** True als minstens één escalatie-poging succesvol een herstelplan ontving (RunRecord-substraat). */
+  private _hadRecovery = false;
+
+  /** Bewezen herstel-events van deze run — voor flush naar recovery-store na "klaar". */
+  private _provenRecoveries: Array<{ sitePattern: string; failureCategory: string; hint: string }> = [];
+
+  /** Voor RunRecord-substraat: het signaal dat de run liet stoppen via escalatie (undefined bij klaar/max-steps). */
+  get lastStuckSignalId(): string | undefined { return this._lastStuckSignalId; }
+  /** Voor RunRecord-substraat: had deze run minstens één succesvolle escalatie-herstelpoging? */
+  get hadRecovery(): boolean { return this._hadRecovery; }
+  /** Bewezen recovery-events van deze run (voor flush naar recovery-store na "klaar"). */
+  get provenRecoveries(): ReadonlyArray<{ sitePattern: string; failureCategory: string; hint: string }> {
+    return this._provenRecoveries;
+  }
 
   constructor(
     private readonly router: ChatLike,
@@ -216,7 +258,12 @@ export class AgentLoop {
     this.stepLogger = opts.stepLogger;
     this.runId = opts.runId ?? "";
     this.onStuck = opts.onStuck;
+    this.substates = opts.substates ?? [];
+    this.recoveryStore = opts.recoveryStore;
   }
+
+  private readonly substates: Substate[];
+  private readonly recoveryStore: RecoveryStore | undefined;
 
   private readonly isAborted: () => boolean;
 
@@ -240,6 +287,72 @@ export class AgentLoop {
   }
 
   /**
+   * De ENE escalatie-respons op een stuck-signaal (voorheen 8× gekopieerd door de lus).
+   * Een detector levert een {@link Signal}; deze helper doet de I/O: markeer hulp-nodig,
+   * vraag Claude Code om een plan, en bij een plan: reset de signaal-specifieke tellers
+   * (via de reset-closure), wis het plan en injecteer de hint. Muteert this.failedHint /
+   * this.currentPlan / this.recoveryAttempts; de lus-lokale tellers reset de caller.
+   *
+   * Retourneert:
+   *  - "recovered": er kwam een herstelplan; de lus mag door met een andere aanpak.
+   *  - "give-up":   geen plan (plafond/timeout, óf geen onStuck-kanaal). De caller
+   *                 beslist wat "give-up" betekent (meestal: stop de run).
+   */
+  private async escalateOrStop(p: {
+    signal: Signal;
+    step: number;
+    url: string;
+    lastAction: Action;
+    goal: string;
+    history: HistoryItem[];
+    reset: () => void;
+  }): Promise<"recovered" | "give-up"> {
+    const { signal, step, url, lastAction, goal, history, reset } = p;
+    this.log(`stuck-signaal [${signal.severity}] ${signal.id}: ${signal.evidence}`);
+
+    const sitePattern = (() => { try { return new URL(url).hostname; } catch { return "unknown"; } })();
+
+    // Recovery-store: check VÓÓR Claude Code te bellen — cache-hit = geen LLM-kosten.
+    const storedHint = this.recoveryStore?.get(sitePattern, signal.id) ?? null;
+    const hint = storedHint ?? await (async () => {
+      this.hand.update({
+        status: "hulp-nodig",
+        step,
+        message: `${signal.evidence} — Claude Code om herstelplan gevraagd.`,
+        action: lastAction,
+      });
+      return this.escalate(
+        { why: signal.id as StuckReason["why"], runId: this.runId, goal, url, lastAction, history },
+        this.recoveryAttempts,
+        MAX_RECOVERY_ATTEMPTS,
+      );
+    })();
+
+    if (hint) {
+      if (storedHint) {
+        this.log(`recovery-store cache-hit (${sitePattern}|${signal.id}) — geen Claude Code nodig`);
+        this.hand.update({ status: "bezig", step, message: `Bewezen herstelplan gevonden — andere aanpak…` });
+      }
+      this.recoveryAttempts++;
+      this._hadRecovery = true;
+      this._provenRecoveries.push({ sitePattern, failureCategory: signal.id, hint });
+      this.failedHint = hint;
+      reset();
+      this.currentPlan = [];
+      if (!storedHint) {
+        this.hand.update({
+          status: "bezig",
+          step,
+          message: `Herstelplan ontvangen (escalatie ${this.recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — andere aanpak...`,
+        });
+      }
+      return "recovered";
+    }
+    this._lastStuckSignalId = p.signal.id;
+    return "give-up";
+  }
+
+  /**
    * Mensachtige, onregelmatige pauze tussen acties. Neemt een optionele basis-ms
    * (voor site-profiel overschrijving); valt terug op this.pacingMs voor tests.
    * Een vaste cadans is een bot-signaal; echte mensen variëren.
@@ -257,6 +370,11 @@ export class AgentLoop {
 
     this.currentPlan = []; // reset per run — vorige plan-rest nooit meenemen
     this.failedHint = undefined; // reset per run
+    this.recoveryAttempts = 0; // reset per run — escalatie-plafond geldt per run
+    this._lastStuckSignalId = undefined; // reset per run
+    this._hadRecovery = false; // reset per run
+    this._provenRecoveries = []; // reset per run
+    const tracker = new SubstateTracker(this.substates);
     let parseFails = 0;
     let cleanRun = true; // false zodra er een parse-fout is geweest; vuile runs worden niet gecached.
     let lastActionSig = "";
@@ -278,11 +396,8 @@ export class AgentLoop {
     // No Progress: telt LLM-aanroepen zonder bewijs van voortgang (judge "match" of
     // succesvolle actie). Bij 6+ aanroepen zonder vooruitgang → stop met tokens verbranden.
     let llmCallsSinceProgress = 0;
-    // Recovery Loop: telt hoeveel keer Claude Code om een herstelplan is gevraagd.
-    // Na 3 escalaties stopt de loop hard — Claude heeft het dan ook niet meer.
-    // Zo voorkom je een meta-lus: YAD vraagt hulp → plan faalt → vraagt opnieuw → etc.
-    let recoveryAttempts = 0;
-    const MAX_RECOVERY_ATTEMPTS = 3;
+    // Recovery-plafond leeft nu als instance-field (this.recoveryAttempts) + module-const
+    // MAX_RECOVERY_ATTEMPTS, zodat escalateOrStop() het kan lezen/ophogen.
     // Goal Drift: telt opeenvolgende LLM-aanroepen op hetzelfde URL-pad.
     // Na 3+ aanroepen op dezelfde URL → Judge-check of agent richting doel gaat.
     // Goedkoop alternatief voor goal-proximity: 1 judge-call per 3 LLM-calls op zelfde URL.
@@ -374,19 +489,14 @@ export class AgentLoop {
             urlRegressionCount++;
             this.log(`url-regressie #${urlRegressionCount}: terug naar pad ${newPath}`);
             if (urlRegressionCount >= 2) {
-              this.hand.update({ status: "hulp-nodig", step, message: `URL-regressie: agent keert terug naar al-bezochte pagina (${newPath}) — Claude Code gevraagd.` });
-              const hint = await this.escalate(
-                { why: "url-regression", runId: this.runId, goal, url: snapshot.url, lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action, history },
-                recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
-              );
-              if (hint) {
-                recoveryAttempts++;
-                this.failedHint = hint;
-                urlRegressionCount = 0;
-                uniquePathsSeen.clear();
-                this.currentPlan = [];
-                this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — andere navigatiestrategie...` });
-              } else {
+              const r = await this.escalateOrStop({
+                signal: makeSignal("url-regression", `URL-regressie: terug naar al-bezochte pagina ${newPath}`),
+                step, url: snapshot.url,
+                lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
+                goal, history,
+                reset: () => { urlRegressionCount = 0; uniquePathsSeen.clear(); },
+              });
+              if (r === "give-up") {
                 this.hand.update({ status: "gestopt", step, message: "Run gestopt — URL-regressie, geen herstelplan." });
                 return { status: "gestopt", steps: step };
               }
@@ -400,6 +510,16 @@ export class AgentLoop {
         try { uniquePathsSeen.add(new URL(snapshot.url).pathname); } catch { /* skip */ }
       }
       lastKnownUrl = snapshot.url;
+
+      // Substate-tracker: check of de huidige tussenstap klaar is en advance als dat zo is.
+      if (tracker.hasSubstates && tracker.tryAdvance(snapshot)) {
+        const p = tracker.progress;
+        if (p && !p.isComplete) {
+          this.log(`substate-advance → stap ${p.currentIndex + 1}/${p.totalCount}: ${p.currentLabel}`);
+        } else {
+          this.log(`substate-advance → alle ${tracker.progress?.totalCount ?? 0} tussenstap(pen) voltooid`);
+        }
+      }
 
       // Effect-nul-detectie: was de vorige muterende actie een no-op? Vergelijk de
       // volgorde-gevoelige fingerprint van vóór die actie met de huidige snapshot.
@@ -415,20 +535,14 @@ export class AgentLoop {
         }
         pendingEffectCheck = null;
         if (stepsSinceRealEffect >= MAX_NO_EFFECT) {
-          this.hand.update({ status: "hulp-nodig", step, message: `Stil falen: ${stepsSinceRealEffect} muterende acties zonder waarneembaar effect — Claude Code gevraagd.` });
-          const hint = await this.escalate(
-            { why: "silent-no-effect", runId: this.runId, goal, url: snapshot.url, lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action, history },
-            recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
-          );
-          if (hint) {
-            recoveryAttempts++;
-            this.failedHint = hint;
-            stepsSinceRealEffect = 0;
-            urlRegressionCount = 0;
-            uniquePathsSeen.clear();
-            this.currentPlan = [];
-            this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — vorige acties hadden geen effect, andere aanpak...` });
-          } else {
+          const r = await this.escalateOrStop({
+            signal: makeSignal("silent-no-effect", `Stil falen: ${stepsSinceRealEffect} muterende acties zonder waarneembaar effect`),
+            step, url: snapshot.url,
+            lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
+            goal, history,
+            reset: () => { stepsSinceRealEffect = 0; urlRegressionCount = 0; uniquePathsSeen.clear(); },
+          });
+          if (r === "give-up") {
             this.hand.update({ status: "gestopt", step, message: "Run gestopt — muterende acties zonder waarneembaar effect, geen herstelplan." });
             return { status: "gestopt", steps: step };
           }
@@ -442,21 +556,14 @@ export class AgentLoop {
       const prevIdx = stateHistory.lastIndexOf(fingerprint);
       if (prevIdx !== -1 && stateHistory.length - prevIdx >= 4 && llmCallsSinceProgress >= 2) {
         this.log(`state-loop: fingerprint gezien ${stateHistory.length - prevIdx} stappen geleden`);
-        this.hand.update({ status: "hulp-nodig", step, message: "State-lus: zelfde pagina teruggekeerd na andere acties — Claude Code gevraagd." });
-        const hint = await this.escalate(
-          { why: "state-loop", runId: this.runId, goal, url: snapshot.url, lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action, history },
-          recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
-        );
-        if (hint) {
-          recoveryAttempts++;
-          this.failedHint = hint;
-          llmCallsSinceProgress = 0;
-          stateHistory.length = 0;
-          urlRegressionCount = 0;
-          uniquePathsSeen.clear();
-          this.currentPlan = [];
-          this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — uitweg uit de lus...` });
-        } else {
+        const r = await this.escalateOrStop({
+          signal: makeSignal("state-loop", "State-lus: zelfde pagina teruggekeerd na andere acties"),
+          step, url: snapshot.url,
+          lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
+          goal, history,
+          reset: () => { llmCallsSinceProgress = 0; stateHistory.length = 0; urlRegressionCount = 0; uniquePathsSeen.clear(); },
+        });
+        if (r === "give-up") {
           this.hand.update({ status: "gestopt", step, message: "Run gestopt — state-lus, geen herstelplan." });
           return { status: "gestopt", steps: step };
         }
@@ -536,21 +643,14 @@ export class AgentLoop {
           });
           this.log(`goal-drift check (${consecutiveSameUrlLlmCalls} calls op ${snapshot.url}): ${driftCheck.verdict} — ${driftCheck.evidence.slice(0, 80)}`);
           if (driftCheck.verdict === "mismatch") {
-            this.hand.update({ status: "hulp-nodig", step, message: `Goal drift: ${consecutiveSameUrlLlmCalls} AI-aanroepen op ${snapshot.url} zonder aantoonbare doelvoortgang — Claude Code gevraagd.` });
-            const hint = await this.escalate(
-              { why: "goal-drift", runId: this.runId, goal, url: snapshot.url, lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action, history },
-              recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
-            );
-            if (hint) {
-              recoveryAttempts++;
-              this.failedHint = hint;
-              consecutiveSameUrlLlmCalls = 0;
-              lastLlmCallUrl = "";
-              urlRegressionCount = 0;
-              uniquePathsSeen.clear();
-              this.currentPlan = [];
-              this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — doelgericht nieuwe aanpak...` });
-            } else {
+            const r = await this.escalateOrStop({
+              signal: makeSignal("goal-drift", `Goal drift: ${consecutiveSameUrlLlmCalls} AI-aanroepen op ${snapshot.url} zonder aantoonbare doelvoortgang`),
+              step, url: snapshot.url,
+              lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
+              goal, history,
+              reset: () => { consecutiveSameUrlLlmCalls = 0; lastLlmCallUrl = ""; urlRegressionCount = 0; uniquePathsSeen.clear(); },
+            });
+            if (r === "give-up") {
               this.hand.update({ status: "gestopt", step, message: "Run gestopt — goal drift, geen herstelplan." });
               return { status: "gestopt", steps: step };
             }
@@ -566,20 +666,14 @@ export class AgentLoop {
         llmCallsSinceProgress++;
         if (llmCallsSinceProgress >= 6) {
           this.log(`no-progress: ${llmCallsSinceProgress} LLM-aanroepen zonder voortgang`);
-          this.hand.update({ status: "hulp-nodig", step, message: `Geen meetbare voortgang na ${llmCallsSinceProgress} AI-aanroepen — Claude Code gevraagd.` });
-          const hint = await this.escalate(
-            { why: "no-progress", runId: this.runId, goal, url: snapshot.url, lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action, history },
-            recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
-          );
-          if (hint) {
-            recoveryAttempts++;
-            this.failedHint = hint;
-            llmCallsSinceProgress = 0;
-            urlRegressionCount = 0;
-            uniquePathsSeen.clear();
-            this.currentPlan = [];
-            this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — nieuwe aanpak...` });
-          } else {
+          const r = await this.escalateOrStop({
+            signal: makeSignal("no-progress", `Geen meetbare voortgang na ${llmCallsSinceProgress} AI-aanroepen`),
+            step, url: snapshot.url,
+            lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
+            goal, history,
+            reset: () => { llmCallsSinceProgress = 0; urlRegressionCount = 0; uniquePathsSeen.clear(); },
+          });
+          if (r === "give-up") {
             this.hand.update({ status: "gestopt", step, message: `Run gestopt — ${llmCallsSinceProgress} aanroepen zonder voortgang.` });
             return { status: "gestopt", steps: step };
           }
@@ -587,7 +681,7 @@ export class AgentLoop {
 
         let content: string;
         try {
-          content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint);
+          content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint, tracker.toHint() ?? undefined);
         } catch (e) {
           this.hand.update({ status: "fout", step, message: friendlyLlmError(e) });
           return { status: "fout", steps: step - 1 };
@@ -699,20 +793,12 @@ export class AgentLoop {
             return { status: "klaar", summary: answer, steps: step };
           }
           // klik/typ/select herhaald → Claude Code om herstelplan vragen
-          this.hand.update({ status: "hulp-nodig", step, message: "Vastgelopen (herhaling) — Claude Code om herstelplan gevraagd.", action });
-          const hint = await this.escalate(
-            { why: "repeat", runId: this.runId, goal, url: snapshot.url, lastAction: action, history },
-            recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
-          );
-          if (hint) {
-            recoveryAttempts++;
-            this.failedHint = hint;
-            repeatCount = 0;
-            lastActionSig = "";
-            this.currentPlan = [];
-            this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — alternatieve aanpak...` });
-            continue; // geen act() uitgevoerd → continue is veilig
-          }
+          const r = await this.escalateOrStop({
+            signal: makeSignal("repeat", "Vastgelopen: model herhaalt exact dezelfde stap"),
+            step, url: snapshot.url, lastAction: action, goal, history,
+            reset: () => { repeatCount = 0; lastActionSig = ""; },
+          });
+          if (r === "recovered") continue; // geen act() uitgevoerd → continue is veilig
           this.hand.update({
             status: "gestopt",
             step,
@@ -815,18 +901,12 @@ export class AgentLoop {
       } else {
         consecutiveActFailures++;
         if (consecutiveActFailures >= 3 && action.kind !== "navigate" && action.kind !== "wait") {
-          this.hand.update({ status: "hulp-nodig", step, message: "Browser weigert acties (DOM-drift?) — Claude Code om herstelplan gevraagd.", action });
-          const hint = await this.escalate(
-            { why: "consecutive-act-failures", runId: this.runId, goal, url: snapshot.url, lastAction: action, history },
-            recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
-          );
-          if (hint) {
-            recoveryAttempts++;
-            this.failedHint = hint;
-            consecutiveActFailures = 0;
-            this.currentPlan = [];
-            this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — alternatieve aanpak...` });
-          } else {
+          const r = await this.escalateOrStop({
+            signal: makeSignal("consecutive-act-failures", "Browser weigert acties (DOM-drift/modal/captcha?)"),
+            step, url: snapshot.url, lastAction: action, goal, history,
+            reset: () => { consecutiveActFailures = 0; },
+          });
+          if (r === "give-up") {
             this.hand.update({ status: "gestopt", step, message: "Run gestopt — browser weigerde 3 acties, geen herstelplan." });
             return { status: "gestopt", steps: step };
           }
@@ -851,24 +931,19 @@ export class AgentLoop {
           consecutiveUnknowns++;
           judgeDetail = ` [judge:unknown]`;
           if (consecutiveUnknowns >= 3) {
-            this.hand.update({ status: "hulp-nodig", step, message: "Aanhoudende onzekerheid — Claude Code om herstelplan gevraagd.", action });
-            const hint = await this.escalate(
-              { why: "consecutive-unknowns", runId: this.runId, goal, url: snapshot.url, lastAction: action, history },
-              recoveryAttempts, MAX_RECOVERY_ATTEMPTS,
-            );
-            if (hint) {
-              recoveryAttempts++;
-              this.failedHint = hint;
-              consecutiveUnknowns = 0;
-              this.currentPlan = [];
-              this.hand.update({ status: "bezig", step, message: `Herstelplan ontvangen (escalatie ${recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — alternatieve aanpak...` });
-              // Geen continue: history.push() hieronder mag nog, actie is al uitgevoerd
-            } else if (this.onStuck) {
-              // onStuck aanwezig maar geen plan (plafond of timeout)
-              this.hand.update({ status: "gestopt", step, message: "Run gestopt — geen herstelplan (timeout of plafond bereikt)." });
-              return { status: "gestopt", steps: step };
-            } else {
-              // Geen onStuck → terugval op menselijke bevestiging
+            const r = await this.escalateOrStop({
+              signal: makeSignal("consecutive-unknowns", `Aanhoudende onzekerheid: judge kon ${consecutiveUnknowns} stappen niet beoordelen`),
+              step, url: snapshot.url, lastAction: action, goal, history,
+              reset: () => { consecutiveUnknowns = 0; },
+            });
+            // Geen continue bij herstel: history.push() hieronder mag nog, actie is al uitgevoerd.
+            if (r === "give-up") {
+              if (this.onStuck) {
+                // onStuck-kanaal bestaat maar gaf geen plan (timeout of plafond) → stop.
+                this.hand.update({ status: "gestopt", step, message: "Run gestopt — geen herstelplan (timeout of plafond bereikt)." });
+                return { status: "gestopt", steps: step };
+              }
+              // Geen onStuck-kanaal → terugval op menselijke bevestiging (oude flow).
               const dummy: Action = { kind: "wait", ms: 0 };
               const approved = await this.hand.requestConfirm(
                 dummy,
@@ -935,6 +1010,7 @@ export class AgentLoop {
     step: number,
     attachments?: Attachment[],
     failedHint?: string,
+    substateHint?: string,
   ): Promise<string> {
     const backoffs = [0, 4000, 9000]; // eerste poging direct, dan oplopend wachten
     let lastErr: unknown;
@@ -954,6 +1030,7 @@ export class AgentLoop {
             language: this.language,
             attachments,
             failedHint,
+            substateHint,
           }),
           temperature: 0,
           json: true,
