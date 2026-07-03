@@ -30,6 +30,9 @@ Available actions (use inside "steps" array):
 
 Rules:
 - Use refs exactly as shown in the snapshot. Never invent a ref.
+- LINKS: link nodes show their href directly in the snapshot (href="https://..."). When the
+  user asks for links/URLs, read them from the href= field and put them in the finish summary.
+  NEVER loop on extract to find a URL that is already visible as href= in the snapshot.
 - NEVER attempt to pay, place orders, or checkout; those are blocked by the system.
 - THE FINISH SUMMARY IS WHAT THE USER READS AS THE ANSWER. When the goal asks for
   information (a list, names, jobs, prices, a link, a result), put the REAL DATA in the
@@ -88,7 +91,11 @@ function renderSnapshot(s: Snapshot): string {
   const lines = s.nodes
     .slice(0, 120)
     .map((n) => {
-      const val = n.value ? ` =${JSON.stringify(n.value.slice(0, 60))}` : "";
+      const val = n.value
+        ? n.role === "link"
+          ? ` href=${JSON.stringify(n.value.slice(0, 120))}`
+          : ` =${JSON.stringify(n.value.slice(0, 60))}`
+        : "";
       const dis = n.disabled ? " (disabled)" : "";
       return `  ${n.ref} ${n.role} ${JSON.stringify(n.name.slice(0, 80))}${val}${dis}`;
     })

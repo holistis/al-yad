@@ -175,6 +175,12 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
   }
 
   runTabId = tabId;
+  // Breng de run-tab naar voren zodat de gebruiker YAD in actie ziet.
+  try {
+    const runTab = await chrome.tabs.get(tabId);
+    await chrome.tabs.update(tabId, { active: true });
+    if (runTab.windowId) await chrome.windows.update(runTab.windowId, { focused: true });
+  } catch { /* tab onleesbaar of window-update mislukt → geen probleem */ }
   // Startpagina-URL meesturen zodat de companion de juiste sessie kan injecteren.
   let startingUrl: string | undefined;
   try {
