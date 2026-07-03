@@ -163,6 +163,27 @@ function scrollChat(): void {
   c.scrollTop = c.scrollHeight;
 }
 
+/**
+ * Zet URLs in tekst om naar klikbare links — GEEN innerHTML (XSS-veilig).
+ * Bouwt DOM-nodes stuk voor stuk op zodat gebruikersinhoud nooit als HTML wordt geparsed.
+ */
+function linkify(container: HTMLElement, text: string): void {
+  const URL_RE = /https?:\/\/[^\s<>"]+/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = URL_RE.exec(text)) !== null) {
+    if (m.index > last) container.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const a = document.createElement("a");
+    a.href = m[0];
+    a.textContent = m[0];
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    container.appendChild(a);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) container.appendChild(document.createTextNode(text.slice(last)));
+}
+
 // ---- Gate ----
 
 function showGate(): void {
@@ -275,7 +296,7 @@ function addLog(status: RunStatus, message: string, step?: number): void {
     const ans = document.createElement("div");
     ans.className = "cb a ok";
     const txt = document.createElement("div");
-    txt.textContent = message;
+    linkify(txt, message);
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "cb-copy";
