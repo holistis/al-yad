@@ -110,6 +110,10 @@ function valueOf(el: Element): string | undefined {
     const v = (el as HTMLInputElement).value;
     return v ? v.slice(0, 120) : undefined;
   }
+  if (tag === "a") {
+    const href = (el as HTMLAnchorElement).href;
+    return href && href.startsWith("http") ? href.slice(0, 200) : undefined;
+  }
   return undefined;
 }
 

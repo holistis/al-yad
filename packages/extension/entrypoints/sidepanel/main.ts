@@ -246,6 +246,7 @@ let lastRunStatus: RunStatus | "" = "";
 let runStartedAt = 0;
 let runSteps = 0;
 let lastSummary: string | undefined;
+let localPlannenShown = false; // voorkomt dubbele user-bubble bij button-click
 
 function addLog(status: RunStatus, message: string, step?: number): void {
   if (step) runSteps = Math.max(runSteps, step);
@@ -637,6 +638,7 @@ function startBtnClick(): void {
   $("#bewaar-form").classList.add("hidden");
   goalEl.value = "";
   goalEl.style.height = "auto";
+  localPlannenShown = true;
   addLog("plannen", `Taak gestart: ${goal}`);
   const attachments = pendingAttachments.map((a) => ({ type: "image" as const, mimeType: a.mimeType, data: a.data, name: a.name }));
   clearAttachments();
@@ -836,8 +838,15 @@ function startApp(): void {
   }) => {
     if (msg?.type === "YAD_STATUS" && msg.status)
       renderConn(msg.status as "verbonden" | "verbinden" | "verbroken");
-    else if (msg?.type === "YAD_RUN_UPDATE" && msg.status)
-      addLog(msg.status as RunStatus, msg.message ?? "", msg.step);
+    else if (msg?.type === "YAD_RUN_UPDATE" && msg.status) {
+      // "plannen" van de companion is een echo van de button-click — sla over als we
+      // de bubble al lokaal hebben getoond om dubbele user-berichten te voorkomen.
+      if (msg.status === "plannen" && localPlannenShown) {
+        localPlannenShown = false;
+      } else {
+        addLog(msg.status as RunStatus, msg.message ?? "", msg.step);
+      }
+    }
     else if (msg?.type === "YAD_CONFIRM_REQUEST" && msg.id)
       showConfirm(msg.id, msg.action, msg.reason ?? "Bevestig deze actie");
     else if (msg?.type === "YAD_CONFIRM_EXPIRED")
