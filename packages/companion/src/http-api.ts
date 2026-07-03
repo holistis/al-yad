@@ -74,7 +74,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       }
       try {
         const body = await readBody(req);
-        const parsed = JSON.parse(body) as { goal?: string; url?: string; sync?: boolean; maxSteps?: number };
+        const parsed = JSON.parse(body) as { goal?: string; url?: string; sync?: boolean; maxSteps?: number; autonomy?: "confirm" | "auto" };
         if (typeof parsed.goal !== "string" || !parsed.goal.trim()) {
           json(res, 400, { ok: false, detail: "goal is verplicht" });
           return;
@@ -84,6 +84,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
           const result = await session.runGoalSync(parsed.goal, {
             maxSteps: typeof parsed.maxSteps === "number" ? parsed.maxSteps : undefined,
             startingUrl: parsed.url,
+            autonomy: parsed.autonomy === "auto" ? "auto" : undefined,
           });
           json(res, 200, { ok: true, ...result });
         } else {
