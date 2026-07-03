@@ -786,6 +786,13 @@ export class AgentLoop {
       if (result.ok && isMutating) {
         pendingEffectCheck = { pre: orderSensitiveFingerprint(snapshot), step };
       }
+      // DOM-refresh na select: combobox-DOM wordt volledig herbouwd na selectie → alle
+      // resterende micro-plan-refs zijn stale. Gooi het plan weg zodat het model een verse
+      // snapshot krijgt. Voorkomt de "ref e2 is geen keuzelijst"-bug na een geslaagde select.
+      if (result.ok && action.kind === "select" && this.currentPlan.length > 0) {
+        this.log(`plan gewist na select (${this.currentPlan.length} resterende stap(pen) vervallen door DOM-refresh)`);
+        this.currentPlan = [];
+      }
 
       // Derde vastloop-detector: als 3 opeenvolgende acties mislukken, is er
       // waarschijnlijk DOM-drift, een modal die alles blokkeert, of een captcha.
