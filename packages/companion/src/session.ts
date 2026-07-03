@@ -21,6 +21,7 @@ import { CacheStore } from "./memory/cache-store.js";
 import { REDACTEDSessionReader } from "./key/session-reader.js";
 import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js";
 import { RecoveryStore } from "./memory/recovery-store.js";
+import type { Substate } from "./agent/substate.js";
 
 type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE";
 
@@ -333,7 +334,7 @@ export class BrainSession implements HandBridge {
     }
   }
 
-  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[], startingUrl?: string, autonomyOverride?: "confirm" | "auto"): Promise<GoalResult> {
+  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[], startingUrl?: string, autonomyOverride?: "confirm" | "auto", substates?: Substate[]): Promise<GoalResult> {
     const resultPath = process.env["YAD_RESULT_PATH"] ?? "C:\\Code\\yad-goal-result.json";
     const stepLogPath = process.env["YAD_STEP_LOG_PATH"] ?? "C:\\Code\\yad-step-log.jsonl";
 
@@ -392,6 +393,7 @@ export class BrainSession implements HandBridge {
       runId,
       onStuck: (r) => this.handleStuck(r),
       recoveryStore: this.recoveryStore,
+      substates: substates ?? [],
     });
     let outcome: RunHistoryEntry | undefined;
     try {
@@ -458,8 +460,8 @@ export class BrainSession implements HandBridge {
   }
 
   /** Voert een taak uit en wacht op het resultaat. Gebruikt door POST /goal?sync=true. */
-  async runGoalSync(goal: string, opts?: { maxSteps?: number; startingUrl?: string; autonomy?: "confirm" | "auto" }): Promise<GoalResult> {
-    return this.startRun(goal, opts?.maxSteps, undefined, opts?.startingUrl, opts?.autonomy);
+  async runGoalSync(goal: string, opts?: { maxSteps?: number; startingUrl?: string; autonomy?: "confirm" | "auto"; substates?: Substate[] }): Promise<GoalResult> {
+    return this.startRun(goal, opts?.maxSteps, undefined, opts?.startingUrl, opts?.autonomy, opts?.substates);
   }
 
   // ---- HandBridge ----
