@@ -20,6 +20,7 @@ import { saveREDACTEDSession, type REDACTEDSessionResult } from "./adapters/REDA
 import { CacheStore } from "./memory/cache-store.js";
 import { REDACTEDSessionReader } from "./key/session-reader.js";
 import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js";
+import { RecoveryStore } from "./memory/recovery-store.js";
 
 type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE";
 
@@ -78,6 +79,7 @@ export class BrainSession implements HandBridge {
   private readonly cacheStore = new CacheStore();
   private readonly sessionReader = new REDACTEDSessionReader();
   private readonly runHistory = new RunHistoryStore();
+  private readonly recoveryStore = new RecoveryStore();
 
   constructor(
     private readonly send: (m: BrainMessage) => void,
@@ -389,10 +391,17 @@ export class BrainSession implements HandBridge {
       stepLogger,
       runId,
       onStuck: (r) => this.handleStuck(r),
+      recoveryStore: this.recoveryStore,
     });
     let outcome: RunHistoryEntry | undefined;
     try {
       const result = await loop.run(goal, maxSteps, attachments);
+      // Flush bewezen recoveries naar de store zodat toekomstige runs er baat van hebben.
+      if (result.status === "klaar" && loop.hadRecovery) {
+        for (const r of loop.provenRecoveries) {
+          this.recoveryStore.record(r.sitePattern, r.failureCategory, r.hint);
+        }
+      }
       outcome = {
         id: runId,
         goal,
