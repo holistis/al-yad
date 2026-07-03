@@ -401,7 +401,7 @@ export class BrainSession implements HandBridge {
       // Flush bewezen recoveries naar de store zodat toekomstige runs er baat van hebben.
       if (result.status === "klaar" && loop.hadRecovery) {
         for (const r of loop.provenRecoveries) {
-          this.recoveryStore.record(r.sitePattern, r.failureCategory, r.hint);
+          this.recoveryStore.record(r.sitePattern, r.failureCategory, r.hint, r.failureClass);
         }
       }
       outcome = {
