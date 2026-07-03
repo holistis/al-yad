@@ -219,3 +219,78 @@ describe("AgentLoop — sessie-verloop detectie", () => {
     expect(out.status).toBe("klaar");
   });
 });
+
+// ── DONE-predicaat bewaker (Stap 4) ──────────────────────────────────────────
+
+// Gesorteerde URL bevat '?sort=lohi' — url-contains geeft deterministisch mismatch/match
+const UNSORTED_SNAP: Snapshot = {
+  url: "https://shop.nl/producten",
+  title: "Producten",
+  nodes: [{ ref: "e1", role: "combobox", name: "Sortering", value: "az" }],
+  textDigest: "Name (A to Z) Sauce Labs Backpack $29.99 Sauce Labs Bike Light",
+};
+
+const SORTED_SNAP: Snapshot = {
+  url: "https://shop.nl/producten?sort=lohi",
+  title: "Producten",
+  nodes: [{ ref: "e1", role: "combobox", name: "Sortering", value: "lohi" }],
+  textDigest: "Price (low to high) Sauce Labs Onesie $7.99 Sauce Labs Bike Light $9.99",
+};
+
+// Finish met url-contains DONE-predicaat: deterministisch mismatch als URL sort=lohi ontbreekt
+const FINISH_WITH_DONE = JSON.stringify({
+  steps: [{ kind: "finish", summary: "Producten gesorteerd op prijs (laag naar hoog)", done: [{ type: "url-contains", value: "sort=lohi" }] }],
+  rationale: "doel bereikt",
+});
+
+describe("AgentLoop — DONE-predicaat bewaker", () => {
+  it("weigert finish als DONE-predicaten niet matchen, accepteert als ze wel matchen", async () => {
+    // Volgorde snapshots: initSnap, stap-1 (unsorted → finish GEWEIGERD), stap-2 (select), stap-3 (sorted → finish GEACCEPTEERD)
+    const hand = new DynamicMockHand([UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, SORTED_SNAP]);
+    const router = new MockRouter([
+      FINISH_WITH_DONE, // stap 1: finish geweigerd (pagina nog niet gesorteerd)
+      '{"steps":[{"kind":"select","ref":"e1","value":"lohi"}],"rationale":"sortering toepassen"}', // stap 2
+      FINISH_WITH_DONE, // stap 3: finish geaccepteerd (pagina nu gesorteerd)
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("sorteer producten op prijs laag naar hoog");
+
+    expect(out.status).toBe("klaar");
+    expect(out.summary).toContain("gesorteerd op prijs");
+    // Select-actie werd uitgevoerd (finish was geweigerd, model herplande)
+    expect(hand.acts.some((a) => a.kind === "select" && (a as { value?: string }).value === "lohi")).toBe(true);
+    // Hand zag de "Finish geweigerd" status
+    expect(hand.updates.some((u) => u.message.includes("Finish geweigerd"))).toBe(true);
+  });
+
+  it("eindigt met fout na MAX_FINISH_REJECTIONS+1 mislukte finish-pogingen", async () => {
+    // Alle snapshots unsorted: elke finish-poging wordt geweigerd
+    const hand = new DynamicMockHand([
+      UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP,
+    ]);
+    const router = new MockRouter([
+      FINISH_WITH_DONE, // stap 1: geweigerd (finishRejections=1 ≤ 2 → continue)
+      FINISH_WITH_DONE, // stap 2: geweigerd (finishRejections=2 ≤ 2 → continue)
+      FINISH_WITH_DONE, // stap 3: geweigerd (finishRejections=3 > 2 → fout)
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("sorteer producten op prijs laag naar hoog");
+
+    expect(out.status).toBe("fout");
+    expect(hand.updates.some((u) => u.message.includes("Finish") && u.message.includes("geweigerd"))).toBe(true);
+  });
+
+  it("accepteert finish zonder DONE-predicaten direct (backwards compat)", async () => {
+    const hand = new DynamicMockHand([UNSORTED_SNAP, UNSORTED_SNAP]);
+    const router = new MockRouter([
+      '{"steps":[{"kind":"finish","summary":"klaar, geen predicaten"}],"rationale":"simpele taak"}',
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("doe iets");
+
+    expect(out.status).toBe("klaar");
+    expect(out.summary).toContain("geen predicaten");
+    // Geen updates over "Finish geweigerd"
+    expect(hand.updates.every((u) => !u.message.includes("Finish geweigerd"))).toBe(true);
+  });
+});
