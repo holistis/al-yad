@@ -30,7 +30,8 @@ export type Predicate =
   | { type: "role-absent"; role: string; nameSubstring?: string }
   | { type: "field-any-filled"; min?: number }
   | { type: "text-present"; value: string }
-  | { type: "text-absent"; value: string };
+  | { type: "text-absent"; value: string }
+  | { type: "attribute-equals"; role: string; nameSubstring?: string; attribute: "value" | "checked"; expected: string };
 
 export const PREDICATE_TYPES: readonly Predicate["type"][] = [
   "url-contains",
@@ -39,6 +40,7 @@ export const PREDICATE_TYPES: readonly Predicate["type"][] = [
   "field-any-filled",
   "text-present",
   "text-absent",
+  "attribute-equals",
 ];
 
 /** Genormaliseerde vergelijking: witruimte-collapse + lowercase. */
@@ -93,6 +95,17 @@ export function evaluatePredicate(pred: Predicate, snapshot: Snapshot): Predicat
       // niet-gevonden kan afkap zijn, dus we kunnen afwezigheid niet garanderen (indeterminate).
       const digest = norm(snapshot.textDigest ?? "");
       return digest.includes(norm(pred.value)) ? "mismatch" : "indeterminate";
+    }
+
+    case "attribute-equals": {
+      // STERK: zoekt een node die role + nameSubstring matcht en vergelijkt het attribuut.
+      // "value" is de geselecteerde/ingetypte waarde (bijv. combobox.value = "za").
+      // "checked" is de checked-status (bijv. checkbox.value = "true"/"false").
+      // Niet gevonden = mismatch (de combobox bestaat niet of heeft een andere waarde).
+      const node = snapshot.nodes.find((n) => nodeMatches(n, pred.role, pred.nameSubstring));
+      if (!node) return "mismatch";
+      const actual = pred.attribute === "value" ? (node.value ?? "") : "";
+      return norm(actual) === norm(pred.expected) ? "match" : "mismatch";
     }
   }
 }
@@ -159,6 +172,19 @@ export function parsePredicate(raw: unknown): Predicate | null {
     case "text-present":
     case "text-absent":
       return isStr(o["value"]) ? { type, value: o["value"] } : null;
+    case "attribute-equals": {
+      if (!isStr(o["role"])) return null;
+      const attr = o["attribute"];
+      if (attr !== "value" && attr !== "checked") return null;
+      if (!isStr(o["expected"])) return null;
+      return {
+        type,
+        role: o["role"],
+        ...(isStr(o["nameSubstring"]) ? { nameSubstring: o["nameSubstring"] } : {}),
+        attribute: attr,
+        expected: o["expected"],
+      };
+    }
     default:
       return null;
   }
@@ -180,10 +206,11 @@ export function parsePredicates(raw: unknown): Predicate[] {
  * generatie begrensd tot exact de checkbare, ref-vrije predicaat-types.
  */
 export const PREDICATE_GRAMMAR = `Predicate types (ref-free, deterministically checkable against the page snapshot):
-- {"type":"url-contains","value":"/checkout"}            → URL path/query contains the value
-- {"type":"role-present","role":"button","nameSubstring":"Finish"}  → an element with this role (and optional name substring) exists
-- {"type":"role-absent","role":"button","nameSubstring":"Login"}    → no such element exists
-- {"type":"field-any-filled","min":1}                    → at least min input fields have a non-empty value
-- {"type":"text-present","value":"Thank you"}            → visible page text contains the value (WEAK: page text is truncated)
+- {"type":"url-contains","value":"/checkout"}            → URL path/query contains the value (STRONG)
+- {"type":"role-present","role":"button","nameSubstring":"Finish"}  → element with this role/name exists (STRONG)
+- {"type":"role-absent","role":"button","nameSubstring":"Login"}    → no such element exists (STRONG)
+- {"type":"attribute-equals","role":"combobox","nameSubstring":"Sort","attribute":"value","expected":"za"} → element attribute equals expected value (STRONG)
+- {"type":"field-any-filled","min":1}                    → at least min input fields have a non-empty value (STRONG)
+- {"type":"text-present","value":"Thank you"}            → visible page text contains the value (WEAK: truncated text = indeterminate)
 - {"type":"text-absent","value":"Error"}                 → visible page text does not contain the value (WEAK)
-NEVER reference element refs (e1, e2, ...) — refs are per-snapshot and drift. Prefer url-contains and role-present.`;
+NEVER reference element refs (e1, e2, ...) — refs are per-snapshot and drift. Prefer url-contains, role-present, attribute-equals.`;

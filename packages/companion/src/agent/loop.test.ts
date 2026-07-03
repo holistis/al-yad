@@ -293,4 +293,105 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
     // Geen updates over "Finish geweigerd"
     expect(hand.updates.every((u) => !u.message.includes("Finish geweigerd"))).toBe(true);
   });
+
+  it("attribute-equals DONE-predicaat: match als combobox juiste waarde heeft", async () => {
+    // Snapshot met gesorteerde combobox-waarde "lohi"
+    const hand = new DynamicMockHand([SORTED_SNAP, SORTED_SNAP]);
+    const attrFinish = JSON.stringify({
+      steps: [{ kind: "finish", summary: "Gesorteerd op prijs (laag → hoog)",
+        done: [{ type: "attribute-equals", role: "combobox", nameSubstring: "Sortering", attribute: "value", expected: "lohi" }] }],
+      rationale: "combobox bevestigt sortering",
+    });
+    const router = new MockRouter([attrFinish]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("sorteer op prijs");
+
+    expect(out.status).toBe("klaar");
+    expect(out.summary).toContain("Gesorteerd");
+    expect(hand.updates.every((u) => !u.message.includes("Finish geweigerd"))).toBe(true);
+  });
+
+  it("attribute-equals DONE-predicaat: mismatch als combobox verkeerde waarde heeft", async () => {
+    // Snapshot met verkeerde combobox-waarde "az" (niet gesorteerd)
+    const hand = new DynamicMockHand([UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, SORTED_SNAP]);
+    const attrFinish = JSON.stringify({
+      steps: [{ kind: "finish", summary: "Gesorteerd",
+        done: [{ type: "attribute-equals", role: "combobox", nameSubstring: "Sortering", attribute: "value", expected: "lohi" }] }],
+      rationale: "combobox bevestigt sortering",
+    });
+    const router = new MockRouter([
+      attrFinish, // stap 1: finish → mismatch (waarde is "az", niet "lohi")
+      '{"steps":[{"kind":"select","ref":"e1","value":"lohi"}],"rationale":"sorteren"}', // stap 2: select
+      attrFinish, // stap 3: finish → match (waarde is "lohi")
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("sorteer op prijs");
+
+    expect(out.status).toBe("klaar");
+    expect(hand.updates.some((u) => u.message.includes("Finish geweigerd"))).toBe(true);
+    expect(hand.acts.some((a) => a.kind === "select")).toBe(true);
+  });
+});
+
+// ── DOM-refresh na select: plan-clear structurele fix ───────────────────────
+
+describe("AgentLoop — plan-clear na succesvolle select", () => {
+  it("gooit resterende micro-plan stappen weg na select ok=true (stale-ref preventie)", async () => {
+    // Micro-plan bevat [select, select, click] — de 2e select en click moeten NIET uitgevoerd worden.
+    // Na de eerste select (ok=true) wist de loop het plan en maakt een nieuwe LLM-aanroep.
+    const multiStepPlan = JSON.stringify({
+      steps: [
+        { kind: "select", ref: "e1", value: "lohi" },   // stap 1: select (ok → plan gewist)
+        { kind: "select", ref: "e1", value: "lohi" },   // stap 2: zou stale zijn — mag NIET uitgevoerd worden
+        { kind: "click",  ref: "e2" },                  // stap 3: mag ook NIET
+      ],
+      rationale: "multi-stap plan met stale-ref risico",
+    });
+
+    const hand = new DynamicMockHand([UNSORTED_SNAP, SORTED_SNAP, SORTED_SNAP]);
+    const router = new MockRouter([
+      multiStepPlan, // stap 1: model geeft 3-staps plan
+      '{"steps":[{"kind":"finish","summary":"klaar na verse snapshot"}],"rationale":"verse snapshot"}', // stap 2: na plan-clear
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("sorteer op prijs");
+
+    expect(out.status).toBe("klaar");
+    // Alleen de select uit stap 1 én de finish mogen uitgevoerd zijn (niet de 2e select of click)
+    const selects = hand.acts.filter((a) => a.kind === "select");
+    const clicks   = hand.acts.filter((a) => a.kind === "click");
+    expect(selects).toHaveLength(1);  // slechts één select uitgevoerd
+    expect(clicks).toHaveLength(0);   // click nooit bereikt
+  });
+
+  it("gooit resterende plan weg na mislukte select (fail-fast, niet alleen bij ok=true)", async () => {
+    // De loop wist het resterende plan bij ELKE mislukte actie (loop.ts ~lijn 902).
+    // Dit voorkomt dat vervolgstappen die afhankelijk waren van de mislukte actie
+    // blind worden uitgevoerd. Na de fout wordt een verse LLM-aanroep gedwongen.
+    const failPlan = JSON.stringify({
+      steps: [
+        { kind: "select", ref: "e99", value: "lohi" }, // zal mislukken: ref bestaat niet
+        { kind: "wait",   ms: 100 },                   // mag NIET uitgevoerd worden (plan gewist na fout)
+      ],
+      rationale: "select met foute ref",
+    });
+
+    class FailSelectHand extends MockHand {
+      override async act(a: Action): Promise<ActResult> {
+        if (a.kind === "select") return { ok: false, detail: "ref niet gevonden" };
+        return super.act(a);
+      }
+    }
+    const hand = new FailSelectHand(UNSORTED_SNAP);
+    const router = new MockRouter([
+      failPlan,
+      '{"steps":[{"kind":"finish","summary":"klaar na vers plan"}],"rationale":"herstel na fout"}',
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("sorteer op prijs");
+
+    // Wait-stap is NIET uitgevoerd — plan gewist zodra select faalde
+    expect(out.status).toBe("klaar");
+    expect(hand.acts.some((a) => a.kind === "wait")).toBe(false); // wait nooit bereikt
+  });
 });

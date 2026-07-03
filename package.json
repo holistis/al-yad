@@ -17,7 +17,8 @@
     "register-host": "powershell -ExecutionPolicy Bypass -File scripts/register-host.ps1",
     "smoke-host": "tsx scripts/smoke-native-host.ts",
     "engine-smoke": "tsx scripts/engine-smoke.ts",
-    "process-legal": "tsx scripts/process-legal.ts"
+    "process-legal": "tsx scripts/process-legal.ts",
+    "test-rejection": "tsx scripts/test-done-rejection.ts"
   },
   "devDependencies": {
     "marked": "^12.0.2",

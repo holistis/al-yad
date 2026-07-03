@@ -64,6 +64,36 @@ describe("evaluatePredicate", () => {
     expect(evaluatePredicate({ type: "text-absent", value: "Error" }, snap())).toBe("indeterminate");
   });
 
+  it("attribute-equals: match als combobox-waarde klopt (STERK — nooit indeterminate)", () => {
+    const sorted = snap({
+      nodes: [
+        { ref: "e1", role: "combobox", name: "Product Sort Container", value: "za" },
+        { ref: "e2", role: "button",   name: "Continue" },
+      ],
+    });
+    const pred = { type: "attribute-equals" as const, role: "combobox", nameSubstring: "Sort", attribute: "value" as const, expected: "za" };
+    expect(evaluatePredicate(pred, sorted)).toBe("match");
+  });
+
+  it("attribute-equals: mismatch als waarde afwijkt", () => {
+    const unsorted = snap({
+      nodes: [{ ref: "e1", role: "combobox", name: "Product Sort Container", value: "az" }],
+    });
+    const pred = { type: "attribute-equals" as const, role: "combobox", nameSubstring: "Sort", attribute: "value" as const, expected: "za" };
+    expect(evaluatePredicate(pred, unsorted)).toBe("mismatch");
+  });
+
+  it("attribute-equals: mismatch als element niet gevonden (niet indeterminate)", () => {
+    const pred = { type: "attribute-equals" as const, role: "combobox", nameSubstring: "Sort", attribute: "value" as const, expected: "za" };
+    expect(evaluatePredicate(pred, snap())).toBe("mismatch");
+  });
+
+  it("attribute-equals: hoofdletterongevoelige vergelijking van expected en actual", () => {
+    const s = snap({ nodes: [{ ref: "e1", role: "combobox", name: "Sort", value: "  ZA  " }] });
+    const pred = { type: "attribute-equals" as const, role: "combobox", attribute: "value" as const, expected: "za" };
+    expect(evaluatePredicate(pred, s)).toBe("match");
+  });
+
   it("is puur: twee keer aanroepen geeft identiek resultaat", () => {
     const p: Predicate = { type: "url-contains", value: "/checkout" };
     const s = snap();
@@ -129,6 +159,22 @@ describe("parsePredicate (validatie + ref-verbod)", () => {
     expect(parsePredicate({ type: "url-contains", value: "/x" })).toEqual({ type: "url-contains", value: "/x" });
     expect(parsePredicate({ type: "field-any-filled" })).toEqual({ type: "field-any-filled" });
     expect(parsePredicate({ type: "field-any-filled", min: 2 })).toEqual({ type: "field-any-filled", min: 2 });
+  });
+
+  it("attribute-equals: accepteert geldig predicaat", () => {
+    const result = parsePredicate({
+      type: "attribute-equals", role: "combobox", nameSubstring: "Sort", attribute: "value", expected: "za",
+    });
+    expect(result).toEqual({ type: "attribute-equals", role: "combobox", nameSubstring: "Sort", attribute: "value", expected: "za" });
+  });
+
+  it("attribute-equals: verwerpt ongeldig attribute-veld", () => {
+    expect(parsePredicate({ type: "attribute-equals", role: "combobox", attribute: "style", expected: "red" })).toBeNull();
+  });
+
+  it("attribute-equals: verwerpt ontbrekende role of expected", () => {
+    expect(parsePredicate({ type: "attribute-equals", attribute: "value", expected: "za" })).toBeNull();
+    expect(parsePredicate({ type: "attribute-equals", role: "combobox", attribute: "value" })).toBeNull();
   });
 
   it("parsePredicates dropt ongeldige exemplaren en houdt geldige", () => {
