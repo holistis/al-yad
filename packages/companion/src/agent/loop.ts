@@ -154,6 +154,10 @@ export interface RunOutcome {
   status: RunStatus;
   summary?: string;
   steps: number;
+  /** Welk stuck-signaal de run stopte (alleen gevuld bij "gestopt"-einde via escalatie). */
+  stuckSignalId?: string;
+  /** True als minstens één escalatie-poging een herstelplan opleverde (ook al eindigde de run uiteindelijk gestopt). */
+  hadRecovery?: boolean;
 }
 
 function refNode(snapshot: Snapshot, action: Action): SnapshotNode | undefined {
@@ -204,6 +208,15 @@ export class AgentLoop {
   private failedHint: string | undefined = undefined;
   /** Hoeveel keer deze run al om een herstelplan is gevraagd (plafond: MAX_RECOVERY_ATTEMPTS). */
   private recoveryAttempts = 0;
+  /** Het laatste stuck-signaal dat de run deed stoppen via give-up (RunRecord-substraat). */
+  private _lastStuckSignalId: string | undefined = undefined;
+  /** True als minstens één escalatie-poging succesvol een herstelplan ontving (RunRecord-substraat). */
+  private _hadRecovery = false;
+
+  /** Voor RunRecord-substraat: het signaal dat de run liet stoppen via escalatie (undefined bij klaar/max-steps). */
+  get lastStuckSignalId(): string | undefined { return this._lastStuckSignalId; }
+  /** Voor RunRecord-substraat: had deze run minstens één succesvolle escalatie-herstelpoging? */
+  get hadRecovery(): boolean { return this._hadRecovery; }
 
   constructor(
     private readonly router: ChatLike,
@@ -282,6 +295,7 @@ export class AgentLoop {
     );
     if (hint) {
       this.recoveryAttempts++;
+      this._hadRecovery = true;
       this.failedHint = hint;
       reset();
       this.currentPlan = [];
@@ -292,6 +306,7 @@ export class AgentLoop {
       });
       return "recovered";
     }
+    this._lastStuckSignalId = p.signal.id;
     return "give-up";
   }
 
@@ -314,6 +329,8 @@ export class AgentLoop {
     this.currentPlan = []; // reset per run — vorige plan-rest nooit meenemen
     this.failedHint = undefined; // reset per run
     this.recoveryAttempts = 0; // reset per run — escalatie-plafond geldt per run
+    this._lastStuckSignalId = undefined; // reset per run
+    this._hadRecovery = false; // reset per run
     let parseFails = 0;
     let cleanRun = true; // false zodra er een parse-fout is geweest; vuile runs worden niet gecached.
     let lastActionSig = "";

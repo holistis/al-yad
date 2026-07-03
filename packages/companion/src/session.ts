@@ -23,6 +23,13 @@ import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js"
 
 type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE";
 
+function statusToOutcome(status: string): RunHistoryEntry["outcome"] {
+  if (status === "klaar") return "success";
+  if (status === "gestopt" || status === "geweigerd") return "stuck";
+  if (status === "fout") return "error";
+  return "error";
+}
+
 /**
  * Wat de Planner (Claude Code) terugkrijgt na een synchrone /goal-run.
  * Bevat feiten: status, samenvatting, stappen, en paden naar bewijs-bestanden.
@@ -395,6 +402,10 @@ export class BrainSession implements HandBridge {
         startedAt: runStart,
         finishedAt: Date.now(),
         startingUrl,
+        outcome: statusToOutcome(result.status),
+        failureCategory: loop.lastStuckSignalId,
+        hadRecovery: loop.hadRecovery,
+        schemaVersion: 1,
       };
     } catch (e) {
       this.update({ status: "fout", message: (e as Error).message });
@@ -406,6 +417,9 @@ export class BrainSession implements HandBridge {
         startedAt: runStart,
         finishedAt: Date.now(),
         startingUrl,
+        outcome: "error",
+        hadRecovery: loop.hadRecovery,
+        schemaVersion: 1,
       };
     } finally {
       this.running = false;

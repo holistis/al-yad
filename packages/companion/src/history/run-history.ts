@@ -16,6 +16,11 @@ export interface RunHistoryEntry {
   finishedAt: number;
   startingUrl?: string;
   cached?: boolean;
+  // v2 — RunRecord-substraat (optioneel voor backward compat met oude entries)
+  outcome?: "success" | "stuck" | "aborted" | "error";
+  failureCategory?: string;
+  hadRecovery?: boolean;
+  schemaVersion?: 1;
 }
 
 function defaultDataDir(): string {
