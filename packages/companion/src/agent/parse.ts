@@ -125,6 +125,21 @@ export function parseAction(raw: string): ParseResult {
         ok: true,
         action: { kind, what: obj["what"], ...(isStr(obj["ref"]) ? { ref: obj["ref"] } : {}) },
       };
+    case "scroll": {
+      const dir = obj["direction"];
+      if (dir !== "down" && dir !== "up" && dir !== "left" && dir !== "right")
+        return { ok: false, error: "scroll: direction moet down/up/left/right zijn" };
+      const amount = obj["amount"];
+      return {
+        ok: true,
+        action: {
+          kind,
+          direction: dir,
+          ...(typeof amount === "number" && amount > 0 ? { amount: Math.min(Math.round(amount), 20) } : {}),
+          ...(isStr(obj["ref"]) ? { ref: obj["ref"] } : {}),
+        },
+      };
+    }
     case "wait": {
       const ms = obj["ms"];
       if (typeof ms !== "number" || !Number.isFinite(ms))

@@ -203,6 +203,24 @@ export async function executeAction(
       return { ok: true };
     }
 
+    case "scroll": {
+      const units = action.amount ?? 3;
+      const px = units * 120; // 120px per unit — vergelijkbaar met één muiswiel-klik
+      if (action.ref) {
+        // Scroll een specifiek element in beeld (en eventueel intern in dat element)
+        const el = refMap.get(action.ref);
+        if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
+        (el as HTMLElement).scrollIntoView({ block: "center", behavior: "smooth" });
+        await sleep(400);
+        return { ok: true };
+      }
+      const dx = action.direction === "right" ? px : action.direction === "left" ? -px : 0;
+      const dy = action.direction === "down" ? px : action.direction === "up" ? -px : 0;
+      window.scrollBy({ left: dx, top: dy, behavior: "smooth" });
+      await sleep(400);
+      return { ok: true };
+    }
+
     case "navigate":
     case "finish":
       return { ok: false, detail: "deze actie hoort niet in de pagina-context" };

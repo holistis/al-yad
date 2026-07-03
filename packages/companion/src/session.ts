@@ -23,7 +23,7 @@ import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js"
 import { RecoveryStore } from "./memory/recovery-store.js";
 import type { Substate } from "./agent/substate.js";
 
-type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE";
+type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE" | "REQUEST_SCREENSHOT";
 
 function statusToOutcome(status: string): RunHistoryEntry["outcome"] {
   if (status === "klaar") return "success";
@@ -468,6 +468,16 @@ export class BrainSession implements HandBridge {
 
   requestSnapshot(): Promise<Snapshot> {
     return this.request<{ snapshot: Snapshot }>("REQUEST_SNAPSHOT", {}).then((p) => p.snapshot);
+  }
+
+  /** Vraagt een JPEG-screenshot van de actieve run-tab. Geeft null bij fout of geen vision-model. */
+  async requestScreenshot(): Promise<string | null> {
+    try {
+      const r = await this.request<{ ok: boolean; dataUrl?: string }>("REQUEST_SCREENSHOT", {}, 10_000);
+      return r.ok && r.dataUrl ? r.dataUrl : null;
+    } catch {
+      return null; // time-out of extensie-fout → geen screenshot, geen crash
+    }
   }
 
   act(action: Action): Promise<ActResult> {

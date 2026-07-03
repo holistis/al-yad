@@ -262,7 +262,7 @@ function connect(): void {
 }
 
 function replyToBrain(
-  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT" | "SESSION_CAPTURE_DATA",
+  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT" | "SESSION_CAPTURE_DATA" | "SCREENSHOT_RESULT",
   payload: object,
   correlationId: string,
 ): void {
@@ -400,6 +400,21 @@ function onMessage(raw: unknown): void {
       }).catch(() => {
         replyToBrain("INJECT_LOCALSTORAGE_RESULT", { ok: false, count: 0 }, raw.id);
       });
+      break;
+    }
+    case "REQUEST_SCREENSHOT": {
+      void (async () => {
+        const tabId = runTabId ?? lastWebTabId;
+        try {
+          if (tabId == null) throw new Error("geen run-tab");
+          const tab = await chrome.tabs.get(tabId);
+          // captureVisibleTab werkt alleen in het window van de tab.
+          const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "jpeg", quality: 60 });
+          replyToBrain("SCREENSHOT_RESULT", { ok: true, dataUrl }, raw.id);
+        } catch (e) {
+          replyToBrain("SCREENSHOT_RESULT", { ok: false, detail: (e as Error).message }, raw.id);
+        }
+      })();
       break;
     }
     default:

@@ -23,6 +23,8 @@ export interface ChatLike {
 
 export interface HandBridge {
   requestSnapshot(): Promise<Snapshot>;
+  /** Screenshot van de actieve tab als data-URL (JPEG). Null bij fout of geen extensie. */
+  requestScreenshot(): Promise<string | null>;
   act(action: Action): Promise<ActResult>;
   requestConfirm(action: Action, reason: string): Promise<boolean>;
   update(u: { status: RunStatus; step?: number; message: string; action?: Action }): void;
@@ -193,6 +195,8 @@ function describe(action: Action): string {
       return `Kies ${action.value} in ${action.ref}`;
     case "extract":
       return `Lees: ${action.what}`;
+    case "scroll":
+      return `Scroll ${action.direction}${action.amount ? ` (${action.amount}x)` : ""}`;
     case "wait":
       return `Wacht ${action.ms}ms`;
     case "finish":
@@ -221,6 +225,8 @@ export class AgentLoop {
   private currentPlan: PlannedStep[] = [];
   /** Herstel-hint van Claude Code — geïnjecteerd als REEDS GEPROBEERD-blok in de prompt. */
   private failedHint: string | undefined = undefined;
+  /** Screenshot genomen op het moment van vastlopen — geïnjecteerd als vision bij de eerste recovery-aanroep. */
+  private failedHintScreenshot: string | undefined = undefined;
   /** Hoeveel keer deze run al om een herstelplan is gevraagd (plafond: MAX_RECOVERY_ATTEMPTS). */
   private recoveryAttempts = 0;
   /** Het laatste stuck-signaal dat de run deed stoppen via give-up (RunRecord-substraat). */
@@ -338,6 +344,8 @@ export class AgentLoop {
       this._hadRecovery = true;
       this._provenRecoveries.push({ sitePattern, failureCategory: signal.id, failureClass: signal.signalClass, hint });
       this.failedHint = hint;
+      // Neem screenshot van de vastgelopen pagina als visuele context voor de recovery-aanroep.
+      this.failedHintScreenshot = (await this.hand.requestScreenshot().catch(() => null)) ?? undefined;
       reset();
       this.currentPlan = [];
       if (!storedHint) {
@@ -371,6 +379,7 @@ export class AgentLoop {
 
     this.currentPlan = []; // reset per run — vorige plan-rest nooit meenemen
     this.failedHint = undefined; // reset per run
+    this.failedHintScreenshot = undefined; // reset per run
     this.recoveryAttempts = 0; // reset per run — escalatie-plafond geldt per run
     this._lastStuckSignalId = undefined; // reset per run
     this._hadRecovery = false; // reset per run
@@ -682,7 +691,9 @@ export class AgentLoop {
 
         let content: string;
         try {
-          content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint, tracker.toHint() ?? undefined);
+          const screenshot = this.failedHintScreenshot;
+          this.failedHintScreenshot = undefined; // eenmalig gebruik — na deze aanroep niet meer meesturen
+          content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint, tracker.toHint() ?? undefined, screenshot);
         } catch (e) {
           this.hand.update({ status: "fout", step, message: friendlyLlmError(e) });
           return { status: "fout", steps: step - 1 };
@@ -1012,6 +1023,7 @@ export class AgentLoop {
     attachments?: Attachment[],
     failedHint?: string,
     substateHint?: string,
+    failedHintScreenshot?: string,
   ): Promise<string> {
     const backoffs = [0, 4000, 9000]; // eerste poging direct, dan oplopend wachten
     let lastErr: unknown;
@@ -1032,6 +1044,7 @@ export class AgentLoop {
             attachments,
             failedHint,
             substateHint,
+            failedHintScreenshot,
           }),
           temperature: 0,
           json: true,
