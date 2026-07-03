@@ -620,8 +620,28 @@ export class AgentLoop {
         // niet objectief bevestigt. Voorkomt vals "klaar" (Run 1: model riep finish
         // maar de sortering/checkout was nog niet voltooid).
         const donePreds = planned.done ?? [];
+        // Observability: log het finish-moment zodat de step-log laat zien of het model
+        // DONE-predicaten meestuurde. Zonder dit was finish onzichtbaar in de log.
+        if (this.stepLogger) {
+          this.stepLogger.append({
+            run: this.runId, step, url: snapshot.url,
+            action: { kind: "_finish", donePredicates: donePreds.length },
+            ok: true, detail: `finish gepland — ${donePreds.length} DONE-predicaat(en)`,
+            ts: Date.now(),
+          });
+        }
         if (donePreds.length > 0) {
           const doneResult = evaluatePredicates(donePreds, snapshot);
+          // Observability: log DONE-check verdict (match/mismatch) inclusief de predicaten.
+          if (this.stepLogger) {
+            this.stepLogger.append({
+              run: this.runId, step, url: snapshot.url,
+              action: { kind: "_done-check", verdict: doneResult.verdict, matched: doneResult.matched, total: doneResult.total },
+              ok: doneResult.verdict === "match",
+              detail: `DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total}): ${donePreds.map((p) => JSON.stringify(p)).join(", ")}`,
+              ts: Date.now(),
+            });
+          }
           if (doneResult.verdict === "mismatch") {
             finishRejections++;
             const evidence = `DONE-predicaten niet gehaald (${doneResult.matched}/${doneResult.total}), URL: ${snapshot.url}`;
