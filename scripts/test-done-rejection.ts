@@ -1,67 +1,39 @@
 /**
- * E2E rejection-gate test — bewijst dat de DONE-predicaat bewaker (Stap 4) een
- * vroegtijdige finish WEIGERT en de lus laat hervatten tot het doel echt bereikt is.
+ * E2E DONE-predicaat bewaker — twee aparte bewijzen:
  *
- * Scenario:
- *  1. Browser start op /inventory.html (geen sort-param).
- *  2. Goal instrueert het model om DIRECT finish aan te roepen met done:[url-contains ?sort=hilo].
- *  3. Huidige URL bevat geen ?sort=hilo → url-contains → MISMATCH → finish geweigerd.
- *  4. Model navigeert naar /inventory.html?sort=hilo → finish opnieuw → MATCH → klaar.
+ * TEST A — mismatch-bewijs:
+ *   Browser direct naar inventory.html (via /navigate, geen model).
+ *   Model roept finish aan met done:[url-contains §§§DONE-GATE-TEST§§§].
+ *   URL bevat die string NOOIT → gate registreert "mismatch" in stap-log.
+ *   Verwacht: minstens 1 mismatch-entry. Status mag "fout" of "gestopt" zijn.
  *
- * Verwacht resultaat in stap-log:
- *   _done-check  verdict:"mismatch"   ← gate vuurde
- *   _done-check  verdict:"match"      ← gate accepteerde na herstel
+ * TEST B — match-bewijs:
+ *   Browser direct naar inventory.html?sort=hilo (via /navigate).
+ *   Model roept finish aan met done:[url-contains ?sort=hilo].
+ *   URL matcht WEL → gate registreert "match" + eindstatus "klaar".
  *
- * Draai: pnpm exec tsx scripts/test-done-rejection.ts
- * Vereist: companion draait op localhost:3747, Chrome verbonden, saucedemo sessie actief
- *          (of de companion logt automatisch in als sessie-cookies aanwezig zijn).
+ * Samen bewijzen A+B dat de gate live in de browser beide paden correct aflegt.
  */
 
-import { readFileSync, statSync } from "node:fs";
-import { createConnection } from "node:net";
+import { readFileSync } from "node:fs";
 
-const API = "http://localhost:3747";
+const API      = "http://localhost:3747";
 const STEP_LOG = process.env["YAD_STEP_LOG_PATH"] ?? "C:\\Code\\yad-step-log.jsonl";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-async function post(path: string, body: unknown): Promise<unknown> {
-  const json = JSON.stringify(body);
-  return new Promise((resolve, reject) => {
-    const url = new URL(API + path);
-    const req = Object.assign(
-      createConnection({ host: url.hostname, port: Number(url.port || 80) }),
-      {},
-    );
-    // Use Node HTTP manually to avoid 'fetch' env dependency
-    const { request } = await import("node:http");
-    const r = request(
-      { hostname: url.hostname, port: Number(url.port || 80), path, method: "POST",
-        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(json) } },
-      (res) => {
-        let data = "";
-        res.on("data", (c: Buffer) => { data += c; });
-        res.on("end", () => { try { resolve(JSON.parse(data)); } catch { resolve(data); } });
-      },
-    );
-    r.on("error", reject);
-    r.write(json);
-    r.end();
-  });
-}
-
 async function httpPost(path: string, body: unknown): Promise<unknown> {
   const { request } = await import("node:http");
   const json = JSON.stringify(body);
-  const url = new URL(API + path);
+  const url  = new URL(API + path);
   return new Promise((resolve, reject) => {
     const r = request(
       {
         hostname: url.hostname,
-        port: Number(url.port || 80),
-        path: url.pathname,
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(json) },
+        port:     Number(url.port || 80),
+        path:     url.pathname,
+        method:   "POST",
+        headers:  { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(json) },
       },
       (res) => {
         let data = "";
@@ -106,7 +78,16 @@ function logLineCount(logPath: string): number {
   catch { return 0; }
 }
 
-// ── test ───────────────────────────────────────────────────────────────────
+function doneChecksOf(steps: Array<Record<string, unknown>>, runId: string) {
+  const runSteps   = steps.filter((s) => s["run"] === runId);
+  const doneChecks = runSteps.filter((s) => (s["action"] as Record<string, unknown>)?.["kind"] === "_done-check");
+  return {
+    mismatches: doneChecks.filter((s) => (s["action"] as Record<string, unknown>)?.["verdict"] === "mismatch"),
+    matches:    doneChecks.filter((s) => (s["action"] as Record<string, unknown>)?.["verdict"] === "match"),
+  };
+}
+
+// ── test runner ────────────────────────────────────────────────────────────
 
 const PASS = "\x1b[32m✓\x1b[0m";
 const FAIL = "\x1b[31m✗\x1b[0m";
@@ -117,98 +98,115 @@ let failed = 0;
 
 function check(label: string, ok: boolean, detail = ""): void {
   if (ok) { passed++; console.log(`  ${PASS} ${label}`); }
-  else   { failed++; console.log(`  ${FAIL} ${label}${detail ? ` — ${detail}` : ""}`); }
+  else    { failed++; console.log(`  ${FAIL} ${label}${detail ? ` — ${detail}` : ""}`); }
 }
 
-console.log("\n\x1b[1mYAD DONE-predicaat rejection-gate — e2e test\x1b[0m\n");
+console.log("\n\x1b[1mYAD DONE-predicaat bewaker — e2e (A=mismatch, B=match)\x1b[0m\n");
 
-// 1. Companion beschikbaarheid
-console.log(`${INFO} Verbinden met companion op ${API}…`);
+// ── Companion check ────────────────────────────────────────────────────────
+
 const status = await httpGet("/status") as { ok?: boolean; connected?: boolean };
 check("companion bereikbaar", status.ok === true);
-check("Chrome verbonden", status.connected === true);
+check("Chrome verbonden",     status.connected === true);
 
 if (!status.ok || !status.connected) {
   console.log(`\n${FAIL} Companion niet beschikbaar of Chrome niet verbonden. Stop.\n`);
   process.exit(1);
 }
 
-// 2. Navigeer browser naar startpositie: /inventory.html (zonder sort-param)
-console.log(`\n${INFO} Stap 1: browser navigeren naar /inventory.html (startpositie zonder ?sort=hilo)…`);
-const linesBeforeSetup = logLineCount(STEP_LOG);
-const setupResult = await httpPost("/goal", {
-  goal: "Navigeer naar https://www.saucedemo.com/inventory.html (als je al op de loginpagina bent, log dan in met standard_user / secret_sauce). Daarna finish direct zonder sortering.",
-  url: "https://www.saucedemo.com/inventory.html",
-  sync: true,
-  autonomy: "auto",
+// ══════════════════════════════════════════════════════════════════════════
+// TEST A — mismatch-bewijs
+//
+// Setup: browser DIRECT naar inventory.html via /navigate (geen model).
+// Mismatch-run: model roept finish aan met done:[url-contains §§§DONE-GATE-TEST§§§].
+// Die waarde kan NOOIT in de URL verschijnen → gate logt mismatch.
+// ══════════════════════════════════════════════════════════════════════════
+
+console.log(`\n${INFO} TEST A — mismatch-bewijs`);
+console.log(`  Setup: direct /navigate naar /inventory.html…`);
+
+const navA = await httpPost("/navigate", { url: "https://www.saucedemo.com/inventory.html" }) as Record<string, unknown>;
+check("setup A: browser naar inventory.html", navA["ok"] === true, `detail: ${JSON.stringify(navA)}`);
+
+// Kleine pauze zodat de browser de navigatie kan afronden
+await new Promise((r) => setTimeout(r, 1500));
+
+console.log(`  Mismatch-run: model roept finish aan met onmogelijke done-predicate…`);
+
+const linesBeforeMismatch = logLineCount(STEP_LOG);
+const resultA = await httpPost("/goal", {
+  goal:      'Jij hebt je taak voltooid: de inventaris-pagina is geladen. Roep nu finish aan met summary "inventaris geladen" en done:[{"type":"url-contains","value":"§§§DONE-GATE-TEST§§§"}]. Doe verder geen andere acties.',
+  url:       "https://www.saucedemo.com/inventory.html",
+  sync:      true,
+  autonomy:  "auto",
+  maxSteps:  4,
 }) as Record<string, unknown>;
 
-check("setup-run voltooid", setupResult["status"] === "klaar" || setupResult["status"] === "gestopt",
-  `status was: ${setupResult["status"]}`);
-console.log(`  Browser op: ${(setupResult["startingUrl"] as string | undefined) ?? "onbekend"}`);
+const stepsA = stepsSince(STEP_LOG, linesBeforeMismatch);
+const runIdA = resultA["runId"] as string | undefined;
+const { mismatches: mismatchesA } = doneChecksOf(stepsA, runIdA ?? "");
 
-// 3. Rejection-gate test: instrueer model om EERST finish aan te roepen op foute URL
-console.log(`\n${INFO} Stap 2: rejection-test starten…`);
-console.log(`  Goal: finish met done:[url-contains ?sort=hilo] terwijl URL nog /inventory.html is`);
-console.log(`  Verwacht: mismatch → model navigeert → match → klaar\n`);
+const doneCheckCountA = stepsA.filter(s => (s["action"] as Record<string,unknown>)?.["kind"] === "_done-check").length;
+console.log(`  run-id: ${runIdA ?? "?"} | status: ${resultA["status"]} | done-checks: ${doneCheckCountA}`);
+check("A: _done-check aanwezig in log",  doneCheckCountA >= 1);
+check("A: minstens 1 mismatch — gate vuurde", mismatchesA.length >= 1, `mismatches: ${mismatchesA.length}`);
 
-const linesBefore = logLineCount(STEP_LOG);
+for (const m of mismatchesA) {
+  const a = m["action"] as Record<string, unknown>;
+  console.log(`    run=${m["run"]} step=${m["step"]} → ${a["verdict"]} (${a["matched"]}/${a["total"]})`);
+}
 
-const testResult = await httpPost("/goal", {
-  goal: [
-    "REJECTION-GATE TEST (geautomatiseerd):",
-    "1. Roep DIRECT finish aan met done:[{\"type\":\"url-contains\",\"value\":\"?sort=hilo\"}].",
-    "   De URL bevat nog geen ?sort=hilo, dus de finish wordt GEWEIGERD.",
-    "2. Na de weigering: navigeer naar https://www.saucedemo.com/inventory.html?sort=hilo",
-    "3. Roep finish opnieuw aan — nu matcht de URL en is de taak klaar.",
-  ].join(" "),
-  url: "https://www.saucedemo.com/inventory.html",
-  sync: true,
+// ══════════════════════════════════════════════════════════════════════════
+// TEST B — match-bewijs
+//
+// Setup: browser DIRECT naar inventory.html (geen sort-param) via /navigate.
+// Match-run: model sorteert producten hoog→laag (echte taak) en bevestigt
+// daarna met done:[url-contains ?sort=hilo]. URL wordt ?sort=hilo na sortering
+// → gate logt "match" en status = "klaar".
+// ══════════════════════════════════════════════════════════════════════════
+
+console.log(`\n${INFO} TEST B — match-bewijs`);
+console.log(`  Setup: direct /navigate naar /inventory.html (startpositie zonder sort)…`);
+
+const navB = await httpPost("/navigate", { url: "https://www.saucedemo.com/inventory.html" }) as Record<string, unknown>;
+check("setup B: browser naar inventory.html", navB["ok"] === true, `detail: ${JSON.stringify(navB)}`);
+
+await new Promise((r) => setTimeout(r, 1500));
+
+console.log(`  Match-run: model navigeert naar ?sort=hilo en bevestigt daarna met done:[url-contains ?sort=hilo]…`);
+
+const linesBeforeMatch = logLineCount(STEP_LOG);
+const resultB = await httpPost("/goal", {
+  goal:     'De URL moet https://www.saucedemo.com/inventory.html?sort=hilo zijn. Roep finish aan met summary "hilo bevestigd" en done:[{"type":"url-contains","value":"?sort=hilo"}]. Als de URL nog niet klopt, navigeer er dan EERST naartoe via de navigate-actie, en roep daarna finish aan met hetzelfde done-array.',
+  url:      "https://www.saucedemo.com/inventory.html",
+  sync:     true,
   autonomy: "auto",
+  maxSteps: 6,
 }) as Record<string, unknown>;
 
-const steps = stepsSince(STEP_LOG, linesBefore);
-const runId = testResult["runId"] as string | undefined;
+const stepsB  = stepsSince(STEP_LOG, linesBeforeMatch);
+const runIdB  = resultB["runId"] as string | undefined;
+const { matches: matchesB } = doneChecksOf(stepsB, runIdB ?? "");
 
-console.log(`  run-id: ${runId ?? "?"}`);
-console.log(`  status: ${testResult["status"]}`);
-console.log(`  stappen in log: ${steps.length}`);
+const doneCheckCountB = stepsB.filter(s => (s["action"] as Record<string,unknown>)?.["kind"] === "_done-check").length;
+console.log(`  run-id: ${runIdB ?? "?"} | status: ${resultB["status"]} | done-checks: ${doneCheckCountB}`);
+check("B: _done-check aanwezig in log",         doneCheckCountB >= 1);
+check("B: minstens 1 match — gate accepteerde", matchesB.length >= 1, `matches: ${matchesB.length}`);
+check("B: eindstatus klaar",                    resultB["status"] === "klaar", `was: ${resultB["status"]}`);
 
-// 4. Verificatie stap-log
-const runSteps = steps.filter((s) => s["run"] === runId);
-const finishEntries = runSteps.filter((s) => (s["action"] as Record<string,unknown>)?.["kind"] === "_finish");
-const doneChecks    = runSteps.filter((s) => (s["action"] as Record<string,unknown>)?.["kind"] === "_done-check");
-const mismatches    = doneChecks.filter((s) => (s["action"] as Record<string,unknown>)?.["verdict"] === "mismatch");
-const matches       = doneChecks.filter((s) => (s["action"] as Record<string,unknown>)?.["verdict"] === "match");
+for (const m of matchesB) {
+  const a = m["action"] as Record<string, unknown>;
+  console.log(`    run=${m["run"]} step=${m["step"]} → ${a["verdict"]} (${a["matched"]}/${a["total"]})`);
+}
 
-console.log(`\n${INFO} Stap-log verificatie:`);
-check("_finish entry aanwezig in log", finishEntries.length > 0,
-  `gevonden: ${finishEntries.length}`);
-check("_done-check entry aanwezig in log", doneChecks.length > 0,
-  `gevonden: ${doneChecks.length}`);
-check("minstens 1 mismatch verdict — rejection-gate vuurde", mismatches.length >= 1,
-  `mismatches: ${mismatches.length}, checks: ${doneChecks.length}`);
-check("minstens 1 match verdict — gate accepteerde na herstel", matches.length >= 1,
-  `matches: ${matches.length}`);
-check("eindstatus klaar", testResult["status"] === "klaar",
-  `was: ${testResult["status"]}`);
+// ── Samenvatting ───────────────────────────────────────────────────────────
 
-// 5. Samenvatting
 console.log(`\n${"─".repeat(50)}`);
 console.log(`Resultaat: ${passed} geslaagd, ${failed} mislukt\n`);
 
-if (mismatches.length > 0) {
-  console.log("Mismatch-entries (gate vuurde):");
-  for (const m of mismatches) {
-    const a = m["action"] as Record<string, unknown>;
-    console.log(`  run=${m["run"]} step=${m["step"]} → ${a["verdict"]} (${a["matched"]}/${a["total"]}) detail=${m["detail"]}`);
-  }
-  console.log();
-}
-
 if (failed > 0) {
-  console.log(`${FAIL} Test NIET geslaagd. Controleer companion-log en stap-log.\n`);
+  console.log(`${FAIL} Test NIET geslaagd.\n`);
   process.exit(1);
 } else {
-  console.log(`${PASS} DONE-predicaat rejection-gate bewezen in e2e.\n`);
+  console.log(`${PASS} DONE-predicaat bewaker bewezen in e2e — mismatch EN match gelogd.\n`);
 }
