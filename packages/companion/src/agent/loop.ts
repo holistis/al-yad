@@ -647,7 +647,12 @@ export class AgentLoop {
             const evidence = `DONE-predicaten niet gehaald (${doneResult.matched}/${doneResult.total}), URL: ${snapshot.url}`;
             this.log(`finish geweigerd #${finishRejections}: ${evidence}`);
             if (finishRejections <= MAX_FINISH_REJECTIONS) {
-              this.failedHint = `Je riep finish aan maar de pagina bevestigt het doel NIET. ${evidence}. Controleer de huidige staat zorgvuldig en voltooi de ontbrekende stappen vóór je finish aanroept.`;
+              // Geef het model de exacte falende predicaten mee zodat het weet
+              // welke concrete stap nog ontbreekt (bv. "navigeer naar ?sort=hilo").
+              const failedPreds = donePreds
+                .map((p, i) => `[${i + 1}] ${JSON.stringify(p)}`)
+                .join(", ");
+              this.failedHint = `Je riep finish aan maar de pagina bevestigt het doel NIET. ${evidence}. Niet-gehaalde DONE-predicaten: ${failedPreds}. Voer de ontbrekende browser-stappen uit zodat de pagina aan deze predicaten voldoet. Roep daarna opnieuw finish aan MET hetzelfde done-array (laat die niet weg — anders wordt de verificatie overgeslagen).`;
               this.currentPlan = [];
               this.hand.update({ status: "bezig", step, message: `Finish geweigerd — ${evidence}` });
               continue;
