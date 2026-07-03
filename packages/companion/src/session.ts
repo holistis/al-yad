@@ -324,7 +324,7 @@ export class BrainSession implements HandBridge {
     }
   }
 
-  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[], startingUrl?: string): Promise<GoalResult> {
+  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[], startingUrl?: string, autonomyOverride?: "confirm" | "auto"): Promise<GoalResult> {
     const resultPath = process.env["YAD_RESULT_PATH"] ?? "C:\\Code\\yad-goal-result.json";
     const stepLogPath = process.env["YAD_STEP_LOG_PATH"] ?? "C:\\Code\\yad-step-log.jsonl";
 
@@ -376,7 +376,7 @@ export class BrainSession implements HandBridge {
       log: this.log,
       isAborted: () => this.aborted,
       maxSteps: maxSteps ?? this.defaultMaxSteps,
-      autonomy: this.autonomy,
+      autonomy: autonomyOverride ?? this.autonomy,
       language: this.language,
       cacheStore: this.cacheStore,
       stepLogger,
@@ -435,8 +435,8 @@ export class BrainSession implements HandBridge {
   }
 
   /** Voert een taak uit en wacht op het resultaat. Gebruikt door POST /goal?sync=true. */
-  async runGoalSync(goal: string, opts?: { maxSteps?: number; startingUrl?: string }): Promise<GoalResult> {
-    return this.startRun(goal, opts?.maxSteps, undefined, opts?.startingUrl);
+  async runGoalSync(goal: string, opts?: { maxSteps?: number; startingUrl?: string; autonomy?: "confirm" | "auto" }): Promise<GoalResult> {
+    return this.startRun(goal, opts?.maxSteps, undefined, opts?.startingUrl, opts?.autonomy);
   }
 
   // ---- HandBridge ----
