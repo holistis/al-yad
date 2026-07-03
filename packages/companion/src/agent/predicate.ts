@@ -31,7 +31,8 @@ export type Predicate =
   | { type: "field-any-filled"; min?: number }
   | { type: "text-present"; value: string }
   | { type: "text-absent"; value: string }
-  | { type: "attribute-equals"; role: string; nameSubstring?: string; attribute: "value" | "checked"; expected: string };
+  | { type: "attribute-equals"; role: string; nameSubstring?: string; attribute: "value" | "checked"; expected: string }
+  | { type: "attribute-contains"; role: string; nameSubstring?: string; attribute: "value" | "checked"; substring: string };
 
 export const PREDICATE_TYPES: readonly Predicate["type"][] = [
   "url-contains",
@@ -41,6 +42,7 @@ export const PREDICATE_TYPES: readonly Predicate["type"][] = [
   "text-present",
   "text-absent",
   "attribute-equals",
+  "attribute-contains",
 ];
 
 /** Genormaliseerde vergelijking: witruimte-collapse + lowercase. */
@@ -106,6 +108,16 @@ export function evaluatePredicate(pred: Predicate, snapshot: Snapshot): Predicat
       if (!node) return "mismatch";
       const actual = pred.attribute === "value" ? (node.value ?? "") : "";
       return norm(actual) === norm(pred.expected) ? "match" : "mismatch";
+    }
+
+    case "attribute-contains": {
+      // STERK maar toleranter dan attribute-equals: substring-match op attribuutwaarde.
+      // Gebruik dit wanneer de exacte interne waarde onbekend is maar een substring zeker
+      // aanwezig is (bijv. combobox.value="hilo" → substring="hil" matcht).
+      const node = snapshot.nodes.find((n) => nodeMatches(n, pred.role, pred.nameSubstring));
+      if (!node) return "mismatch";
+      const actual = norm(pred.attribute === "value" ? (node.value ?? "") : "");
+      return actual.includes(norm(pred.substring)) ? "match" : "mismatch";
     }
   }
 }
@@ -185,6 +197,19 @@ export function parsePredicate(raw: unknown): Predicate | null {
         expected: o["expected"],
       };
     }
+    case "attribute-contains": {
+      if (!isStr(o["role"])) return null;
+      const attr = o["attribute"];
+      if (attr !== "value" && attr !== "checked") return null;
+      if (!isStr(o["substring"])) return null;
+      return {
+        type,
+        role: o["role"],
+        ...(isStr(o["nameSubstring"]) ? { nameSubstring: o["nameSubstring"] } : {}),
+        attribute: attr,
+        substring: o["substring"],
+      };
+    }
     default:
       return null;
   }
@@ -206,11 +231,14 @@ export function parsePredicates(raw: unknown): Predicate[] {
  * generatie begrensd tot exact de checkbare, ref-vrije predicaat-types.
  */
 export const PREDICATE_GRAMMAR = `Predicate types (ref-free, deterministically checkable against the page snapshot):
-- {"type":"url-contains","value":"/checkout"}            → URL path/query contains the value (STRONG)
+- {"type":"url-contains","value":"sort=hilo"}            → URL path/query contains the value (STRONG — PREFERRED for sort/filter state)
 - {"type":"role-present","role":"button","nameSubstring":"Finish"}  → element with this role/name exists (STRONG)
 - {"type":"role-absent","role":"button","nameSubstring":"Login"}    → no such element exists (STRONG)
-- {"type":"attribute-equals","role":"combobox","nameSubstring":"Sort","attribute":"value","expected":"za"} → element attribute equals expected value (STRONG)
+- {"type":"attribute-equals","role":"combobox","nameSubstring":"Sort","attribute":"value","expected":"za"} → element attribute exactly equals expected (STRONG — only use when you know the exact internal value)
+- {"type":"attribute-contains","role":"combobox","nameSubstring":"Sort","attribute":"value","substring":"hi"} → element attribute value contains substring (STRONG — use when exact internal value is uncertain)
 - {"type":"field-any-filled","min":1}                    → at least min input fields have a non-empty value (STRONG)
 - {"type":"text-present","value":"Thank you"}            → visible page text contains the value (WEAK: truncated text = indeterminate)
 - {"type":"text-absent","value":"Error"}                 → visible page text does not contain the value (WEAK)
-NEVER reference element refs (e1, e2, ...) — refs are per-snapshot and drift. Prefer url-contains, role-present, attribute-equals.`;
+NEVER reference element refs (e1, e2, ...) — refs are per-snapshot and drift.
+For sort/filter state: use url-contains (e.g. "sort=hilo" for high-to-low) — more reliable than attribute-equals.
+If you must check a combobox value but are unsure of the exact internal value, use attribute-contains with a safe substring.`;

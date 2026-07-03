@@ -38,14 +38,14 @@ describe("makeSignal", () => {
   });
 
   it("leidt class deterministisch af uit de id", () => {
-    expect(makeSignal("repeat", "x").class).toBe("navigation-instability");
-    expect(makeSignal("state-loop", "x").class).toBe("navigation-instability");
-    expect(makeSignal("url-regression", "x").class).toBe("navigation-instability");
-    expect(makeSignal("no-progress", "x").class).toBe("execution-stall");
-    expect(makeSignal("consecutive-act-failures", "x").class).toBe("execution-stall");
-    expect(makeSignal("silent-no-effect", "x").class).toBe("execution-stall");
-    expect(makeSignal("goal-drift", "x").class).toBe("agent-confusion");
-    expect(makeSignal("consecutive-unknowns", "x").class).toBe("agent-confusion");
+    expect(makeSignal("repeat", "x").signalClass).toBe("navigation-instability");
+    expect(makeSignal("state-loop", "x").signalClass).toBe("navigation-instability");
+    expect(makeSignal("url-regression", "x").signalClass).toBe("navigation-instability");
+    expect(makeSignal("no-progress", "x").signalClass).toBe("execution-stall");
+    expect(makeSignal("consecutive-act-failures", "x").signalClass).toBe("execution-stall");
+    expect(makeSignal("silent-no-effect", "x").signalClass).toBe("execution-stall");
+    expect(makeSignal("goal-drift", "x").signalClass).toBe("agent-confusion");
+    expect(makeSignal("consecutive-unknowns", "x").signalClass).toBe("agent-confusion");
   });
 
   it("kent elk bekend signaal een class toe (geen gaten in de map)", () => {
