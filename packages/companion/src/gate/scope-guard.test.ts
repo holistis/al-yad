@@ -19,6 +19,7 @@ const SNAP: Snapshot = { url: "https://www.REDACTED.nl/", title: "REDACTED", nod
 class StubHand implements HandBridge {
   acts: Action[] = [];
   async requestSnapshot(): Promise<Snapshot> { return SNAP; }
+  async requestScreenshot(): Promise<string | null> { return null; }
   async act(a: Action): Promise<ActResult> { this.acts.push(a); return { ok: true }; }
   async requestConfirm(): Promise<boolean> { return true; }
   update(_u: { status: RunStatus; message: string }): void { /* noop */ }

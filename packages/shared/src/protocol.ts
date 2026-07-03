@@ -94,6 +94,8 @@ export interface HandPayloads {
   INJECT_LOCALSTORAGE_RESULT: { ok: boolean; count: number };
   /** antwoord op REQUEST_NAVIGATE */
   NAVIGATE_RESULT: { ok: boolean; detail?: string };
+  /** antwoord op REQUEST_SCREENSHOT: base64-PNG van de zichtbare tab */
+  SCREENSHOT_RESULT: { ok: boolean; dataUrl?: string; detail?: string };
 }
 
 /** Berichten van het Brein naar de Hand. */
@@ -134,6 +136,8 @@ export interface BrainPayloads {
   REQUEST_CAPTURE_FOR_CLAUDE: Record<string, never>;
   /** vraag de Hand om de actieve tab te navigeren naar een URL en te wachten tot geladen */
   REQUEST_NAVIGATE: { url: string };
+  /** vraag de Hand om een screenshot van de actieve run-tab (visuele fallback bij stuck) */
+  REQUEST_SCREENSHOT: Record<string, never>;
   /** vraag de Hand om cookies te injecteren voor een URL (sessie-hergebruik) */
   INJECT_COOKIES: { url: string; cookies: Array<{ name: string; value: string }> };
   /** vraag de Hand om localStorage-items te zetten in de actieve run-tab (jwt-bearer sessie-hergebruik) */

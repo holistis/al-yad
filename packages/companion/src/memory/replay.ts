@@ -73,6 +73,7 @@ function labelAction(action: Action): string {
     case "type":     return `Typ in ${action.ref}`;
     case "select":   return `Kies in ${action.ref}`;
     case "extract":  return `Lees: ${action.what}`;
+    case "scroll":   return `Scroll ${action.direction}`;
     case "wait":     return `Wacht ${action.ms}ms`;
     case "finish":   return action.summary;
   }

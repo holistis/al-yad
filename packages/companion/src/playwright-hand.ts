@@ -171,6 +171,17 @@ export class PlaywrightHand implements HandBridge {
           }
           return { ok: true, extracted };
         }
+        case "scroll": {
+          if (action.ref) {
+            await page.locator(`[data-yad-ref="${action.ref}"]`).scrollIntoViewIfNeeded();
+          } else {
+            const px = (action.amount ?? 3) * 120;
+            const dy = action.direction === "down" ? px : action.direction === "up" ? -px : 0;
+            const dx = action.direction === "right" ? px : action.direction === "left" ? -px : 0;
+            await page.evaluate(([x, y]: number[]) => { (globalThis as unknown as { scrollBy: (x: number, y: number) => void }).scrollBy(x ?? 0, y ?? 0); }, [dx, dy]);
+          }
+          return { ok: true };
+        }
         case "wait": {
           await page.waitForTimeout(action.ms);
           return { ok: true };
@@ -181,6 +192,16 @@ export class PlaywrightHand implements HandBridge {
       }
     } catch (e) {
       return { ok: false, detail: (e as Error).message };
+    }
+  }
+
+  async requestScreenshot(): Promise<string | null> {
+    try {
+      const page = this.requirePage();
+      const buf = await page.screenshot({ type: "jpeg", quality: 60 });
+      return `data:image/jpeg;base64,${buf.toString("base64")}`;
+    } catch {
+      return null;
     }
   }
 

@@ -42,6 +42,10 @@ export class ScopeGuard implements HandBridge {
     return this.inner.requestSnapshot();
   }
 
+  requestScreenshot(): Promise<string | null> {
+    return this.inner.requestScreenshot();
+  }
+
   async act(action: Action): Promise<ActResult> {
     this.actionCount++;
 
