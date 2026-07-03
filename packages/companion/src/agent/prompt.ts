@@ -121,6 +121,12 @@ export interface BuildMessagesOpts {
    * boven RECENT ACTIONS. Dwingt het model een andere aanpak te kiezen.
    */
   failedHint?: string;
+  /**
+   * Huidige substate-hint van de SubstateTracker — geïnjecteerd direct na GOAL.
+   * Vertelt het model op welke tussenstap het zich bevindt ("STAP 2/3: ...").
+   * Null/undefined = geen substates actief, geen overhead.
+   */
+  substateHint?: string;
 }
 
 /** Bouwt de berichten voor de LLM voor één stap van de lus. */
@@ -130,17 +136,22 @@ export function buildMessages(
   history: HistoryItem[],
   opts: BuildMessagesOpts = {},
 ): EngineChatMessage[] {
-  const { language = "nl", attachments = [], failedHint } = opts;
+  const { language = "nl", attachments = [], failedHint, substateHint } = opts;
 
   const system = SYSTEM + "\n\n" + LANG_INSTRUCTION[language];
 
   const parts: string[] = [
     `GOAL: ${goal}`,
     ``,
+  ];
+  if (substateHint) {
+    parts.push(substateHint, ``);
+  }
+  parts.push(
     `CURRENT PAGE:`,
     renderSnapshot(snapshot),
     ``,
-  ];
+  );
   if (failedHint) {
     parts.push(
       `REEDS GEPROBEERD (faalde) — kies een ANDERE aanpak dan onderstaande:`,

@@ -10,6 +10,7 @@ import { getSiteProfile, getProfileByTier, type SiteProfile, type SiteTier } fro
 import { CacheStore, makeCacheKey, urlToPattern } from "../memory/cache-store.js";
 import { replayCache } from "../memory/replay.js";
 import { makeSignal, type Signal } from "./arbiter.js";
+import { SubstateTracker, type Substate } from "./substate.js";
 
 /** Plafond op het aantal keren dat één run Claude Code om een herstelplan mag vragen.
  *  Voorkomt een meta-lus: YAD vraagt hulp → plan faalt → vraagt opnieuw → etc. */
@@ -130,6 +131,13 @@ export interface LoopOptions {
    * Niet ingesteld → terugval op requestConfirm (menselijke bevestiging).
    */
   onStuck?: (reason: StuckReason) => Promise<string | null>;
+  /**
+   * Optionele geordende checkpoint-lijst voor complexe doelen.
+   * Elk checkpoint heeft eigen predicaten die deterministisch bewijzen dat
+   * die stap klaar is. De tracker injecteert de huidige stap in de prompt
+   * en advance automatisch bij een match. Zie SubstateTracker.
+   */
+  substates?: Substate[];
 }
 
 /** URL-patronen die duiden op een loginpagina (voor sessie-verloop detectie). */
@@ -236,7 +244,10 @@ export class AgentLoop {
     this.stepLogger = opts.stepLogger;
     this.runId = opts.runId ?? "";
     this.onStuck = opts.onStuck;
+    this.substates = opts.substates ?? [];
   }
+
+  private readonly substates: Substate[];
 
   private readonly isAborted: () => boolean;
 
@@ -331,6 +342,7 @@ export class AgentLoop {
     this.recoveryAttempts = 0; // reset per run — escalatie-plafond geldt per run
     this._lastStuckSignalId = undefined; // reset per run
     this._hadRecovery = false; // reset per run
+    const tracker = new SubstateTracker(this.substates);
     let parseFails = 0;
     let cleanRun = true; // false zodra er een parse-fout is geweest; vuile runs worden niet gecached.
     let lastActionSig = "";
@@ -466,6 +478,16 @@ export class AgentLoop {
         try { uniquePathsSeen.add(new URL(snapshot.url).pathname); } catch { /* skip */ }
       }
       lastKnownUrl = snapshot.url;
+
+      // Substate-tracker: check of de huidige tussenstap klaar is en advance als dat zo is.
+      if (tracker.hasSubstates && tracker.tryAdvance(snapshot)) {
+        const p = tracker.progress;
+        if (p && !p.isComplete) {
+          this.log(`substate-advance → stap ${p.currentIndex + 1}/${p.totalCount}: ${p.currentLabel}`);
+        } else {
+          this.log(`substate-advance → alle ${tracker.progress?.totalCount ?? 0} tussenstap(pen) voltooid`);
+        }
+      }
 
       // Effect-nul-detectie: was de vorige muterende actie een no-op? Vergelijk de
       // volgorde-gevoelige fingerprint van vóór die actie met de huidige snapshot.
@@ -627,7 +649,7 @@ export class AgentLoop {
 
         let content: string;
         try {
-          content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint);
+          content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint, tracker.toHint() ?? undefined);
         } catch (e) {
           this.hand.update({ status: "fout", step, message: friendlyLlmError(e) });
           return { status: "fout", steps: step - 1 };
@@ -956,6 +978,7 @@ export class AgentLoop {
     step: number,
     attachments?: Attachment[],
     failedHint?: string,
+    substateHint?: string,
   ): Promise<string> {
     const backoffs = [0, 4000, 9000]; // eerste poging direct, dan oplopend wachten
     let lastErr: unknown;
@@ -975,6 +998,7 @@ export class AgentLoop {
             language: this.language,
             attachments,
             failedHint,
+            substateHint,
           }),
           temperature: 0,
           json: true,
