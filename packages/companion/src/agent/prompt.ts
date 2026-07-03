@@ -49,25 +49,28 @@ Rules:
   the current snapshot, your finish is REJECTED and you must complete the remaining steps first.
 
   DECISION TREE — pick the strongest applicable predicate:
-  1. Does success land you on a different URL? → url-contains (STRONG)
+  1. Does success land you on a different URL (or add a query param)? → url-contains (STRONGEST)
      {"type":"url-contains","value":"/confirmation"}
+     IMPORTANT: sorting/filtering on most SPAs adds a query param — always check the URL first.
+     e.g. sort high-to-low → URL gains ?sort=hilo → use {"type":"url-contains","value":"sort=hilo"}
   2. Does success make a specific element appear (e.g. success banner, heading)?
      → role-present (STRONG)
      {"type":"role-present","role":"heading","nameSubstring":"Thank you"}
   3. Does success dismiss a modal/overlay?
      → role-absent (STRONG)
      {"type":"role-absent","role":"dialog"}
-  4. Does success change a combobox/select to a specific value?
-     → attribute-equals (STRONG) — use the element's role and a substring of its name
-     {"type":"attribute-equals","role":"combobox","nameSubstring":"Sort","attribute":"value","expected":"za"}
+  4. Does success change a select/combobox AND the URL does NOT change?
+     → attribute-contains (STRONG, tolerant) — use a safe substring of the internal value
+     {"type":"attribute-contains","role":"combobox","nameSubstring":"Sort","attribute":"value","substring":"hil"}
+     Use attribute-contains (not attribute-equals) unless you know the exact internal value.
   5. Only visible text can confirm? → text-present (WEAK: absent = indeterminate, never rejects)
      {"type":"text-present","value":"Name (Z to A)"}
   6. No verifiable end state (pure extraction)? → omit "done"
 
-  Sort example (URL changes): {"kind":"finish","summary":"Gesorteerd",
-    "done":[{"type":"url-contains","value":"?sort=za"}]}
-  Sort example (URL stays same): {"kind":"finish","summary":"Gesorteerd",
-    "done":[{"type":"attribute-equals","role":"combobox","nameSubstring":"Sort","attribute":"value","expected":"za"}]}
+  Sort example (URL gains query param — PREFERRED): {"kind":"finish","summary":"Gesorteerd hoog-laag",
+    "done":[{"type":"url-contains","value":"sort=hilo"}]}
+  Sort example (URL stays same, value uncertain): {"kind":"finish","summary":"Gesorteerd",
+    "done":[{"type":"attribute-contains","role":"combobox","nameSubstring":"Sort","attribute":"value","substring":"hil"}]}
   Navigation example: {"kind":"finish","summary":"Op productpagina",
     "done":[{"type":"url-contains","value":"/inventory-item.html"}]}
   Form example: {"kind":"finish","summary":"Verzonden",

@@ -177,6 +177,37 @@ describe("parsePredicate (validatie + ref-verbod)", () => {
     expect(parsePredicate({ type: "attribute-equals", role: "combobox", attribute: "value" })).toBeNull();
   });
 
+  it("attribute-contains: match als attribuutwaarde substring bevat", () => {
+    const sorted = snap({
+      nodes: [{ ref: "e1", role: "combobox", name: "Product Sort Container", value: "hilo" }],
+    });
+    const pred = { type: "attribute-contains" as const, role: "combobox", nameSubstring: "Sort", attribute: "value" as const, substring: "hi" };
+    expect(evaluatePredicate(pred, sorted)).toBe("match");
+  });
+
+  it("attribute-contains: mismatch als substring ontbreekt", () => {
+    const sorted = snap({
+      nodes: [{ ref: "e1", role: "combobox", name: "Product Sort Container", value: "hilo" }],
+    });
+    const pred = { type: "attribute-contains" as const, role: "combobox", nameSubstring: "Sort", attribute: "value" as const, substring: "za" };
+    expect(evaluatePredicate(pred, sorted)).toBe("mismatch");
+  });
+
+  it("attribute-contains: mismatch als element niet gevonden", () => {
+    const pred = { type: "attribute-contains" as const, role: "combobox", nameSubstring: "Sort", attribute: "value" as const, substring: "hi" };
+    expect(evaluatePredicate(pred, snap())).toBe("mismatch");
+  });
+
+  it("attribute-contains: parse accepteert geldig predicaat", () => {
+    const result = parsePredicate({ type: "attribute-contains", role: "combobox", attribute: "value", substring: "hi" });
+    expect(result).toEqual({ type: "attribute-contains", role: "combobox", attribute: "value", substring: "hi" });
+  });
+
+  it("attribute-contains: parse verwerpt ontbrekende substring of role", () => {
+    expect(parsePredicate({ type: "attribute-contains", role: "combobox", attribute: "value" })).toBeNull();
+    expect(parsePredicate({ type: "attribute-contains", attribute: "value", substring: "hi" })).toBeNull();
+  });
+
   it("parsePredicates dropt ongeldige exemplaren en houdt geldige", () => {
     const out = parsePredicates([
       { type: "url-contains", value: "/ok" },

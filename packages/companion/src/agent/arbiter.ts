@@ -97,15 +97,15 @@ const PRIORITY: readonly SignalId[] = [
 
 export interface Signal {
   id: SignalId;
-  class: SignalClass;
+  signalClass: SignalClass;
   severity: SignalSeverity;
   /** Eén zin: waarom dit signaal vuurde (met de concrete teller/bewijs). Gaat de log in. */
   evidence: string;
 }
 
-/** Bouwt een Signal; severity en class volgen deterministisch uit de id (geen kans op mismatch). */
+/** Bouwt een Signal; severity en signalClass volgen deterministisch uit de id (geen kans op mismatch). */
 export function makeSignal(id: SignalId, evidence: string): Signal {
-  return { id, class: SIGNAL_CLASS[id], severity: SIGNAL_SEVERITY[id], evidence };
+  return { id, signalClass: SIGNAL_CLASS[id], severity: SIGNAL_SEVERITY[id], evidence };
 }
 
 export interface RankedSignals {

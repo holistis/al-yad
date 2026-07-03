@@ -1,0 +1,1 @@
+{"sitePattern":"www.saucedemo.com","failureCategory":"url-regression","failureClass":"navigation-instability","hint":"Gebruik de navigate-actie om direct naar de doelpagina te navigeren. Voor hoog-laag sorteren: navigeer naar inventory.html?sort=hilo. Probeer geen dropdown of knoppen maar directe URL-navigatie.","provenAt":1783088744029,"provenCount":1,"schemaVersion":1}

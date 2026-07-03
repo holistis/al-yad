@@ -314,7 +314,7 @@ export class AgentLoop {
 
     // Recovery-store: check VÓÓR Claude Code te bellen — cache-hit = geen LLM-kosten.
     // Drie-laags lookup: tier-1 exact, tier-2 cross-domain zelfde signaal, tier-3 cross-domain zelfde klasse.
-    const storedHint = this.recoveryStore?.get(sitePattern, signal.id, signal.class) ?? null;
+    const storedHint = this.recoveryStore?.get(sitePattern, signal.id, signal.signalClass) ?? null;
     const hint = storedHint ?? await (async () => {
       this.hand.update({
         status: "hulp-nodig",
@@ -336,7 +336,7 @@ export class AgentLoop {
       }
       this.recoveryAttempts++;
       this._hadRecovery = true;
-      this._provenRecoveries.push({ sitePattern, failureCategory: signal.id, failureClass: signal.class, hint });
+      this._provenRecoveries.push({ sitePattern, failureCategory: signal.id, failureClass: signal.signalClass, hint });
       this.failedHint = hint;
       reset();
       this.currentPlan = [];
