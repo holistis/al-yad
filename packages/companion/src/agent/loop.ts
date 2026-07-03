@@ -229,14 +229,14 @@ export class AgentLoop {
   private _hadRecovery = false;
 
   /** Bewezen herstel-events van deze run — voor flush naar recovery-store na "klaar". */
-  private _provenRecoveries: Array<{ sitePattern: string; failureCategory: string; hint: string }> = [];
+  private _provenRecoveries: Array<{ sitePattern: string; failureCategory: string; failureClass?: string; hint: string }> = [];
 
   /** Voor RunRecord-substraat: het signaal dat de run liet stoppen via escalatie (undefined bij klaar/max-steps). */
   get lastStuckSignalId(): string | undefined { return this._lastStuckSignalId; }
   /** Voor RunRecord-substraat: had deze run minstens één succesvolle escalatie-herstelpoging? */
   get hadRecovery(): boolean { return this._hadRecovery; }
   /** Bewezen recovery-events van deze run (voor flush naar recovery-store na "klaar"). */
-  get provenRecoveries(): ReadonlyArray<{ sitePattern: string; failureCategory: string; hint: string }> {
+  get provenRecoveries(): ReadonlyArray<{ sitePattern: string; failureCategory: string; failureClass?: string; hint: string }> {
     return this._provenRecoveries;
   }
 
@@ -313,7 +313,8 @@ export class AgentLoop {
     const sitePattern = (() => { try { return new URL(url).hostname; } catch { return "unknown"; } })();
 
     // Recovery-store: check VÓÓR Claude Code te bellen — cache-hit = geen LLM-kosten.
-    const storedHint = this.recoveryStore?.get(sitePattern, signal.id) ?? null;
+    // Drie-laags lookup: tier-1 exact, tier-2 cross-domain zelfde signaal, tier-3 cross-domain zelfde klasse.
+    const storedHint = this.recoveryStore?.get(sitePattern, signal.id, signal.class) ?? null;
     const hint = storedHint ?? await (async () => {
       this.hand.update({
         status: "hulp-nodig",
@@ -335,7 +336,7 @@ export class AgentLoop {
       }
       this.recoveryAttempts++;
       this._hadRecovery = true;
-      this._provenRecoveries.push({ sitePattern, failureCategory: signal.id, hint });
+      this._provenRecoveries.push({ sitePattern, failureCategory: signal.id, failureClass: signal.class, hint });
       this.failedHint = hint;
       reset();
       this.currentPlan = [];

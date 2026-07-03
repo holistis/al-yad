@@ -36,6 +36,29 @@ export type SignalId =
   | "goal-drift"               // agent blijft op zelfde URL, judge ziet geen doelvoortgang
   | "consecutive-unknowns";    // judge kan uitkomst herhaaldelijk niet beoordelen
 
+/**
+ * Drie brede klassen voor cross-domain transfer in de recovery-store.
+ *  navigation-instability: agent raakt de weg kwijt of zit in DOM-/URL-lus
+ *  execution-stall:        acties slagen maar bewegen niets vooruit
+ *  agent-confusion:        LLM weet niet meer wat hij doet of waar hij heen moet
+ */
+export type SignalClass =
+  | "navigation-instability"
+  | "execution-stall"
+  | "agent-confusion";
+
+/** Klasse per signaal — basis voor tier-3 (cross-domain, zelfde klasse) in de recovery-store. */
+export const SIGNAL_CLASS: Record<SignalId, SignalClass> = {
+  "consecutive-act-failures": "execution-stall",
+  "state-loop":               "navigation-instability",
+  "url-regression":           "navigation-instability",
+  "silent-no-effect":         "execution-stall",
+  "repeat":                   "navigation-instability",
+  "no-progress":              "execution-stall",
+  "goal-drift":               "agent-confusion",
+  "consecutive-unknowns":     "agent-confusion",
+};
+
 export type SignalSeverity = "hard" | "soft";
 
 /**
@@ -74,14 +97,15 @@ const PRIORITY: readonly SignalId[] = [
 
 export interface Signal {
   id: SignalId;
+  class: SignalClass;
   severity: SignalSeverity;
   /** Eén zin: waarom dit signaal vuurde (met de concrete teller/bewijs). Gaat de log in. */
   evidence: string;
 }
 
-/** Bouwt een Signal; severity volgt deterministisch uit de id (geen kans op mismatch). */
+/** Bouwt een Signal; severity en class volgen deterministisch uit de id (geen kans op mismatch). */
 export function makeSignal(id: SignalId, evidence: string): Signal {
-  return { id, severity: SIGNAL_SEVERITY[id], evidence };
+  return { id, class: SIGNAL_CLASS[id], severity: SIGNAL_SEVERITY[id], evidence };
 }
 
 export interface RankedSignals {

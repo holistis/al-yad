@@ -3,6 +3,7 @@ import {
   makeSignal,
   rankFired,
   SIGNAL_SEVERITY,
+  SIGNAL_CLASS,
   type Signal,
   type SignalId,
 } from "./arbiter.js";
@@ -33,6 +34,23 @@ describe("makeSignal", () => {
   it("kent elk bekend signaal een severity toe (geen gaten in de map)", () => {
     for (const id of ALL_IDS) {
       expect(SIGNAL_SEVERITY[id]).toMatch(/^(hard|soft)$/);
+    }
+  });
+
+  it("leidt class deterministisch af uit de id", () => {
+    expect(makeSignal("repeat", "x").class).toBe("navigation-instability");
+    expect(makeSignal("state-loop", "x").class).toBe("navigation-instability");
+    expect(makeSignal("url-regression", "x").class).toBe("navigation-instability");
+    expect(makeSignal("no-progress", "x").class).toBe("execution-stall");
+    expect(makeSignal("consecutive-act-failures", "x").class).toBe("execution-stall");
+    expect(makeSignal("silent-no-effect", "x").class).toBe("execution-stall");
+    expect(makeSignal("goal-drift", "x").class).toBe("agent-confusion");
+    expect(makeSignal("consecutive-unknowns", "x").class).toBe("agent-confusion");
+  });
+
+  it("kent elk bekend signaal een class toe (geen gaten in de map)", () => {
+    for (const id of ALL_IDS) {
+      expect(SIGNAL_CLASS[id]).toMatch(/^(navigation-instability|execution-stall|agent-confusion)$/);
     }
   });
 });
