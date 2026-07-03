@@ -11,6 +11,7 @@ import { CacheStore, makeCacheKey, urlToPattern } from "../memory/cache-store.js
 import { replayCache } from "../memory/replay.js";
 import { makeSignal, type Signal } from "./arbiter.js";
 import { SubstateTracker, type Substate } from "./substate.js";
+import type { RecoveryStore } from "../memory/recovery-store.js";
 
 /** Plafond op het aantal keren dat één run Claude Code om een herstelplan mag vragen.
  *  Voorkomt een meta-lus: YAD vraagt hulp → plan faalt → vraagt opnieuw → etc. */
@@ -138,6 +139,12 @@ export interface LoopOptions {
    * en advance automatisch bij een match. Zie SubstateTracker.
    */
   substates?: Substate[];
+  /**
+   * Optionele recovery-store. Bevat bewezen herstelplannen per (site, fail-category).
+   * escalateOrStop() checkt de store VÓÓR Claude Code te bellen — gratis cache-hit.
+   * session.ts schrijft naar de store na een succesvolle run met recovery.
+   */
+  recoveryStore?: RecoveryStore;
 }
 
 /** URL-patronen die duiden op een loginpagina (voor sessie-verloop detectie). */
@@ -221,10 +228,17 @@ export class AgentLoop {
   /** True als minstens één escalatie-poging succesvol een herstelplan ontving (RunRecord-substraat). */
   private _hadRecovery = false;
 
+  /** Bewezen herstel-events van deze run — voor flush naar recovery-store na "klaar". */
+  private _provenRecoveries: Array<{ sitePattern: string; failureCategory: string; hint: string }> = [];
+
   /** Voor RunRecord-substraat: het signaal dat de run liet stoppen via escalatie (undefined bij klaar/max-steps). */
   get lastStuckSignalId(): string | undefined { return this._lastStuckSignalId; }
   /** Voor RunRecord-substraat: had deze run minstens één succesvolle escalatie-herstelpoging? */
   get hadRecovery(): boolean { return this._hadRecovery; }
+  /** Bewezen recovery-events van deze run (voor flush naar recovery-store na "klaar"). */
+  get provenRecoveries(): ReadonlyArray<{ sitePattern: string; failureCategory: string; hint: string }> {
+    return this._provenRecoveries;
+  }
 
   constructor(
     private readonly router: ChatLike,
@@ -245,9 +259,11 @@ export class AgentLoop {
     this.runId = opts.runId ?? "";
     this.onStuck = opts.onStuck;
     this.substates = opts.substates ?? [];
+    this.recoveryStore = opts.recoveryStore;
   }
 
   private readonly substates: Substate[];
+  private readonly recoveryStore: RecoveryStore | undefined;
 
   private readonly isAborted: () => boolean;
 
@@ -293,28 +309,43 @@ export class AgentLoop {
   }): Promise<"recovered" | "give-up"> {
     const { signal, step, url, lastAction, goal, history, reset } = p;
     this.log(`stuck-signaal [${signal.severity}] ${signal.id}: ${signal.evidence}`);
-    this.hand.update({
-      status: "hulp-nodig",
-      step,
-      message: `${signal.evidence} — Claude Code om herstelplan gevraagd.`,
-      action: lastAction,
-    });
-    const hint = await this.escalate(
-      { why: signal.id as StuckReason["why"], runId: this.runId, goal, url, lastAction, history },
-      this.recoveryAttempts,
-      MAX_RECOVERY_ATTEMPTS,
-    );
+
+    const sitePattern = (() => { try { return new URL(url).hostname; } catch { return "unknown"; } })();
+
+    // Recovery-store: check VÓÓR Claude Code te bellen — cache-hit = geen LLM-kosten.
+    const storedHint = this.recoveryStore?.get(sitePattern, signal.id) ?? null;
+    const hint = storedHint ?? await (async () => {
+      this.hand.update({
+        status: "hulp-nodig",
+        step,
+        message: `${signal.evidence} — Claude Code om herstelplan gevraagd.`,
+        action: lastAction,
+      });
+      return this.escalate(
+        { why: signal.id as StuckReason["why"], runId: this.runId, goal, url, lastAction, history },
+        this.recoveryAttempts,
+        MAX_RECOVERY_ATTEMPTS,
+      );
+    })();
+
     if (hint) {
+      if (storedHint) {
+        this.log(`recovery-store cache-hit (${sitePattern}|${signal.id}) — geen Claude Code nodig`);
+        this.hand.update({ status: "bezig", step, message: `Bewezen herstelplan gevonden — andere aanpak…` });
+      }
       this.recoveryAttempts++;
       this._hadRecovery = true;
+      this._provenRecoveries.push({ sitePattern, failureCategory: signal.id, hint });
       this.failedHint = hint;
       reset();
       this.currentPlan = [];
-      this.hand.update({
-        status: "bezig",
-        step,
-        message: `Herstelplan ontvangen (escalatie ${this.recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — andere aanpak...`,
-      });
+      if (!storedHint) {
+        this.hand.update({
+          status: "bezig",
+          step,
+          message: `Herstelplan ontvangen (escalatie ${this.recoveryAttempts}/${MAX_RECOVERY_ATTEMPTS}) — andere aanpak...`,
+        });
+      }
       return "recovered";
     }
     this._lastStuckSignalId = p.signal.id;
@@ -342,6 +373,7 @@ export class AgentLoop {
     this.recoveryAttempts = 0; // reset per run — escalatie-plafond geldt per run
     this._lastStuckSignalId = undefined; // reset per run
     this._hadRecovery = false; // reset per run
+    this._provenRecoveries = []; // reset per run
     const tracker = new SubstateTracker(this.substates);
     let parseFails = 0;
     let cleanRun = true; // false zodra er een parse-fout is geweest; vuile runs worden niet gecached.
