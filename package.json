@@ -21,7 +21,11 @@
     "test-rejection": "tsx scripts/test-done-rejection.ts",
     "benchmark": "tsx scripts/benchmark.ts",
     "benchmark:research": "tsx scripts/benchmark.ts --category web-research",
-    "benchmark:quick": "tsx scripts/benchmark.ts --limit 5"
+    "benchmark:quick": "tsx scripts/benchmark.ts --limit 5 --delay 10",
+    "benchmark:full": "tsx scripts/benchmark.ts --delay 90",
+    "benchmark:batch1": "tsx scripts/benchmark.ts --limit 8 --delay 60",
+    "benchmark:batch2": "tsx scripts/benchmark.ts --from 9 --limit 8 --delay 60",
+    "benchmark:batch3": "tsx scripts/benchmark.ts --from 17 --delay 60"
   },
   "devDependencies": {
     "marked": "^12.0.2",
