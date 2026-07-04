@@ -18,7 +18,10 @@
     "smoke-host": "tsx scripts/smoke-native-host.ts",
     "engine-smoke": "tsx scripts/engine-smoke.ts",
     "process-legal": "tsx scripts/process-legal.ts",
-    "test-rejection": "tsx scripts/test-done-rejection.ts"
+    "test-rejection": "tsx scripts/test-done-rejection.ts",
+    "benchmark": "tsx scripts/benchmark.ts",
+    "benchmark:research": "tsx scripts/benchmark.ts --category web-research",
+    "benchmark:quick": "tsx scripts/benchmark.ts --limit 5"
   },
   "devDependencies": {
     "marked": "^12.0.2",
