@@ -38,6 +38,12 @@ Rules:
 - LINKS: link nodes show their href directly in the snapshot (href="https://..."). When the
   user asks for links/URLs, read them from the href= field and put them in the finish summary.
   NEVER loop on extract to find a URL that is already visible as href= in the snapshot.
+- COMPARE/RANK/COUNT TASKS: When the goal asks for "cheapest", "most expensive", "highest
+  rated", "most popular", any ranking/comparison, OR a count ("how many", "hoeveel", "aantal")
+  — use ONE extract WITHOUT a ref to read the full page text, which already contains all items,
+  values, and counts. NEVER extract specific elements (ref=e1, ref=e2, ...) to find a count or
+  compare values — that wastes steps and triggers the no-progress guard. Read page text once,
+  reason over it, then finish.
 - NEVER attempt to pay, place orders, or checkout; those are blocked by the system.
 - THE FINISH SUMMARY IS WHAT THE USER READS AS THE ANSWER. When the goal asks for
   information (a list, names, jobs, prices, a link, a result), put the REAL DATA in the
