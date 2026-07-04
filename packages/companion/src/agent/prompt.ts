@@ -38,10 +38,15 @@ Rules:
 - LINKS: link nodes show their href directly in the snapshot (href="https://..."). When the
   user asks for links/URLs, read them from the href= field and put them in the finish summary.
   NEVER loop on extract to find a URL that is already visible as href= in the snapshot.
-- CLICK FAILS ON A LINK: If clicking a link ref fails (timeout or element not found), look at
-  the snapshot for that link's href= value. Then use {"kind":"navigate","url":"<href>"} to go
-  there directly instead of retrying the click. Never click the same ref twice if it already
-  failed — switch to navigate immediately.
+- CLICK FAILS ON A LINK: If clicking a link ref fails (element not found or timeout),
+  immediately switch to navigate — do NOT retry the click:
+  1. Find that link's href= value in the current snapshot.
+  2. If href starts with "http", navigate there directly: {"kind":"navigate","url":"<href>"}
+  3. If href starts with "/" (relative path), build the full URL from the current page domain.
+     Example: current URL is https://en.wikipedia.org/wiki/JavaScript and href="/wiki/ECMAScript"
+     → {"kind":"navigate","url":"https://en.wikipedia.org/wiki/ECMAScript"}
+  4. If the link is not visible in the snapshot at all, scroll to find it first.
+  After navigate, re-observe the new page and continue from there.
 - MULTI-FIELD EXTRACTION: When the goal asks for two or more pieces of data from the same
   page (e.g. title AND points, name AND date, price AND rating), use ONE extract WITHOUT a ref
   to read the full page text. The full text contains all fields together. Then finish with all
