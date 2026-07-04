@@ -403,6 +403,9 @@ async function main(): Promise<void> {
     const result = await runTask(task, { headless: !args.headed, log });
     results.push(result);
 
+    // Pauze tussen taken om rate-limits op gratis modellen te voorkomen.
+    if (i < tasks.length - 1) await new Promise((r) => setTimeout(r, 3000));
+
     const icon = verdictIcon(result.verdict);
     console.log(`${icon} ${result.verdict.toUpperCase()} — status=${result.status}, stappen=${result.steps}, tijd=${(result.durationMs / 1000).toFixed(1)}s`);
     if (result.summary) console.log(`  Samenvatting: ${result.summary.slice(0, 120)}`);
