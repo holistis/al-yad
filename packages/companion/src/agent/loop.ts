@@ -454,9 +454,9 @@ export class AgentLoop {
         );
         this.cacheStore.hit(cacheKey);
         if (replay.status === "complete") {
-          const msg = `Taak voltooid via cache — ${cached.actions.length} stappen, 0 LLM-calls.`;
-          this.hand.update({ status: "klaar", message: msg });
-          return { status: "klaar", summary: msg, steps: cached.actions.length };
+          const summary = cached.summary ?? `Taak voltooid via cache — ${cached.actions.length} stappen, 0 LLM-calls.`;
+          this.hand.update({ status: "klaar", message: summary });
+          return { status: "klaar", summary, steps: cached.actions.length };
         }
         // Drift: prefill history met de geslaagde stappen; LLM-loop neemt over vanaf driftpunt.
         history.push(...replay.completedSteps);
@@ -781,6 +781,7 @@ export class AgentLoop {
             goalPreview: goal.slice(0, 120),
             urlPattern: urlToPattern(startingUrl),
             actions: history.map((h) => h.action),
+            summary: answer,
             savedAt: Date.now(),
             totalRuns: (existing?.totalRuns ?? 0) + 1,
           });
