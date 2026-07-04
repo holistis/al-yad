@@ -96,10 +96,12 @@ interface BenchmarkReport {
 function parseArgs(): {
   tasksFile: string;
   limit?: number;
+  from?: number;
   category?: string;
   id?: string;
   headed: boolean;
   concurrency: number;
+  delayMs: number;
 } {
   const args = process.argv.slice(2);
   const get = (flag: string): string | undefined => {
@@ -110,10 +112,12 @@ function parseArgs(): {
   return {
     tasksFile: get("--tasks") ?? resolve(repoRoot, "data", "benchmark-tasks.jsonl"),
     limit: get("--limit") ? parseInt(get("--limit")!, 10) : undefined,
+    from: get("--from") ? parseInt(get("--from")!, 10) : undefined,
     category: get("--category"),
     id: get("--id"),
     headed: args.includes("--headed"),
     concurrency: parseInt(get("--concurrency") ?? "1", 10),
+    delayMs: parseInt(get("--delay") ?? "90", 10) * 1000,
   };
 }
 
@@ -121,10 +125,10 @@ function parseArgs(): {
 
 async function loadTasks(
   file: string,
-  opts: { limit?: number; category?: string; id?: string },
+  opts: { limit?: number; from?: number; category?: string; id?: string },
 ): Promise<BenchmarkTask[]> {
   if (!existsSync(file)) throw new Error(`Takenbestand niet gevonden: ${file}`);
-  const tasks: BenchmarkTask[] = [];
+  const allTasks: BenchmarkTask[] = [];
   const rl = createInterface({ input: createReadStream(file), crlfDelay: Infinity });
   for await (const line of rl) {
     const t = line.trim();
@@ -132,10 +136,11 @@ async function loadTasks(
     const task = JSON.parse(t) as BenchmarkTask;
     if (opts.category && task.category !== opts.category) continue;
     if (opts.id && task.id !== opts.id) continue;
-    tasks.push(task);
-    if (opts.limit && tasks.length >= opts.limit) break;
+    allTasks.push(task);
   }
-  return tasks;
+  const start = (opts.from ?? 1) - 1;
+  const slice = allTasks.slice(start);
+  return opts.limit ? slice.slice(0, opts.limit) : slice;
 }
 
 // ── Scoring ───────────────────────────────────────────────────────────────────
@@ -368,12 +373,30 @@ function pct(n: number): string {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
+const RATE_LIMIT_SIGNALS = [
+  "gratis ai-modellen",
+  "alle providers faalden",
+  "rate limit",
+  "429",
+  "quota",
+];
+
+function isRateLimitError(r: TaskResult): boolean {
+  const text = (r.failReason ?? r.summary ?? "").toLowerCase();
+  return r.verdict === "error" && RATE_LIMIT_SIGNALS.some((s) => text.includes(s));
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function main(): Promise<void> {
   loadEnv();
 
   const args = parseArgs();
   const tasks = await loadTasks(args.tasksFile, {
     limit: args.limit,
+    from: args.from,
     category: args.category,
     id: args.id,
   });
@@ -383,9 +406,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log(`\n🔬 YAD BENCHMARK — ${tasks.length} taken, headed=${!args.headed}`);
+  const delaySec = Math.round(args.delayMs / 1000);
+  console.log(`\n🔬 YAD BENCHMARK — ${tasks.length} taken, headed=${!args.headed}, delay=${delaySec}s`);
   console.log(`Takenbestand: ${args.tasksFile}`);
   if (args.category) console.log(`Filter categorie: ${args.category}`);
+  if (args.from) console.log(`Startend bij taak ${args.from}`);
   console.log("─".repeat(60));
 
   const results: TaskResult[] = [];
@@ -400,17 +425,29 @@ async function main(): Promise<void> {
       process.stdout.write(`  ${m}\n`);
     };
 
-    const result = await runTask(task, { headless: !args.headed, log });
-    results.push(result);
+    let result = await runTask(task, { headless: !args.headed, log });
 
-    // Pauze tussen taken om rate-limits op gratis modellen te voorkomen.
-    if (i < tasks.length - 1) await new Promise((r) => setTimeout(r, 3000));
+    // Rate-limit retry: wacht 2 minuten en probeer één keer opnieuw.
+    if (isRateLimitError(result)) {
+      console.log(`  ⏳ Rate-limit geraakt — wacht 120s voor retry...`);
+      await sleep(120_000);
+      console.log(`  🔄 Retry: ${task.id}`);
+      result = await runTask(task, { headless: !args.headed, log });
+    }
+
+    results.push(result);
 
     const icon = verdictIcon(result.verdict);
     console.log(`${icon} ${result.verdict.toUpperCase()} — status=${result.status}, stappen=${result.steps}, tijd=${(result.durationMs / 1000).toFixed(1)}s`);
     if (result.summary) console.log(`  Samenvatting: ${result.summary.slice(0, 120)}`);
     if (result.matchedKeywords.length) console.log(`  Gematcht: [${result.matchedKeywords.join(", ")}]`);
     if (result.failReason) console.log(`  Faalreden: ${result.failReason}`);
+
+    // Pauze tussen taken — standaard 90s om per-minuut quota te laten resetten.
+    if (i < tasks.length - 1) {
+      process.stdout.write(`  ⏸ Wacht ${delaySec}s (quota cooldown)...\n`);
+      await sleep(args.delayMs);
+    }
   }
 
   const report = buildReport(results);
