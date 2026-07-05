@@ -1,5 +1,7 @@
 # Yad (يد) — self-hostable, privacy-first AI browser automation agent
 
+Built by [Abdellah Ouadoudi](https://github.com/holistis)
+
 **Yad** ("the hand" in Arabic) is a thin Chrome extension (the Hand) controlled by a locally hosted brain (the Companion). It works inside the user's real, logged-in browser session, learns a task once, and then repeats it deterministically at near-zero cost.
 
 > **Benchmark results** (gpt-4o-mini, July 2025):
