@@ -33,7 +33,7 @@ export const SNAPSHOT_LIMITS = {
   /** Maximale naam/waarde-lengte per node in tekens. */
   NAME_LIMIT: 120,
   /** Maximale textDigest-lengte in tekens. */
-  DIGEST_LIMIT: 1500,
+  DIGEST_LIMIT: 3000,
 } as const;
 
 /**

@@ -1,0 +1,119 @@
+{
+  "runAt": "2026-07-05T00:31:50.246Z",
+  "totalTasks": 5,
+  "passed": 5,
+  "partial": 0,
+  "failed": 0,
+  "errors": 0,
+  "passRate": 1,
+  "fullPassRate": 1,
+  "avgSteps": 6,
+  "avgDurationMs": 25525.8,
+  "byCategory": {
+    "authenticated": {
+      "total": 5,
+      "passed": 5,
+      "partial": 0,
+      "score": 5
+    }
+  },
+  "byDifficulty": {
+    "easy": {
+      "total": 2,
+      "passed": 2,
+      "score": 2
+    },
+    "medium": {
+      "total": 2,
+      "passed": 2,
+      "score": 2
+    },
+    "hard": {
+      "total": 1,
+      "passed": 1,
+      "score": 1
+    }
+  },
+  "results": [
+    {
+      "id": "auth-001",
+      "category": "authenticated",
+      "difficulty": "easy",
+      "goal": "Ga naar https://www.saucedemo.com en log in met gebruikersnaam 'standard_user' en wachtwoord 'secret_sauce'. Zodra je op /inventory.html staat: gebruik extract zonder ref om de pagina te lezen en tel hoeveel producten er zichtbaar zijn. Geef het getal.",
+      "verdict": "pass",
+      "score": 1,
+      "status": "klaar",
+      "summary": "Er zijn 6 producten zichtbaar op de pagina.",
+      "steps": 4,
+      "durationMs": 14911,
+      "matchedKeywords": [
+        "6"
+      ]
+    },
+    {
+      "id": "auth-002",
+      "category": "authenticated",
+      "difficulty": "easy",
+      "goal": "Ga naar https://www.saucedemo.com en log in met standard_user / secret_sauce. Zodra je op /inventory.html staat: gebruik extract zonder ref om de pagina te lezen en geef de naam en prijs van het eerste product.",
+      "verdict": "pass",
+      "score": 1,
+      "status": "klaar",
+      "summary": "Het eerste product is de Sauce Labs Backpack met een prijs van $29.99.\n\n— Gevonden informatie —\nnaam en prijs van het eerste product: Open Menu\nSwag Labs\nProducts\nName (A to Z)\nName (A to Z)\nName (Z to A)\nPrice (low to high)\nPrice (high to low)\nSauce Labs Backpack\ncarry.allTheThings() with the sleek, streamlined Sly Pack that melds uncompromising style with unequaled laptop and tablet protection.\n$29.99\nAdd to cart\nSauce Labs Bike Light\nA red light isn't the desired state in testing but it sure helps when riding your bike at night. Water-resistant with 3 lighting modes, 1 AAA battery included.\n$9.99\nAdd to cart\nSauce Labs Bolt T-Shirt\nGet your testing superhero on with the Sauce Labs bolt T-shirt. From American Apparel, 100% ringspun combed cotton, heather gray with red bolt.\n$15.99\nAdd to cart\nSauce Labs Fleece Jacket\nIt's not every day that you come across a midweight quarter-zip fleece jacket capable of handling everything from a relaxing day outdoors to a busy day at the office.\n$49.99\nAdd to cart\nSauce Labs Onesie\nRib snap infant onesie for the junior automation engineer in development. Reinforced 3-snap bottom closure, two-needle hemmed sleeved and bottom won't unravel.\n$7.99\nAdd to cart\nTest.allTheThings() T-Shirt (Red)\nThis classic Sauce Labs t-shirt is perfect to wear when cozying up to your keyboard to automate a few tests. Super-soft and comfy ringspun combed cotton.\n$15.99\nAdd to cart\nTwitter\nFacebook\nLinkedIn\n© 2026 Sauce Labs. All Rights Reserved. Terms of Service | Privacy Policy\n\nnaam en prijs van het eerste product: Open Menu\nSwag Labs\nProducts\nName (A to Z)\nName (A to Z)\nName (Z to A)\nPrice (low to high)\nPrice (high to low)\nSauce Labs Backpack\ncarry.allTheThings() with the sleek, streamlined Sly Pack that melds uncompromising style with unequaled laptop and tablet protection.\n$29.99\nAdd to cart\nSauce Labs Bike Light\nA red light isn't the desired state in testing but it sure helps when riding your bike at night. Water-resistant with 3 lighting modes, 1 AAA battery included.\n$9.99\nAdd to cart\nSauce Labs Bolt T-Shirt\nGet your testing superhero on with the Sauce Labs bolt T-shirt. From American Apparel, 100% ringspun combed cotton, heather gray with red bolt.\n$15.99\nAdd to cart\nSauce Labs Fleece Jacket\nIt's not every day that you come across a midweight quarter-zip fleece jacket capable of handling everything from a relaxing day outdoors to a busy day at the office.\n$49.99\nAdd to cart\nSauce Labs Onesie\nRib snap infant onesie for the junior automation engineer in development. Reinforced 3-snap bottom closure, two-needle hemmed sleeved and bottom won't unravel.\n$7.99\nAdd to cart\nTest.allTheThings() T-Shirt (Red)\nThis classic Sauce Labs t-shirt is perfect to wear when cozying up to your keyboard to automate a few tests. Super-soft and comfy ringspun combed cotton.\n$15.99\nAdd to cart\nTwitter\nFacebook\nLinkedIn\n© 2026 Sauce Labs. All Rights Reserved. Terms of Service | Privacy Policy",
+      "steps": 6,
+      "durationMs": 22675,
+      "matchedKeywords": [
+        "$",
+        "Sauce Labs"
+      ]
+    },
+    {
+      "id": "auth-003",
+      "category": "authenticated",
+      "difficulty": "medium",
+      "goal": "Ga naar https://www.saucedemo.com, log in met standard_user / secret_sauce. Open de productpagina van de 'Sauce Labs Bike Light' door erop te klikken. Zodra je op de productpagina staat: gebruik extract zonder ref en geef de naam en prijs van het product.",
+      "verdict": "pass",
+      "score": 1,
+      "status": "klaar",
+      "summary": "De naam van het product is 'Sauce Labs Bike Light' en de prijs is $9.99.\n\n— Gevonden informatie —\nnaam en prijs van het product: Open Menu\nSwag Labs\nBack to products\nSauce Labs Bike Light\nA red light isn't the desired state in testing but it sure helps when riding your bike at night. Water-resistant with 3 lighting modes, 1 AAA battery included.\n$9.99\nAdd to cart\nTwitter\nFacebook\nLinkedIn\n© 2026 Sauce Labs. All Rights Reserved. Terms of Service | Privacy Policy\n\nnaam en prijs van het product: Open Menu\nSwag Labs\nBack to products\nSauce Labs Bike Light\nA red light isn't the desired state in testing but it sure helps when riding your bike at night. Water-resistant with 3 lighting modes, 1 AAA battery included.\n$9.99\nAdd to cart\nTwitter\nFacebook\nLinkedIn\n© 2026 Sauce Labs. All Rights Reserved. Terms of Service | Privacy Policy",
+      "steps": 7,
+      "durationMs": 27490,
+      "matchedKeywords": [
+        "Bike",
+        "9.99"
+      ]
+    },
+    {
+      "id": "auth-004",
+      "category": "authenticated",
+      "difficulty": "medium",
+      "goal": "Ga naar https://www.saucedemo.com, log in met standard_user / secret_sauce, sorteer de producten op prijs van laag naar hoog en geef me de naam en prijs van het goedkoopste product.",
+      "verdict": "pass",
+      "score": 1,
+      "status": "klaar",
+      "summary": "Het goedkoopste product is de Sauce Labs Onesie met een prijs van $7.99.",
+      "steps": 5,
+      "durationMs": 20537,
+      "matchedKeywords": [
+        "7.99",
+        "Onesie"
+      ]
+    },
+    {
+      "id": "auth-005",
+      "category": "authenticated",
+      "difficulty": "hard",
+      "goal": "Ga naar https://www.saucedemo.com, log in met standard_user / secret_sauce, open de productpagina van de 'Sauce Labs Fleece Jacket'. Zodra je op de productpagina staat: gebruik extract zonder ref om de pagina te lezen en geef de volledige productbeschrijving en prijs.",
+      "verdict": "pass",
+      "score": 1,
+      "status": "klaar",
+      "summary": "De productbeschrijving van de Sauce Labs Fleece Jacket is: 'It's not every day that you come across a midweight quarter-zip fleece jacket capable of handling everything from a relaxing day outdoors to a busy day at the office.' De prijs is $49.99.\n\n— Gevonden informatie —\nproductbeschrijving en prijs van de Sauce Labs Fleece Jacket: Open Menu\nSwag Labs\nBack to products\nSauce Labs Fleece Jacket\nIt's not every day that you come across a midweight quarter-zip fleece jacket capable of handling everything from a relaxing day outdoors to a busy day at the office.\n$49.99\nAdd to cart\nTwitter\nFacebook\nLinkedIn\n© 2026 Sauce Labs. All Rights Reserved. Terms of Service | Privacy Policy\n\nproductbeschrijving en prijs van de Sauce Labs Fleece Jacket: Open Menu\nSwag Labs\nBack to products\nSauce Labs Fleece Jacket\nIt's not every day that you come across a midweight quarter-zip fleece jacket capable of handling everything from a relaxing day outdoors to a busy day at the office.\n$49.99\nAdd to cart\nTwitter\nFacebook\nLinkedIn\n© 2026 Sauce Labs. All Rights Reserved. Terms of Service | Privacy Policy",
+      "steps": 8,
+      "durationMs": 42016,
+      "matchedKeywords": [
+        "Fleece",
+        "49",
+        "$"
+      ]
+    }
+  ]
+}
