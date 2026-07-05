@@ -2,7 +2,7 @@
   "name": "al-yad",
   "version": "0.1.0",
   "description": "Self-hostable, privacy-first AI browser automation agent — works inside your real logged-in Chrome session",
-  "author": "Abdellah Ouadoudi",
+  "author": "AO Services",
   "license": "MIT",
   "private": false,
   "type": "module",
