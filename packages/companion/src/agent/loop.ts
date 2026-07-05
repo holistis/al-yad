@@ -1073,10 +1073,21 @@ export class AgentLoop {
  * informatie eronder. Zo krijgt de mens altijd het ANTWOORD te zien, niet alleen
  * de mededeling dat de taak af is.
  */
+/** Lege-summary patronen: model zei "Taak afgerond." maar heeft misschien wél data. */
+const PLACEHOLDER_SUMMARIES = /^(taak afgerond|klaar|done|task completed|afgerond|completed|finish)\.?$/i;
+
 function composeAnswer(summary: string, findings: string[]): string {
-  const s = (summary ?? "").trim() || "Klaar.";
-  if (findings.length === 0) return s;
-  return `${s}\n\n— Gevonden informatie —\n${findings.join("\n\n")}`;
+  const s = (summary ?? "").trim();
+  const isEmpty = !s || PLACEHOLDER_SUMMARIES.test(s);
+
+  if (isEmpty && findings.length > 0) {
+    // Model gaf lege samenvatting maar er is geëxtraheerde data — gebruik die direct.
+    // Dit voorkomt dat de gebruiker "Taak afgerond." ziet terwijl er antwoorden zijn.
+    return findings.join("\n\n");
+  }
+  const base = s || "Klaar.";
+  if (findings.length === 0) return base;
+  return `${base}\n\n— Gevonden informatie —\n${findings.join("\n\n")}`;
 }
 
 /**

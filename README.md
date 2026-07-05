@@ -3,7 +3,7 @@
 **Yad** ("the hand" in Arabic) is a thin Chrome extension (the Hand) controlled by a locally hosted brain (the Companion). It works inside the user's real, logged-in browser session, learns a task once, and then repeats it deterministically at near-zero cost.
 
 > **Benchmark results** (gpt-4o-mini, July 2025):
-> 80% fully correct on 25-task open benchmark · 100% on 5 authenticated tasks · 100% pass+partial · avg 2.9 steps · avg 8s per task
+> 84% fully correct on 25-task open benchmark · 100% on 5 authenticated tasks · 100% pass+partial · avg 2.7 steps · avg 8.7s per task
 > → See [Benchmark](#benchmark) section below.
 
 ## Benchmark
