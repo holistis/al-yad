@@ -19,7 +19,7 @@ native-messaging/com.yad.companion.json
 native-messaging/yad-companion-launcher.bat
 # benchmark-resultaten (te groot voor repo; enkel de definitieve bewaar je)
 data/benchmark-results-*.json
-# run-history en action-cache (machine-specifiek)
-data/run-history.jsonl
-data/action-cache.json
-data/recovery-store.jsonl
+# run-history en action-cache (machine-specifiek, in alle subdirectories)
+**/data/run-history.jsonl
+**/data/action-cache.json
+**/data/recovery-store.jsonl

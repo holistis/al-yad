@@ -16,8 +16,8 @@ YAD includes a fully open, reproducible benchmark suite. Every task definition, 
 |-------|-------|---------------|--------------|-----------|----------|
 | Main (25 tasks) | product-research, content-extraction, web-research, news-monitoring | **23/25 (92%)** | 25/25 (100%) | 2.7 | 8.7s |
 | Auth (5 tasks) | authenticated login + extract | **5/5 (100%)** | 5/5 (100%) | 6.0 | 25.5s |
-| Extended (10 tasks) | academic-research (ArXiv), reference-lookup (Cambridge Dict.), code-research (GitHub) | **TBD** | **TBD** | — | — |
-| **Combined (main + auth)** | **30 tasks** | **28/30 (93%)** | **30/30 (100%)** | — | — |
+| Extended (10 tasks) | academic-research (ArXiv), reference-lookup (Cambridge Dict.), code-research (GitHub) | **10/10 (100%)** | 10/10 (100%) | 1.9 | 8.2s |
+| **Combined (all suites)** | **40 tasks** | **38/40 (95%)** | **40/40 (100%)** | — | — |
 
 Results by difficulty (main suite):
 
