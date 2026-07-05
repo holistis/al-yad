@@ -12,6 +12,7 @@ import {
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { AgentLoop, type HandBridge, type StuckReason } from "./agent/loop.js";
+import { generateRecoveryHint } from "./agent/recovery.js";
 import { StepLogger } from "./history/step-log.js";
 import { LlmRouter } from "./engine/router.js";
 import { buildPool } from "./engine/pool.js";
@@ -118,6 +119,18 @@ export class BrainSession implements HandBridge {
    * Logt het herstelplan (of timeout) voor toekomstige recovery-store analyse.
    */
   private async handleStuck(reason: StuckReason): Promise<string | null> {
+    // Stap 1: probeer LLM-herstelplan EERST (snel, <3s) — geen bestand, geen wachten
+    try {
+      const llmHint = await generateRecoveryHint({ chat: (req) => this.router.chat(req) }, reason);
+      if (llmHint) {
+        this.log(`[assist] LLM-herstelplan (${reason.why} op ${reason.url}): ${llmHint.slice(0, 120)}`);
+        return llmHint;
+      }
+    } catch (e) {
+      this.log(`[assist] LLM-herstelplan mislukt: ${(e as Error).message} — val terug op bestand`);
+    }
+
+    // Stap 2: fallback — schrijf stuck-envelope en wacht op extern plan (Claude Code via /assist)
     const stuckPath = process.env["YAD_STUCK_PATH"] ?? "C:\\Code\\yad-stuck.json";
     const stuckAt = Date.now();
     const envelope = {
