@@ -117,7 +117,16 @@ export class PlaywrightHand implements HandBridge {
 
     let textDigest = "";
     try {
-      const raw = await page.evaluate("document.body?.innerText ?? ''") as string;
+      // Prefereer main-content boven volledige body — navigatie-blokken eten anders
+      // de textDigest-limiet op voor de echte pagina-inhoud komt.
+      const raw = await page.evaluate(`(function() {
+        const main = document.querySelector('main, [role="main"], article');
+        if (main) {
+          const t = (main.innerText || '').trim();
+          if (t.length > 300) return t;
+        }
+        return document.body?.innerText ?? '';
+      })()`) as string;
       textDigest = normalizeText(raw).slice(0, SNAPSHOT_LIMITS.DIGEST_LIMIT);
     } catch {
       /* negeer */
@@ -165,8 +174,17 @@ export class PlaywrightHand implements HandBridge {
             const el = page.locator(`[data-yad-ref="${ref}"]`).first();
             extracted = (await el.textContent({ timeout: 5_000 })) ?? "";
           } else {
-            extracted = await page.evaluate(
-              "(document.body?.innerText ?? '').slice(0, 4000)",
+            // Prefereer <main> of [role="main"] of <article> boven de volledige body.
+            // Grote navigatie-blokken (GitHub, Reddit, etc.) beginnen de body.innerText
+            // maar bevatten geen bruikbare content — het main-element heeft die wel.
+            extracted = await page.evaluate(`(function() {
+              const main = document.querySelector('main, [role="main"], article');
+              if (main) {
+                const t = (main.innerText || '').trim();
+                if (t.length > 300) return t.slice(0, 5000);
+              }
+              return (document.body?.innerText ?? '').slice(0, 5000);
+            })()`
             ) as string;
           }
           return { ok: true, extracted };
