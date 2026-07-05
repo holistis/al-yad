@@ -224,6 +224,13 @@ async function runTask(
         cacheStore,
         recoveryStore,
         isAborted: () => guard.violated,
+        onStuck: async (reason) => {
+          opts.log?.(`[stuck] ${reason.why} op ${reason.url} — LLM-herstelplan aanvragen`);
+          const { generateRecoveryHint } = await import("../packages/companion/src/agent/recovery.js");
+          const hint = await generateRecoveryHint({ chat: (req) => router.chat(req) }, reason);
+          if (hint) opts.log?.(`[stuck] herstelplan: ${hint.slice(0, 120)}`);
+          return hint;
+        },
       },
     );
 
