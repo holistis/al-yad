@@ -32,6 +32,7 @@ class MockHand implements HandBridge {
   async requestSnapshot(): Promise<Snapshot> {
     return this.snap;
   }
+  async requestScreenshot(): Promise<string | null> { return null; }
   async act(a: Action): Promise<ActResult> {
     this.acts.push(a);
     if (a.kind === "extract") return { ok: true, extracted: "3 vacatures: Tolk A, Docent B, Helpdesk C" };
@@ -167,6 +168,7 @@ class DynamicMockHand implements HandBridge {
     this.snapCall++;
     return s;
   }
+  async requestScreenshot(): Promise<string | null> { return null; }
   async act(a: Action): Promise<ActResult> {
     this.acts.push(a);
     return { ok: true };
