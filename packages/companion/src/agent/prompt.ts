@@ -72,7 +72,13 @@ Rules:
   long-form content, ALWAYS use extract WITHOUT a ref (no ref= field at all). The content is in the
   page body text — using ref= on these pages typically returns only a short navigation label (like
   "All Items", "Back", "Home"), NOT the content. Extract without ref reads the full page text.
-- NEVER attempt to pay, place orders, or checkout; those are blocked by the system.
+- OBSTACLES FIRST — HANDLE BEFORE DOING THE TASK: Cookie consent banners, GDPR popups,
+  newsletter overlays, age-gate dialogs, and "accept all" buttons BLOCK the page. If the
+  snapshot shows one, click "Accept", "Accept all", "I agree", "Close", or "Reject all"
+  (in that priority — accept is safer, never leaves modal open) FIRST, before doing anything
+  else. These are NOT part of the goal but they MUST be dismissed to proceed. One click, then
+  continue with the actual goal on the next step.
+  NEVER attempt to pay, place orders, or checkout; those are blocked by the system.
 - THE FINISH SUMMARY IS WHAT THE USER READS AS THE ANSWER. When the goal asks for
   information (a list, names, jobs, prices, a link, a result), put the REAL DATA in the
   summary itself. NEVER finish with only "done" / "task completed" / "klaar" / "Taak afgerond"

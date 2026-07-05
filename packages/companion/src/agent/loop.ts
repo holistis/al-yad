@@ -634,24 +634,30 @@ export class AgentLoop {
       // Dit is de kern van microPlan: 1 LLM-call dekt 1-3 browser-acties.
       if (this.currentPlan.length === 0) {
         // Goal Drift detectie (Layer 2 — state correctness):
-        // Na 3 opeenvolgende LLM-aanroepen op hetzelfde URL-pad vraagt de Judge of
+        // Na 5 opeenvolgende LLM-aanroepen op hetzelfde URL-pad vraagt de Judge of
         // de agent nog richting het doel gaat. Goedkoop: maxTokens=80, temperature=0,
         // alleen bij "mismatch" (niet bij "unknown") → weinig noise-risico.
+        // Drempel 5 (was 3): echte sites hebben setup nodig (cookie-banner, Cloudflare,
+        // popup sluiten, eerste scroll) vóór de taak zelf begint.
         if (snapshot.url === lastLlmCallUrl) {
           consecutiveSameUrlLlmCalls++;
         } else {
           consecutiveSameUrlLlmCalls = 0;
           lastLlmCallUrl = snapshot.url;
         }
-        if (consecutiveSameUrlLlmCalls >= 3) {
-          const recentEvidence = history.slice(-4).map((h) => h.detail).filter(Boolean).join(" ↦ ");
+        if (consecutiveSameUrlLlmCalls >= 5) {
+          // Stuur de werkelijke acties naar de judge — niet alleen de lege "detail"-string.
+          const recentActions = history
+            .slice(-6)
+            .map((h) => `${JSON.stringify(h.action)} -> ${h.ok ? "ok" : "FAILED"}`)
+            .join("\n");
           const driftCheck = await callJudge(this.router, {
-            expected: `The agent is making measurable forward progress toward: "${goal.slice(0, 120)}"`,
+            expected: `The agent is making legitimate progress toward: "${goal.slice(0, 120)}". NOTE: Setup actions (accepting cookie banners, closing popups, scrolling to find content, handling Cloudflare/consent screens) all count as valid progress — they are necessary obstacles, not drift.`,
             url: snapshot.url,
-            extracted: recentEvidence || undefined,
-            hadEffect: history.slice(-4).some((h) => h.ok),
+            extracted: recentActions || undefined,
+            hadEffect: history.slice(-6).some((h) => h.ok),
           });
-          this.log(`goal-drift check (${consecutiveSameUrlLlmCalls} calls op ${snapshot.url}): ${driftCheck.verdict} — ${driftCheck.evidence.slice(0, 80)}`);
+          this.log(`goal-drift check (${consecutiveSameUrlLlmCalls} calls op ${snapshot.url}): ${driftCheck.verdict} — ${driftCheck.evidence.slice(0, 120)}`);
           if (driftCheck.verdict === "mismatch") {
             const r = await this.escalateOrStop({
               signal: makeSignal("goal-drift", `Goal drift: ${consecutiveSameUrlLlmCalls} AI-aanroepen op ${snapshot.url} zonder aantoonbare doelvoortgang`),
