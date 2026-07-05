@@ -417,6 +417,11 @@ export class AgentLoop {
     // Terugkeer naar een al-bezochte URL na tussentijds een ander pad = objectief bewijs van afdwaling.
     const uniquePathsSeen = new Set<string>();
     let urlRegressionCount = 0;
+    // Extract-lus bewaker (code-niveau): telt opeenvolgende extract-acties op dezelfde URL.
+    // Na 2 extracts op dezelfde URL → forceer finish (model heeft de data al; extra lezen helpt niet).
+    // Click/navigate/type/select resetten de teller; wait en scroll niet (passief).
+    let consecutiveSameUrlExtracts = 0;
+    let lastExtractUrl = "";
     // Effect-nul-detector (lost stil falen op — Run 2): een muterende actie (click/type/select)
     // die ok=true geeft maar de pagina niet verandert, is een verdachte no-op. We onthouden de
     // volgorde-gevoelige fingerprint VÓÓR de actie en vergelijken hem met de snapshot van de
@@ -1007,6 +1012,30 @@ export class AgentLoop {
         const label = action.kind === "extract" ? action.what : action.kind;
         findings.push(`${label}: ${result.extracted.trim().slice(0, 1500)}`);
       }
+
+      // Extract-lus bewaker (code-niveau): forceer finish na 2+ opeenvolgende
+      // extracts op dezelfde URL. Prompt-regel wordt niet altijd nageleefd door het model.
+      if (action.kind === "extract") {
+        if (snapshot.url === lastExtractUrl) {
+          consecutiveSameUrlExtracts++;
+          if (consecutiveSameUrlExtracts >= 2) {
+            this.log(`extract-lus: ${consecutiveSameUrlExtracts} opeenvolgende extracts op ${snapshot.url} — forceer finish`);
+            const answer = composeAnswer("Klaar.", findings);
+            this.hand.update({ status: "klaar", step, message: answer, action });
+            return { status: "klaar", summary: answer, steps: step };
+          }
+        } else {
+          consecutiveSameUrlExtracts = 1;
+          lastExtractUrl = snapshot.url;
+        }
+      } else if (
+        action.kind === "click" || action.kind === "navigate" ||
+        action.kind === "type" || action.kind === "select"
+      ) {
+        consecutiveSameUrlExtracts = 0;
+        lastExtractUrl = "";
+      }
+
       this.log(`stap ${step}: ${JSON.stringify(action)} -> ${result.ok ? "ok" : "fout"}`);
     }
 
