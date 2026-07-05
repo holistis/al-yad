@@ -12,6 +12,8 @@ export interface CacheEntry {
   goalPreview: string;
   urlPattern: string;
   actions: Action[];
+  /** Samenvatting van de originele run — teruggegeven bij cache-replay. */
+  summary?: string;
   savedAt: number;
   hitCount: number;
   lastHitAt: number;
