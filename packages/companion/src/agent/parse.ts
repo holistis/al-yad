@@ -122,6 +122,15 @@ export function parseAction(raw: string): ParseResult {
         ok: true,
         action: { kind, ref: obj["ref"], text: obj["text"], submit: obj["submit"] === true },
       };
+    case "hover":
+      if (!isStr(obj["ref"])) return { ok: false, error: "hover mist ref" };
+      return { ok: true, action: { kind, ref: obj["ref"] } };
+    case "keyboard":
+      if (!isStr(obj["key"])) return { ok: false, error: "keyboard mist key" };
+      return {
+        ok: true,
+        action: { kind, key: obj["key"], ...(isStr(obj["ref"]) ? { ref: obj["ref"] } : {}) },
+      };
     case "select":
       if (!isStr(obj["ref"]) || !isStr(obj["value"]))
         return { ok: false, error: "select mist ref of value" };

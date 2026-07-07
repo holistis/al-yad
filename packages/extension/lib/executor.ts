@@ -246,6 +246,44 @@ export async function executeAction(
       return { ok: true };
     }
 
+    case "hover": {
+      const el = refMap.get(action.ref) as HTMLElement | undefined;
+      if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
+      el.scrollIntoView({ block: "center" });
+      el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true }));
+      el.dispatchEvent(new MouseEvent("mouseenter", { bubbles: false, cancelable: false }));
+      await sleep(120);
+      return { ok: true };
+    }
+
+    case "keyboard": {
+      // Voer een toetsenbordsnelkoppeling uit op een specifiek element (ref) of globaal.
+      // key-formaat: "Tab", "Escape", "Enter", "Control+a", "Shift+Tab", etc.
+      const target = action.ref ? (refMap.get(action.ref) as HTMLElement | undefined) : document.activeElement as HTMLElement | null;
+      if (action.ref && !target) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
+
+      const keyStr = action.key;
+      const parts = keyStr.split("+");
+      const mainKey = parts.at(-1) ?? keyStr;
+      const ctrl = parts.includes("Control") || parts.includes("Ctrl");
+      const shift = parts.includes("Shift");
+      const alt = parts.includes("Alt");
+      const meta = parts.includes("Meta") || parts.includes("Command");
+
+      const opts: KeyboardEventInit = {
+        key: mainKey,
+        code: `Key${mainKey.toUpperCase()}`,
+        ctrlKey: ctrl, shiftKey: shift, altKey: alt, metaKey: meta,
+        bubbles: true, cancelable: true,
+      };
+      const evtTarget = target ?? document.body;
+      evtTarget.dispatchEvent(new KeyboardEvent("keydown", opts));
+      evtTarget.dispatchEvent(new KeyboardEvent("keypress", opts));
+      evtTarget.dispatchEvent(new KeyboardEvent("keyup", opts));
+      await sleep(80);
+      return { ok: true };
+    }
+
     case "scroll": {
       const units = action.amount ?? 3;
       const px = units * 120; // 120px per unit — vergelijkbaar met één muiswiel-klik
