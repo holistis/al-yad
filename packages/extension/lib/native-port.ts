@@ -3,6 +3,7 @@ import { isAccepted } from "./acceptance";
 import { getSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { captureSession, getActiveWebTab } from "./session-capture";
 import { injectCookies, injectLocalStorage } from "./session-inject";
+import { startCapture, stopCapture, evaluateInPage, getResponseBody } from "./cdp-manager";
 
 /**
  * Beheert de native-messaging-poort naar het Brein (companion) EN vertaalt de
@@ -256,13 +257,13 @@ function connect(): void {
     handMessage("HELLO", {
       extId: chrome.runtime.id,
       clientVersion: EXT_VERSION,
-      capabilities: ["dom"],
+      capabilities: ["dom", "cdp"],
     }),
   );
 }
 
 function replyToBrain(
-  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT" | "SESSION_CAPTURE_DATA" | "SCREENSHOT_RESULT",
+  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT" | "SESSION_CAPTURE_DATA" | "SCREENSHOT_RESULT" | "CDP_RESULT",
   payload: object,
   correlationId: string,
 ): void {
@@ -413,6 +414,71 @@ function onMessage(raw: unknown): void {
           replyToBrain("SCREENSHOT_RESULT", { ok: true, dataUrl }, raw.id);
         } catch (e) {
           replyToBrain("SCREENSHOT_RESULT", { ok: false, detail: (e as Error).message }, raw.id);
+        }
+      })();
+      break;
+    }
+    case "CDP_COMMAND": {
+      const p = raw.payload as {
+        command: string;
+        tabId?: number;
+        urlFilter?: string;
+        expression?: string;
+        requestId?: string;
+      };
+      void (async () => {
+        // Bepaal de doeltab: expliciet opgegeven, anders run-tab of laatste web-tab.
+        const tabId = p.tabId ?? runTabId ?? lastWebTabId;
+        if (tabId == null) {
+          replyToBrain("CDP_RESULT", { ok: false, command: p.command, detail: "geen actieve tab" }, raw.id);
+          return;
+        }
+        try {
+          switch (p.command) {
+            case "start_capture": {
+              await startCapture(tabId, p.urlFilter);
+              replyToBrain("CDP_RESULT", { ok: true, command: "start_capture" }, raw.id);
+              break;
+            }
+            case "stop_capture": {
+              const requests = await stopCapture();
+              replyToBrain("CDP_RESULT", { ok: true, command: "stop_capture", requests }, raw.id);
+              break;
+            }
+            case "evaluate": {
+              if (!p.expression) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "evaluate", detail: "expression ontbreekt" }, raw.id);
+                break;
+              }
+              const res = await evaluateInPage(tabId, p.expression);
+              replyToBrain("CDP_RESULT", {
+                ok: !res.error,
+                command: "evaluate",
+                value: res.value,
+                valueType: res.valueType,
+                ...(res.error ? { detail: res.error } : {}),
+              }, raw.id);
+              break;
+            }
+            case "get_response_body": {
+              if (!p.requestId) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "get_response_body", detail: "requestId ontbreekt" }, raw.id);
+                break;
+              }
+              const bodyRes = await getResponseBody(tabId, p.requestId);
+              replyToBrain("CDP_RESULT", {
+                ok: true,
+                command: "get_response_body",
+                body: bodyRes.body,
+                base64Encoded: bodyRes.base64Encoded,
+              }, raw.id);
+              break;
+            }
+            default:
+              replyToBrain("CDP_RESULT", { ok: false, command: p.command, detail: `onbekend commando: ${p.command}` }, raw.id);
+          }
+        } catch (e) {
+          replyToBrain("CDP_RESULT", { ok: false, command: p.command, detail: (e as Error).message }, raw.id);
         }
       })();
       break;

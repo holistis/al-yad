@@ -5,9 +5,19 @@
  * zonder dat de gebruiker iets hoeft te klikken in de extensie.
  *
  * Endpoints:
- *   GET  /status          → { ok, connected }
- *   POST /capture         → { ok, path } (activeert page-capture in Chrome)
- *   POST /goal            → { ok } (body: { goal: string, url?: string })
+ *   GET  /status                → { ok, connected }
+ *   POST /capture               → { ok, path } (page-capture in Chrome)
+ *   POST /goal                  → { ok, ...GoalResult } (body: { goal, url?, sync?, maxSteps? })
+ *   POST /navigate              → { ok } (body: { url })
+ *   GET  /result                → laatste synchrone run-resultaat
+ *   POST /verify                → stap-verificatie (body: { runId, stepStart?, stepEnd?, retries? })
+ *   POST /save-session          → sessie opslaan (body: { account: "A"|"B" })
+ *   GET  /assist                → stuck-status
+ *   POST /assist                → herstelplan sturen (body: { hint, reason?, confidence?, avoid? })
+ *   POST /cdp/capture/start     → begin netwerk vastleggen (body: { urlFilter?, tabId? })
+ *   POST /cdp/capture/stop      → stop + geef alle verzoeken terug
+ *   POST /cdp/evaluate          → voer JS uit in pagina (body: { expression, tabId? })
+ *   POST /cdp/response-body     → response-body voor requestId (body: { requestId, tabId? })
  *
  * Beveiliging (Exposure-check):
  *   - Bindt ALLEEN aan 127.0.0.1 — niet bereikbaar van buiten de machine
@@ -248,7 +258,94 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       return;
     }
 
-    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result", "POST /verify", "POST /save-session", "GET /assist", "POST /assist"] });
+    // ── CDP: netwerkverkeer vastleggen + JS uitvoeren in pagina-context ──────────
+
+    if (url === "/cdp/capture/start" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        let urlFilter: string | undefined;
+        let tabId: number | undefined;
+        const raw = await readBody(req);
+        if (raw.trim()) {
+          const parsed = JSON.parse(raw) as { urlFilter?: string; tabId?: number };
+          if (typeof parsed.urlFilter === "string") urlFilter = parsed.urlFilter;
+          if (typeof parsed.tabId === "number") tabId = parsed.tabId;
+        }
+        const result = await session.cdp({ command: "start_capture", urlFilter, tabId }, 10_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    if (url === "/cdp/capture/stop" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        // Ruimere timeout: stop_capture wacht tot alle response-bodies zijn opgehaald.
+        const result = await session.cdp({ command: "stop_capture" }, 30_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    if (url === "/cdp/evaluate" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { expression?: string; tabId?: number };
+        if (typeof parsed.expression !== "string" || !parsed.expression.trim()) {
+          json(res, 400, { ok: false, detail: "expression is verplicht" });
+          return;
+        }
+        const result = await session.cdp({
+          command: "evaluate",
+          expression: parsed.expression.slice(0, 4_000),
+          tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
+        }, 15_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    if (url === "/cdp/response-body" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { requestId?: string; tabId?: number };
+        if (typeof parsed.requestId !== "string" || !parsed.requestId.trim()) {
+          json(res, 400, { ok: false, detail: "requestId is verplicht" });
+          return;
+        }
+        const result = await session.cdp({
+          command: "get_response_body",
+          requestId: parsed.requestId,
+          tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
+        }, 15_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result", "POST /verify", "POST /save-session", "GET /assist", "POST /assist", "POST /cdp/capture/start", "POST /cdp/capture/stop", "POST /cdp/evaluate", "POST /cdp/response-body"] });
   });
 
   server.listen(PORT, "127.0.0.1", () => {
