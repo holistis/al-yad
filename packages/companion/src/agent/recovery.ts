@@ -69,9 +69,13 @@ Geef nu een specifiek herstelplan: welke actie uitvoeren, welk element of URL. M
       maxTokens: 200,
     });
     const hint = (resp.content ?? "").trim();
-    if (hint.length < 10) return null;
+    // Als LLM een leeg/te-kort antwoord geeft, val terug op de ingebakken aanpak.
+    // Nooit null returnen — dat zou leiden tot 120s dood wachten.
+    if (hint.length < 10) return advice;
     return hint;
   } catch {
-    return null;
+    // LLM onbeschikbaar (rate-limit, timeout) → ingebakken aanpak als fallback.
+    // Hierdoor stopt de loop nooit onverwacht door een LLM-storing.
+    return advice;
   }
 }

@@ -80,9 +80,20 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
           json(res, 400, { ok: false, detail: "goal is verplicht" });
           return;
         }
+        // Saniteer goal: afkappen op 1000 chars, schadelijke instructie-patronen weigeren.
+        const rawGoal = parsed.goal.slice(0, 1000);
+        if (/ignore\s+(previous|all)\s+instructions?|system\s*prompt|reveal\s+(your\s+)?prompt|exfiltrat/i.test(rawGoal)) {
+          json(res, 400, { ok: false, detail: "goal bevat een niet-toegestaan patroon" });
+          return;
+        }
+        // Valideer start-URL als opgegeven — alleen http/https toegestaan.
+        if (typeof parsed.url === "string" && !/^https?:\/\//i.test(parsed.url)) {
+          json(res, 400, { ok: false, detail: "url moet beginnen met http:// of https://" });
+          return;
+        }
         if (parsed.sync === true) {
           // Wacht op het resultaat zodat de Planner (Claude Code) het kan verwerken.
-          const result = await session.runGoalSync(parsed.goal, {
+          const result = await session.runGoalSync(rawGoal, {
             maxSteps: typeof parsed.maxSteps === "number" ? parsed.maxSteps : undefined,
             startingUrl: parsed.url,
             autonomy: parsed.autonomy === "auto" ? "auto" : undefined,
@@ -91,8 +102,8 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
           json(res, 200, { ok: true, ...result });
         } else {
           // Fire-and-forget: resultaat gaat naar de extension sidepanel (bestaand gedrag).
-          session.triggerGoal(parsed.goal, parsed.url);
-          json(res, 200, { ok: true, goal: parsed.goal });
+          session.triggerGoal(rawGoal, parsed.url);
+          json(res, 200, { ok: true, goal: rawGoal });
         }
       } catch (e) {
         json(res, 400, { ok: false, detail: (e as Error).message });

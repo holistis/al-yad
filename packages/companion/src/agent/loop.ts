@@ -569,7 +569,9 @@ export class AgentLoop {
       // State Loop detectie: fingerprint van de huidige browser-staat.
       // Als we hier al eerder waren (>=4 stappen geleden) en geen vooruitgang hadden,
       // zit de agent in een lus van verschillende acties op steeds dezelfde pagina.
-      const fingerprint = snapshotFingerprint(snapshot);
+      // orderSensitiveFingerprint i.p.v. snapshotFingerprint: sort/filter-acties veranderen
+      // de DOM-volgorde en mogen NIET als "dezelfde staat" gezien worden.
+      const fingerprint = orderSensitiveFingerprint(snapshot);
       const prevIdx = stateHistory.lastIndexOf(fingerprint);
       if (prevIdx !== -1 && stateHistory.length - prevIdx >= 4 && llmCallsSinceProgress >= 2) {
         this.log(`state-loop: fingerprint gezien ${stateHistory.length - prevIdx} stappen geleden`);
@@ -659,7 +661,7 @@ export class AgentLoop {
             .map((h) => `${JSON.stringify(h.action)} -> ${h.ok ? "ok" : "FAILED"}`)
             .join("\n");
           const driftCheck = await callJudge(this.router, {
-            expected: `The agent is making legitimate progress toward: "${goal.slice(0, 120)}". NOTE: Setup actions (accepting cookie banners, closing popups, scrolling to find content, handling Cloudflare/consent screens) all count as valid progress — they are necessary obstacles, not drift.`,
+            expected: `The agent is making legitimate progress toward: "${goal.slice(0, 120)}". NOTE: All of the following count as valid progress — NOT drift: (1) setup actions (accepting cookie banners, closing popups, scrolling, handling Cloudflare/consent screens), (2) filling form fields (successful type/paste/select actions when the goal involves submitting a form), (3) reading/extracting page content when the goal requires specific information.`,
             url: snapshot.url,
             extracted: recentActions || undefined,
             hadEffect: history.slice(-6).some((h) => h.ok),
@@ -777,8 +779,9 @@ export class AgentLoop {
               continue;
             }
             // Plafond bereikt: stoppen om oneindige weiger-lus te voorkomen.
-            this.hand.update({ status: "fout", step, message: `Finish ${finishRejections}x geweigerd — ${evidence}` });
-            return { status: "fout", steps: step };
+            // "gestopt" i.p.v. "fout": taak was 90% klaar — recovery-store mag later leren.
+            this.hand.update({ status: "gestopt", step, message: `Finish ${finishRejections}x geweigerd — ${evidence}` });
+            return { status: "gestopt", steps: step };
           }
           this.log(`finish geaccepteerd: DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total})`);
         }
