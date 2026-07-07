@@ -9,6 +9,8 @@ export type Action =
   | { kind: "type"; ref: string; text: string; submit?: boolean; typeDelay?: number }
   | { kind: "paste"; ref: string; text: string; submit?: boolean }
   | { kind: "select"; ref: string; value: string }
+  | { kind: "hover"; ref: string }
+  | { kind: "keyboard"; key: string; ref?: string }
   | { kind: "extract"; what: string; ref?: string }
   | { kind: "scroll"; direction: "down" | "up" | "left" | "right"; amount?: number; ref?: string }
   | { kind: "wait"; ms: number }
@@ -22,6 +24,8 @@ export const ACTION_KINDS: readonly ActionKind[] = [
   "type",
   "paste",
   "select",
+  "hover",
+  "keyboard",
   "extract",
   "scroll",
   "wait",

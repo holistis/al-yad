@@ -171,6 +171,22 @@ export class PlaywrightHand implements HandBridge {
           await page.waitForTimeout(this.options.spaWaitMs / 2);
           return { ok: true };
         }
+        case "hover": {
+          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          await el.hover({ timeout: 8_000 });
+          await page.waitForTimeout(120);
+          return { ok: true };
+        }
+        case "keyboard": {
+          const target = action.ref
+            ? page.locator(`[data-yad-ref="${action.ref}"]`).first()
+            : null;
+          if (target) await target.focus({ timeout: 5_000 });
+          // Playwright accepteert "Control+a", "Shift+Tab", "Escape" direct als key-combinatie.
+          await page.keyboard.press(action.key);
+          await page.waitForTimeout(80);
+          return { ok: true };
+        }
         case "select": {
           const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
           await el.selectOption(action.value, { timeout: 8_000 });

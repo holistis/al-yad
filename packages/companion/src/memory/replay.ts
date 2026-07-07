@@ -72,6 +72,8 @@ function labelAction(action: Action): string {
     case "click":    return `Klik op ${action.ref}`;
     case "type":     return `Typ in ${action.ref}`;
     case "paste":    return `Plak in ${action.ref}`;
+    case "hover":    return `Hover over ${action.ref}`;
+    case "keyboard": return `Toets ${action.key}${action.ref ? ` op ${action.ref}` : ""}`;
     case "select":   return `Kies in ${action.ref}`;
     case "extract":  return `Lees: ${action.what}`;
     case "scroll":   return `Scroll ${action.direction}`;
