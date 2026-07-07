@@ -20,6 +20,8 @@ const ADVICE: Record<string, string> = {
     "Gebruik extract ZONDER ref om de pagina volledig te lezen zodat de agent beter kan beslissen.",
   "parse-fail":
     "Gebruik extract ZONDER ref om meer context te krijgen en stuur daarna een korter, eenvoudiger plan.",
+  "unintended-navigation":
+    "Je bent onverwacht weggenavigeerd. Gebruik navigate om terug te gaan naar de vorige URL (zie RECENTE ACTIES). Gebruik daarna click op de verschenen opties (role='option'/'menuitem') — NOOIT select op niet-native elementen.",
 };
 
 /**

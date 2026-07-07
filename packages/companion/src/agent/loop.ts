@@ -41,7 +41,8 @@ export interface StuckReason {
     | "no-progress"              // geen judge-match in 6+ LLM-aanroepen
     | "goal-drift"               // agent blijft op zelfde URL maar Judge ziet geen doelvoortgang
     | "url-regression"           // agent keert terug naar al-bezochte URL (afdwaling)
-    | "silent-no-effect";        // muterende actie slaagt (ok=true) maar verandert de pagina niet
+    | "silent-no-effect"         // muterende actie slaagt (ok=true) maar verandert de pagina niet
+    | "unintended-navigation";   // klik op niet-link element veroorzaakte onverwachte URL-navigatie
   runId: string;
   goal: string;
   url: string;
@@ -438,6 +439,10 @@ export class AgentLoop {
     let stepsSinceRealEffect = 0;
     let pendingEffectCheck: { pre: string; step: number } | null = null;
     const MAX_NO_EFFECT = 3;
+    // Onverwachte-navigatie-detector: een klik op een niet-link element die de URL verandert.
+    // lastNonLinkClickUrl = URL VÓÓR de klik; lastNonLinkClickRole = role van het element.
+    let lastNonLinkClickUrl = "";
+    let lastNonLinkClickRole = "";
     // DONE-predicaat bewaker: telt hoeveel keer een finish-poging is geblokkeerd.
     // Na 2 weigeringen stopt de loop — voorkomt oneindige weiger-loop.
     let finishRejections = 0;
@@ -526,6 +531,32 @@ export class AgentLoop {
             }
           }
           uniquePathsSeen.add(newPath);
+        }
+
+        // Onverwachte-navigatie: klik op niet-link element veroorzaakte URL-verandering.
+        // lastNonLinkClickUrl bevat de URL vóór de klik; als die gelijk is aan lastKnownUrl
+        // (= URL van de vorige iteratie), dan was de URL-change een gevolg van die klik.
+        if (lastNonLinkClickUrl && lastNonLinkClickUrl === lastKnownUrl) {
+          const prevUrl = lastNonLinkClickUrl;
+          const prevRole = lastNonLinkClickRole;
+          lastNonLinkClickUrl = "";
+          lastNonLinkClickRole = "";
+          this.log(`onverwachte navigatie: click op "${prevRole}" bracht ons van ${prevUrl} naar ${snapshot.url}`);
+          const r = await this.escalateOrStop({
+            signal: makeSignal("unintended-navigation",
+              `Klik op ${prevRole || "element"} veroorzaakte onverwachte navigatie van ${prevUrl} naar ${snapshot.url} — herstel: navigate terug naar ${prevUrl}`),
+            step, url: snapshot.url,
+            lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
+            goal, history,
+            reset: () => { /* tracking-vars al gewist vóór escalatie */ },
+          });
+          if (r === "give-up") {
+            this.hand.update({ status: "gestopt", step, message: "Run gestopt — onverwachte navigatie, geen herstelplan." });
+            return { status: "gestopt", steps: step };
+          }
+        } else {
+          lastNonLinkClickUrl = "";
+          lastNonLinkClickRole = "";
         }
       }
       // Registreer het startpad eenmalig (eerste iteratie)
@@ -912,6 +943,23 @@ export class AgentLoop {
       if (result.ok && isMutating) {
         pendingEffectCheck = { pre: orderSensitiveFingerprint(snapshot), step };
       }
+      // Onverwachte-navigatie-tracker: sla URL + role op na een geslaagde click op een niet-link.
+      // In de volgende iteratie vergelijken we of de URL veranderde ondanks dat de click geen
+      // navigatie-element raakte (role !== "link"). Reset bij elke andere actie of na URL-check.
+      if (action.kind === "click" && result.ok) {
+        const clickedNode = refNode(snapshot, action);
+        if (clickedNode?.role && clickedNode.role !== "link") {
+          lastNonLinkClickUrl = snapshot.url;
+          lastNonLinkClickRole = clickedNode.role;
+        } else {
+          lastNonLinkClickUrl = "";
+          lastNonLinkClickRole = "";
+        }
+      } else if (action.kind !== "wait" && action.kind !== "scroll") {
+        lastNonLinkClickUrl = "";
+        lastNonLinkClickRole = "";
+      }
+
       // DOM-refresh na select: combobox-DOM wordt volledig herbouwd na selectie → alle
       // resterende micro-plan-refs zijn stale. Gooi het plan weg zodat het model een verse
       // snapshot krijgt. Voorkomt de "ref e2 is geen keuzelijst"-bug na een geslaagde select.

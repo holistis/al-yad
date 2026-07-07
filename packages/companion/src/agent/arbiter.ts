@@ -25,7 +25,7 @@
  *    getest — bij, niet als speculatieve laag nu.
  */
 
-/** De acht stuck-signalen. Zelfde union als StuckReason["why"] in loop.ts (bewust: één vocabulaire). */
+/** De negen stuck-signalen. Zelfde union als StuckReason["why"] in loop.ts (bewust: één vocabulaire). */
 export type SignalId =
   | "consecutive-act-failures" // browser weigert acties (DOM-drift/modal/captcha)
   | "state-loop"               // dezelfde browserstate keert terug na andere acties
@@ -34,7 +34,8 @@ export type SignalId =
   | "repeat"                   // exact dezelfde actie herhaald
   | "no-progress"              // geen judge-match in 6+ LLM-aanroepen
   | "goal-drift"               // agent blijft op zelfde URL, judge ziet geen doelvoortgang
-  | "consecutive-unknowns";    // judge kan uitkomst herhaaldelijk niet beoordelen
+  | "consecutive-unknowns"     // judge kan uitkomst herhaaldelijk niet beoordelen
+  | "unintended-navigation";   // klik op niet-link element veroorzaakte onverwachte URL-navigatie
 
 /**
  * Drie brede klassen voor cross-domain transfer in de recovery-store.
@@ -57,6 +58,7 @@ export const SIGNAL_CLASS: Record<SignalId, SignalClass> = {
   "no-progress":              "execution-stall",
   "goal-drift":               "agent-confusion",
   "consecutive-unknowns":     "agent-confusion",
+  "unintended-navigation":    "navigation-instability",
 };
 
 export type SignalSeverity = "hard" | "soft";
@@ -77,6 +79,7 @@ export const SIGNAL_SEVERITY: Record<SignalId, SignalSeverity> = {
   "no-progress": "soft",
   "goal-drift": "soft",
   "consecutive-unknowns": "soft",
+  "unintended-navigation": "hard",
 };
 
 /**
@@ -86,6 +89,7 @@ export const SIGNAL_SEVERITY: Record<SignalId, SignalSeverity> = {
  */
 const PRIORITY: readonly SignalId[] = [
   "consecutive-act-failures", // omgeving stuk — meest objectief
+  "unintended-navigation",    // klik navigeerde naar verkeerde pagina — direct herstel nodig
   "silent-no-effect",         // acties hebben aantoonbaar geen effect
   "state-loop",               // aantoonbaar in een lus
   "url-regression",           // aantoonbaar achteruit
