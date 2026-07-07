@@ -3,7 +3,7 @@ import { isAccepted } from "./acceptance";
 import { getSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { captureSession, getActiveWebTab } from "./session-capture";
 import { injectCookies, injectLocalStorage } from "./session-inject";
-import { startCapture, stopCapture, evaluateInPage, getResponseBody } from "./cdp-manager";
+import { startCapture, stopCapture, evaluateInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies } from "./cdp-manager";
 
 /**
  * Beheert de native-messaging-poort naar het Brein (companion) EN vertaalt de
@@ -425,6 +425,11 @@ function onMessage(raw: unknown): void {
         urlFilter?: string;
         expression?: string;
         requestId?: string;
+        responseBody?: string;
+        modifiedHeaders?: Array<{ name: string; value: string }>;
+        block?: boolean;
+        cookies?: Array<{ name: string; value: string; domain?: string; path?: string }>;
+        cookieUrl?: string;
       };
       void (async () => {
         // Bepaal de doeltab: expliciet opgegeven, anders run-tab of laatste web-tab.
@@ -472,6 +477,53 @@ function onMessage(raw: unknown): void {
                 body: bodyRes.body,
                 base64Encoded: bodyRes.base64Encoded,
               }, raw.id);
+              break;
+            }
+            case "intercept_enable": {
+              await enableIntercept(tabId, p.urlFilter, (intercepted) => {
+                // Stuur het onderschepte request direct naar de companion als CDP_RESULT
+                replyToBrain("CDP_RESULT", { ok: true, command: "intercept_enable", intercepted }, raw.id);
+              });
+              // Bevestig dat intercept actief is (het echte antwoord komt later via de callback)
+              replyToBrain("CDP_RESULT", { ok: true, command: "intercept_enable" }, raw.id);
+              break;
+            }
+            case "intercept_disable": {
+              await disableIntercept();
+              replyToBrain("CDP_RESULT", { ok: true, command: "intercept_disable" }, raw.id);
+              break;
+            }
+            case "intercept_continue": {
+              if (!p.requestId) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "intercept_continue", detail: "requestId ontbreekt" }, raw.id);
+                break;
+              }
+              const done = continueIntercept(
+                p.requestId,
+                p.block ? "block" : "continue",
+                p.responseBody !== undefined
+                  ? { body: p.responseBody, responseHeaders: p.modifiedHeaders }
+                  : p.modifiedHeaders ? { requestHeaders: p.modifiedHeaders } : undefined,
+              );
+              replyToBrain("CDP_RESULT", {
+                ok: done,
+                command: "intercept_continue",
+                detail: done ? undefined : `request ${p.requestId} niet gevonden in wachtrij`,
+              }, raw.id);
+              break;
+            }
+            case "get_cookies": {
+              const cookies = await getCookies(tabId);
+              replyToBrain("CDP_RESULT", { ok: true, command: "get_cookies", cookies }, raw.id);
+              break;
+            }
+            case "set_cookies": {
+              if (!p.cookies?.length) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "set_cookies", detail: "cookies array is leeg of ontbreekt" }, raw.id);
+                break;
+              }
+              await setCookies(tabId, p.cookies, p.cookieUrl);
+              replyToBrain("CDP_RESULT", { ok: true, command: "set_cookies" }, raw.id);
               break;
             }
             default:

@@ -1,4 +1,4 @@
-import type { CdpConsoleEntry, CdpNetworkEntry, CdpWebSocketFrame } from "@yad/shared";
+import type { CdpConsoleEntry, CdpInterceptedRequest, CdpNetworkEntry, CdpWebSocketFrame } from "@yad/shared";
 
 /**
  * CDP-manager: beheert chrome.debugger-sessies per tab.
@@ -267,4 +267,162 @@ export async function getResponseBody(
     body: (r.body ?? "").slice(0, 500_000),
     base64Encoded: r.base64Encoded ?? false,
   };
+}
+
+// ──────────────────────────────────────────────
+// Request Interception (Fetch domain)
+// ──────────────────────────────────────────────
+
+let interceptTabId: number | null = null;
+let interceptFilter: string | null = null;
+// Queue van onderschepte requests die wachten op intercept_continue.
+// Key = requestId, Value = { resolve, tabId }
+const interceptPending = new Map<string, (action: "continue" | "block", overrides?: {
+  responseCode?: number; responseHeaders?: Array<{ name: string; value: string }>; body?: string;
+  requestHeaders?: Array<{ name: string; value: string }>;
+}) => void>();
+
+// Callback die de native-port aanroept als er een request wordt onderschept.
+// Wordt gezet door setupIntercept() en gereset door clearIntercept().
+let onIntercepted: ((req: CdpInterceptedRequest) => void) | null = null;
+
+function onFetchEvent(
+  source: chrome.debugger.Debuggee,
+  method: string,
+  params: unknown,
+): void {
+  if (source.tabId !== interceptTabId) return;
+  if (method !== "Fetch.requestPaused") return;
+  const p = params as Record<string, unknown>;
+  const requestId = String(p["requestId"]);
+  const req2 = p["request"] as Record<string, unknown> | undefined;
+  const intercepted: CdpInterceptedRequest = {
+    requestId,
+    url: String(req2?.["url"] ?? ""),
+    method: String(req2?.["method"] ?? "GET"),
+    headers: flattenHeaders(req2?.["headers"]),
+    postData: typeof req2?.["postData"] === "string" ? req2["postData"].slice(0, 8_000) : undefined,
+    resourceType: String(p["resourceType"] ?? ""),
+  };
+  if (interceptFilter && !intercepted.url.includes(interceptFilter)) {
+    // URL niet in filter → automatisch doorgaan
+    void chrome.debugger.sendCommand({ tabId: interceptTabId! }, "Fetch.continueRequest", { requestId });
+    return;
+  }
+  // Sla de resolve-functie op zodat intercept_continue hem later kan oproepen
+  interceptPending.set(requestId, (action, overrides) => {
+    const tid = interceptTabId;
+    if (!tid) return;
+    if (action === "block") {
+      void chrome.debugger.sendCommand({ tabId: tid }, "Fetch.failRequest", { requestId, errorReason: "BlockedByClient" });
+    } else if (overrides?.body !== undefined) {
+      const bodyB64 = btoa(unescape(encodeURIComponent(overrides.body)));
+      void chrome.debugger.sendCommand({ tabId: tid }, "Fetch.fulfillRequest", {
+        requestId,
+        responseCode: overrides.responseCode ?? 200,
+        responseHeaders: overrides.responseHeaders ?? [{ name: "content-type", value: "application/json" }],
+        body: bodyB64,
+      });
+    } else {
+      void chrome.debugger.sendCommand({ tabId: tid }, "Fetch.continueRequest", {
+        requestId,
+        headers: overrides?.requestHeaders,
+      });
+    }
+    interceptPending.delete(requestId);
+  });
+  if (onIntercepted) onIntercepted(intercepted);
+}
+
+let fetchListenerRegistered = false;
+
+export async function enableIntercept(
+  tabId: number,
+  urlFilter: string | undefined,
+  onRequest: (req: CdpInterceptedRequest) => void,
+): Promise<void> {
+  if (interceptTabId !== null && interceptTabId !== tabId) {
+    await disableIntercept();
+  }
+  await ensureAttached(tabId);
+  interceptTabId = tabId;
+  interceptFilter = urlFilter ?? null;
+  onIntercepted = onRequest;
+  interceptPending.clear();
+  if (!fetchListenerRegistered) {
+    chrome.debugger.onEvent.addListener(onFetchEvent);
+    fetchListenerRegistered = true;
+  }
+  await chrome.debugger.sendCommand({ tabId }, "Fetch.enable", {
+    patterns: [{ urlPattern: urlFilter ? `*${urlFilter}*` : "*", requestStage: "Request" }],
+  });
+}
+
+export async function disableIntercept(): Promise<void> {
+  if (interceptTabId === null) return;
+  try {
+    await chrome.debugger.sendCommand({ tabId: interceptTabId }, "Fetch.disable", {});
+  } catch {}
+  // Alle openstaande requests automatisch doorgaan
+  for (const [rid, resolve] of interceptPending) {
+    resolve("continue");
+    interceptPending.delete(rid);
+  }
+  interceptTabId = null;
+  interceptFilter = null;
+  onIntercepted = null;
+}
+
+export function continueIntercept(
+  requestId: string,
+  action: "continue" | "block",
+  overrides?: { responseCode?: number; responseHeaders?: Array<{ name: string; value: string }>; body?: string; requestHeaders?: Array<{ name: string; value: string }> },
+): boolean {
+  const resolve = interceptPending.get(requestId);
+  if (!resolve) return false;
+  resolve(action, overrides);
+  return true;
+}
+
+// ──────────────────────────────────────────────
+// Cookies via CDP
+// ──────────────────────────────────────────────
+
+export async function getCookies(
+  tabId: number,
+): Promise<Array<{ name: string; value: string; domain: string; path: string; httpOnly: boolean; secure: boolean }>> {
+  await ensureAttached(tabId);
+  try {
+    const r = (await chrome.debugger.sendCommand({ tabId }, "Network.getCookies", {})) as {
+      cookies?: Array<{ name: string; value: string; domain: string; path: string; httpOnly: boolean; secure: boolean }>;
+    };
+    return (r.cookies ?? []).map((c) => ({
+      name: c.name,
+      value: c.value,
+      domain: c.domain,
+      path: c.path,
+      httpOnly: c.httpOnly,
+      secure: c.secure,
+    }));
+  } finally {
+    if (tabId !== captureTabId && tabId !== interceptTabId) await safeDetach(tabId);
+  }
+}
+
+export async function setCookies(
+  tabId: number,
+  cookies: Array<{ name: string; value: string; domain?: string; path?: string }>,
+  url?: string,
+): Promise<void> {
+  await ensureAttached(tabId);
+  for (const cookie of cookies) {
+    await chrome.debugger.sendCommand({ tabId }, "Network.setCookie", {
+      name: cookie.name,
+      value: cookie.value,
+      domain: cookie.domain,
+      path: cookie.path ?? "/",
+      url,
+    });
+  }
+  if (tabId !== captureTabId && tabId !== interceptTabId) await safeDetach(tabId);
 }
