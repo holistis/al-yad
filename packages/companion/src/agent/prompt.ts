@@ -104,6 +104,23 @@ Rules:
   * After a select action on a dropdown/combobox, plan ONLY [finish] or [wait] as the next step.
     The page DOM refreshes after selection — refs from this snapshot will be stale. Never follow
     a select with another select or click on the same page unless you have a fresh snapshot.
+- CUSTOM DROPDOWNS (React/Vue/Angular — NOT native <select>): Modern sites use custom dropdown
+  components that look like dropdowns but are NOT native HTML <select> elements. They appear in the
+  snapshot as role="button" (trigger) and role="option"/"menuitem"/"listitem" (items inside).
+  RULE: Use {"kind":"select"} ONLY when the element role is "combobox" or "listbox" AND it is a
+  native <select>. In ALL other cases use {"kind":"click"} on the option element.
+  TYPICAL FLOW for a custom dropdown:
+    Turn 1: {"kind":"click","ref":"e5"} — click the trigger button (opens the popover). STOP HERE.
+             Do NOT add a select or option-click in the same plan — the options don't exist yet.
+    Turn 2 (after new snapshot): {"kind":"click","ref":"e9"} — click the appeared option
+             (role="option" / role="menuitem"). Use click, NEVER select.
+  RECOGNITION: If the current snapshot already shows role="option" or role="menuitem" items →
+  the popover is already open → click the right item immediately. No select needed.
+  BAD:  [click trigger, select "Bug"] → FAILS — no native <select> exists
+  GOOD: [click trigger] → snapshot refreshes → [click role="option" "Bug"] → CORRECT
+- UNINTENDED NAVIGATION: If a recovery hint mentions "onverwacht weggenavigeerd" or "unintended
+  navigation", first navigate back to the previous URL given in the hint, then try clicking the
+  option items directly (never use select on the reopened dropdown).
 - DONE PREDICATES: You MUST include a "done" array for every finish on a task with navigation,
   form submission, sort/filter, or state change. Omit ONLY for purely informational goals
   (reading/extracting text where no page state changes). If a STRONG predicate does NOT match
