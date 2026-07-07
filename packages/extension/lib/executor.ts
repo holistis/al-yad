@@ -8,6 +8,63 @@ import type { Action, ActResult } from "@yad/shared";
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+// Input-types waarvoor de browser een specifiek waarde-formaat vereist.
+const DATE_TIME_TYPES = new Set(["date", "time", "datetime-local", "month", "week"]);
+
+/**
+ * Normaliseert een datum/tijd-string naar het formaat dat de browser vereist.
+ * type=date  → YYYY-MM-DD
+ * type=time  → HH:MM
+ * type=month → YYYY-MM
+ * type=datetime-local → YYYY-MM-DDTHH:MM
+ */
+function normalizeDateValue(inputType: string, value: string): string {
+  if (inputType === "date") {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value; // al correct
+    // DD/MM/YYYY of DD-MM-YYYY of DD.MM.YYYY
+    const m1 = /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/.exec(value);
+    if (m1) return `${m1[3]}-${m1[2].padStart(2, "0")}-${m1[1].padStart(2, "0")}`;
+    // YYYYMMDD (8 cijfers aaneengesloten)
+    const m2 = /^(\d{4})(\d{2})(\d{2})$/.exec(value);
+    if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+  }
+  if (inputType === "time") {
+    // Zorg dat het formaat HH:MM is (voeg voorloopnul toe indien nodig)
+    const m = /^(\d{1,2}):(\d{2})/.exec(value);
+    if (m) return `${m[1].padStart(2, "0")}:${m[2]}`;
+  }
+  if (inputType === "month") {
+    if (/^\d{4}-\d{2}$/.test(value)) return value;
+    // MM/YYYY of MM-YYYY
+    const m = /^(\d{1,2})[\/\-](\d{4})$/.exec(value);
+    if (m) return `${m[2]}-${m[1].padStart(2, "0")}`;
+  }
+  if (inputType === "datetime-local") {
+    // "15-01-1990 08:30" → "1990-01-15T08:30"
+    const m = /^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})[T\s](\d{1,2}:\d{2})/.exec(value);
+    if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}T${m[4]}`;
+  }
+  return value;
+}
+
+/**
+ * Vult een datum/tijd-input in via individuele keydown-events (zoals een mens doet).
+ * Chrome date-pickers accepteren cijfers en springen automatisch naar het volgende segment.
+ * Gebruikt als fallback als directe .value toewijzing niet werkt.
+ */
+async function fillDateViaKeyboard(el: HTMLInputElement, value: string): Promise<void> {
+  el.focus();
+  await sleep(50);
+  // Haal alleen de cijfers eruit: "1990-01-15" → "19900115"
+  const digits = value.replace(/\D/g, "");
+  for (const ch of digits) {
+    el.dispatchEvent(new KeyboardEvent("keydown",  { key: ch, code: `Digit${ch}`, bubbles: true, cancelable: true }));
+    el.dispatchEvent(new KeyboardEvent("keypress", { key: ch, code: `Digit${ch}`, bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent("keyup",    { key: ch, code: `Digit${ch}`, bubbles: true }));
+    await sleep(30);
+  }
+}
+
 // Klikbare tekst die wijst op een toestemming/cookie-banner (NL + EN + FR + DE).
 const CONSENT_PATTERNS = /\b(accepteer|accepteren|accept all|alle cookies|alles accepteren|akkoord|agree|got it|i understand|ok|okay|sluiten|close|dismiss|toestaan|allow all|consent|i agree|verstanden|accepter|continuer|fermer)\b/i;
 
@@ -46,8 +103,14 @@ function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: strin
   // React/Vue luisteren op de native setter; daarom via de prototype-setter.
   const proto = Object.getPrototypeOf(el);
   const desc = Object.getOwnPropertyDescriptor(proto, "value");
-  if (desc?.set) desc.set.call(el, value);
-  else el.value = value;
+  try {
+    if (desc?.set) desc.set.call(el, value);
+    else el.value = value;
+  } catch {
+    // Browser weigerde de waarde (bv. ongeldige datum-string) — val terug op directe assignment.
+    // Dit voorkomt dat browser-validatiefouten als uncaught extension-errors worden gelogd.
+    try { el.value = value; } catch { /* ignore */ }
+  }
   el.dispatchEvent(new Event("input", { bubbles: true }));
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
@@ -66,16 +129,20 @@ async function typeSlowly(
   const proto = Object.getPrototypeOf(el);
   const desc = Object.getOwnPropertyDescriptor(proto, "value");
   // Wis de bestaande waarde
-  if (desc?.set) desc.set.call(el, "");
-  else el.value = "";
+  try {
+    if (desc?.set) desc.set.call(el, "");
+    else el.value = "";
+  } catch { el.value = ""; }
   el.dispatchEvent(new Event("input", { bubbles: true }));
 
   let built = "";
   for (const char of text) {
     built += char;
     el.dispatchEvent(new KeyboardEvent("keydown", { key: char, bubbles: true, cancelable: true }));
-    if (desc?.set) desc.set.call(el, built);
-    else el.value = built;
+    try {
+      if (desc?.set) desc.set.call(el, built);
+      else el.value = built;
+    } catch { el.value = built; }
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new KeyboardEvent("keyup", { key: char, bubbles: true }));
     // Jitter: base ± 50% zodat het patroon niet mechanisch is
@@ -156,6 +223,29 @@ export async function executeAction(
       (el as HTMLElement).scrollIntoView({ block: "center" });
       (el as HTMLElement).focus();
       const typeDelay = action.typeDelay ?? 0;
+
+      // Datum/tijd-inputs: speciale behandeling zodat de browser de waarde accepteert.
+      if (el instanceof HTMLInputElement && DATE_TIME_TYPES.has(el.type.toLowerCase())) {
+        const normalized = normalizeDateValue(el.type.toLowerCase(), action.text);
+        try {
+          el.value = normalized;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch {
+          await fillDateViaKeyboard(el, normalized);
+        }
+        // Als .value leeg bleef (browser weigerde het formaat) → keyboard-fallback
+        if (!el.value && action.text) {
+          await fillDateViaKeyboard(el, action.text);
+        }
+        if (action.submit) {
+          const form = el.closest("form");
+          if (form) form.requestSubmit?.() ?? form.submit();
+          else el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+        }
+        return { ok: true };
+      }
+
       if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
         if (typeDelay > 0) {
           await typeSlowly(el, action.text, typeDelay);
