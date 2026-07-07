@@ -345,7 +345,47 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       return;
     }
 
-    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result", "POST /verify", "POST /save-session", "GET /assist", "POST /assist", "POST /cdp/capture/start", "POST /cdp/capture/stop", "POST /cdp/evaluate", "POST /cdp/response-body"] });
+    if (url === "/cdp/replay" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as {
+          url?: string;
+          method?: string;
+          headers?: Record<string, string>;
+          body?: string;
+        };
+        if (typeof parsed.url !== "string" || !/^https?:\/\//i.test(parsed.url)) {
+          json(res, 400, { ok: false, detail: "url is verplicht en moet http(s) zijn" });
+          return;
+        }
+        const fetchExpr = `(async () => {
+  const r = await fetch(${JSON.stringify(parsed.url)}, {
+    method: ${JSON.stringify(parsed.method ?? "GET")},
+    headers: ${JSON.stringify(parsed.headers ?? {})},
+    ${parsed.body ? `body: ${JSON.stringify(parsed.body)},` : ""}
+    credentials: "include",
+  });
+  const body = await r.text();
+  return JSON.stringify({
+    status: r.status,
+    statusText: r.statusText,
+    headers: Object.fromEntries(r.headers.entries()),
+    body: body.slice(0, 50000),
+  });
+})()`;
+        const result = await session.cdp({ command: "evaluate", expression: fetchExpr }, 30_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    json(res, 404, { error: "Not found", endpoints: ["GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result", "POST /verify", "POST /save-session", "GET /assist", "POST /assist", "POST /cdp/capture/start", "POST /cdp/capture/stop", "POST /cdp/evaluate", "POST /cdp/response-body", "POST /cdp/replay"] });
   });
 
   server.listen(PORT, "127.0.0.1", () => {

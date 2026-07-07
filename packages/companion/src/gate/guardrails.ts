@@ -116,7 +116,7 @@ export function checkDenied(action: Action, ctx: GateContext): GateVerdict {
     return { denied: false };
   }
 
-  if (action.kind === "click" || action.kind === "type" || action.kind === "select" || action.kind === "paste") {
+  if (action.kind === "click" || action.kind === "type" || action.kind === "select" || action.kind === "paste" || action.kind === "upload") {
     // fail-safe: zonder bekende, geldige pagina-URL weigeren we muterende acties.
     if (isUnknownUrl(ctx.currentUrl)) {
       return { denied: true, reason: "onbekende of niet-toegestane pagina-URL" };
@@ -150,6 +150,8 @@ export function needsConfirm(action: Action, ctx: GateContext): boolean {
       }
     case "select":
       return true;
+    case "upload":
+      return true; // bestandsupload altijd bevestigen
     case "type":
     case "paste":
       // typen/plakken-met-verzenden altijd bevestigen; anders bij muterende labels.
