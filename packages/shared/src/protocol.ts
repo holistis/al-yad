@@ -96,6 +96,34 @@ export interface HandPayloads {
   NAVIGATE_RESULT: { ok: boolean; detail?: string };
   /** antwoord op REQUEST_SCREENSHOT: base64-PNG van de zichtbare tab */
   SCREENSHOT_RESULT: { ok: boolean; dataUrl?: string; detail?: string };
+  /** antwoord op CDP_COMMAND — bevat resultaat van de gevraagde CDP-operatie */
+  CDP_RESULT: {
+    ok: boolean;
+    command: string;
+    detail?: string;
+    /** gevangen netwerkverzoeken (bij stop_capture) */
+    requests?: CdpNetworkEntry[];
+    /** geëvalueerde waarde (bij evaluate) */
+    value?: string;
+    valueType?: string;
+    /** response-body (bij get_response_body) */
+    body?: string;
+    base64Encoded?: boolean;
+  };
+}
+
+/** Eén vastgelegd netwerkverzoek inclusief response-data. */
+export interface CdpNetworkEntry {
+  requestId: string;
+  method: string;
+  url: string;
+  status?: number;
+  mimeType?: string;
+  requestHeaders: Record<string, string>;
+  requestBody?: string;
+  responseHeaders?: Record<string, string>;
+  responseBody?: string;
+  timestamp: number;
 }
 
 /** Berichten van het Brein naar de Hand. */
@@ -144,6 +172,23 @@ export interface BrainPayloads {
   INJECT_LOCALSTORAGE: { items: Record<string, string> };
   /** vraag de Hand om de actieve tab te capturen en de sessie-data terug te sturen (HTTP API-pad) */
   REQUEST_SESSION_CAPTURE: { label: "A" | "B" };
+  /** stuur een CDP-opdracht naar de extension (network capture, evaluate, response body) */
+  CDP_COMMAND: {
+    /** Welke CDP-operatie uitvoeren */
+    command:
+      | "start_capture"      // attach debugger + Network.enable, begin netwerkverkeer vastleggen
+      | "stop_capture"       // stop vastleggen + return alle gevangen verzoeken + detach
+      | "evaluate"           // Runtime.evaluate: voer JavaScript uit in de pagina-context
+      | "get_response_body"; // Network.getResponseBody: haal response-body op voor een requestId
+    /** Doeltab; ontbreekt = meest recente web-tab */
+    tabId?: number;
+    /** Vang alleen URLs die dit patroon bevatten (voor start_capture, optioneel) */
+    urlFilter?: string;
+    /** JavaScript-expressie (voor evaluate) */
+    expression?: string;
+    /** requestId van een gevangen verzoek (voor get_response_body) */
+    requestId?: string;
+  };
 }
 
 export type HandMessage = {

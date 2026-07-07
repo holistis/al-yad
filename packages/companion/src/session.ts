@@ -6,6 +6,7 @@ import {
   type Attachment,
   type BrainMessage,
   type BrainPayloads,
+  type CdpNetworkEntry,
   type RunStatus,
   type Snapshot,
 } from "@yad/shared";
@@ -24,7 +25,7 @@ import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js"
 import { RecoveryStore } from "./memory/recovery-store.js";
 import type { Substate } from "./agent/substate.js";
 
-type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE" | "REQUEST_SCREENSHOT";
+type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE" | "REQUEST_SCREENSHOT" | "CDP_COMMAND";
 
 function statusToOutcome(status: string): RunHistoryEntry["outcome"] {
   if (status === "klaar") return "success";
@@ -191,6 +192,38 @@ export class BrainSession implements HandBridge {
     void this.startRun(goal, undefined, undefined, startingUrl);
   }
 
+  /**
+   * Voer een CDP-opdracht uit via de extension.
+   * Vereist dat de extension de "cdp"-capability heeft geadverteerd.
+   *
+   * Beschikbare commando's:
+   *  - start_capture: begin netwerkverkeer vastleggen (optioneel: urlFilter)
+   *  - stop_capture:  stop + geeft alle gevangen verzoeken terug
+   *  - evaluate:      voer JavaScript uit in de pagina (expression vereist)
+   *  - get_response_body: haal response-body op voor een requestId
+   */
+  async cdp(params: BrainPayloads["CDP_COMMAND"], timeoutMs = 30_000): Promise<{
+    ok: boolean;
+    command: string;
+    detail?: string;
+    requests?: CdpNetworkEntry[];
+    value?: string;
+    valueType?: string;
+    body?: string;
+    base64Encoded?: boolean;
+  }> {
+    return this.request<{
+      ok: boolean;
+      command: string;
+      detail?: string;
+      requests?: CdpNetworkEntry[];
+      value?: string;
+      valueType?: string;
+      body?: string;
+      base64Encoded?: boolean;
+    }>("CDP_COMMAND", params, timeoutMs);
+  }
+
   navigateTo(url: string): Promise<boolean> {
     const msg = brainMessage("REQUEST_NAVIGATE", { url });
     return new Promise<boolean>((resolve, reject) => {
@@ -332,7 +365,9 @@ export class BrainSession implements HandBridge {
       case "INJECT_COOKIES_RESULT":
       case "INJECT_LOCALSTORAGE_RESULT":
       case "NAVIGATE_RESULT":
-      case "SESSION_CAPTURE_DATA": {
+      case "SCREENSHOT_RESULT":
+      case "SESSION_CAPTURE_DATA":
+      case "CDP_RESULT": {
         const cid = raw.correlationId;
         const pend = cid ? this.pending.get(cid) : undefined;
         if (cid && pend) {
