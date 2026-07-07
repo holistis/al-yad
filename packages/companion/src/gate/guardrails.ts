@@ -116,7 +116,7 @@ export function checkDenied(action: Action, ctx: GateContext): GateVerdict {
     return { denied: false };
   }
 
-  if (action.kind === "click" || action.kind === "type" || action.kind === "select") {
+  if (action.kind === "click" || action.kind === "type" || action.kind === "select" || action.kind === "paste") {
     // fail-safe: zonder bekende, geldige pagina-URL weigeren we muterende acties.
     if (isUnknownUrl(ctx.currentUrl)) {
       return { denied: true, reason: "onbekende of niet-toegestane pagina-URL" };
@@ -151,7 +151,8 @@ export function needsConfirm(action: Action, ctx: GateContext): boolean {
     case "select":
       return true;
     case "type":
-      // typen-met-verzenden altijd bevestigen; anders bij muterende labels.
+    case "paste":
+      // typen/plakken-met-verzenden altijd bevestigen; anders bij muterende labels.
       return action.submit === true || (ctx.targetName ? CONFIRM_WORDS.test(ctx.targetName) : false);
     case "click":
       // fail-closed: elke klik op een muterende ROL bevestigen, ongeacht het (door de
