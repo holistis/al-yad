@@ -191,6 +191,8 @@ function describe(action: Action): string {
       return `Klik op ${action.ref}`;
     case "type":
       return `Typ in ${action.ref}${action.submit ? " en verstuur" : ""}`;
+    case "paste":
+      return `Plak tekst in ${action.ref}${action.submit ? " en verstuur" : ""}`;
     case "select":
       return `Kies ${action.value} in ${action.ref}`;
     case "extract":
@@ -897,7 +899,7 @@ export class AgentLoop {
       // Effect-nul: onthoud de pre-actie fingerprint voor muterende acties, zodat de
       // volgende iteratie kan checken of er iets veranderde. navigate telt niet mee
       // (verandert per definitie de URL); extract/wait zijn niet-muterend.
-      const isMutating = action.kind === "click" || action.kind === "type" || action.kind === "select";
+      const isMutating = action.kind === "click" || action.kind === "type" || action.kind === "paste" || action.kind === "select";
       if (result.ok && isMutating) {
         pendingEffectCheck = { pre: orderSensitiveFingerprint(snapshot), step };
       }
@@ -919,7 +921,7 @@ export class AgentLoop {
         // Generieke clicks tellen NIET — een klik op het verkeerde element retourneert ook ok=true
         // maar brengt de agent niet dichter bij het doel (semantische afdwaling).
         // Judge-"match" (lijn 653) en URL-change (lijn 312) zijn de andere reset-triggers.
-        if (action.kind === "navigate" || action.kind === "select" || action.kind === "type") {
+        if (action.kind === "navigate" || action.kind === "select" || action.kind === "type" || action.kind === "paste") {
           llmCallsSinceProgress = 0;
         }
       } else {

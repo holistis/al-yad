@@ -23,6 +23,7 @@ Available actions (use inside "steps" array):
 { "kind": "navigate", "url": "https://..." }
 { "kind": "click", "ref": "e3" }
 { "kind": "type", "ref": "e5", "text": "...", "submit": false }
+{ "kind": "paste", "ref": "e5", "text": "..." }  // use paste (not type) for rich-text editors like GitHub markdown, CodeMirror, TinyMCE
 { "kind": "select", "ref": "e7", "value": "..." }
 { "kind": "extract", "what": "what to read", "ref": "e2" }   // ref optional
 { "kind": "scroll", "direction": "down", "amount": 3 }      // scroll page; direction: down/up/left/right; amount = scroll units (default 3)

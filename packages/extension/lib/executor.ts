@@ -193,6 +193,49 @@ export async function executeAction(
       return { ok: true };
     }
 
+    case "paste": {
+      // Speciaal voor rich-text editors (CodeMirror, TinyMCE, GitHub markdown) die
+      // een gewone type-actie negeren. Gebruikt execCommand("insertText") — de enige
+      // methode die door alle editor-frameworks als menselijke invoer wordt herkend.
+      const el = refMap.get(action.ref) as HTMLElement | undefined;
+      if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
+      el.scrollIntoView({ block: "center" });
+      el.focus();
+
+      // Zoek het werkelijke invoervlak: geef voorkeur aan contentEditable-kind boven ouder.
+      const editable = el.isContentEditable
+        ? el
+        : (el.querySelector("[contenteditable='true']") as HTMLElement | null) ?? el;
+
+      if (editable.isContentEditable) {
+        // Wis huidige inhoud en plak in één execCommand-reeks.
+        document.execCommand("selectAll", false);
+        document.execCommand("insertText", false, action.text);
+      } else if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        setNativeValue(el, action.text);
+      } else {
+        return { ok: false, detail: "element ondersteunt plakken niet (geen input, textarea of contentEditable)" };
+      }
+
+      const afterText =
+        el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+          ? el.value
+          : (editable.textContent || "");
+      if (action.text && !afterText) {
+        return { ok: false, detail: "plakken mislukt (veld bleef leeg na paste)" };
+      }
+
+      if (action.submit) {
+        const form = el.closest("form");
+        if (form) {
+          form.requestSubmit?.() ?? form.submit();
+        } else {
+          el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+        }
+      }
+      return { ok: true };
+    }
+
     case "select": {
       const el = refMap.get(action.ref);
       if (!(el instanceof HTMLSelectElement)) {
