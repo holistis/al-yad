@@ -250,9 +250,21 @@ export async function executeAction(
       const el = refMap.get(action.ref) as HTMLElement | undefined;
       if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
       el.scrollIntoView({ block: "center" });
-      el.dispatchEvent(new MouseEvent("mouseover", { bubbles: true, cancelable: true }));
-      el.dispatchEvent(new MouseEvent("mouseenter", { bubbles: false, cancelable: false }));
-      await sleep(120);
+      await sleep(80);
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const init: MouseEventInit = { bubbles: true, cancelable: true, clientX: cx, clientY: cy };
+      const pInit: PointerEventInit = { ...init, pointerId: 1, pointerType: "mouse" };
+      // Pointer Events eerst (React/moderne sites), dan Mouse Events (klassieke sites)
+      el.dispatchEvent(new PointerEvent("pointerover",  { ...pInit, bubbles: true }));
+      el.dispatchEvent(new PointerEvent("pointerenter", { ...pInit, bubbles: false }));
+      el.dispatchEvent(new PointerEvent("pointermove",  { ...pInit, bubbles: true }));
+      el.dispatchEvent(new MouseEvent("mouseover",  { ...init }));
+      el.dispatchEvent(new MouseEvent("mouseenter", { ...init, bubbles: false }));
+      el.dispatchEvent(new MouseEvent("mousemove",  { ...init }));
+      el.focus?.();
+      await sleep(150);
       return { ok: true };
     }
 
