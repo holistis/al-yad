@@ -11,6 +11,18 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 // Input-types waarvoor de browser een specifiek waarde-formaat vereist.
 const DATE_TIME_TYPES = new Set(["date", "time", "datetime-local", "month", "week"]);
 
+// Patroon dat een GELDIGE waarde heeft voor elk datum/tijd-input type.
+// Alleen als de waarde dit patroon matcht, mag el.value worden gezet.
+// Anders gebruiken we uitsluitend keyboard-events (voorkomt de browser-warning
+// "The specified value X cannot be parsed" die anders in de extensie-fout-log belandt).
+const DATE_VALID: Record<string, RegExp> = {
+  "date":           /^\d{4}-\d{2}-\d{2}$/,
+  "time":           /^\d{2}:\d{2}/,
+  "month":          /^\d{4}-\d{2}$/,
+  "week":           /^\d{4}-W\d{2}$/,
+  "datetime-local": /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/,
+};
+
 /**
  * Normaliseert een datum/tijd-string naar het formaat dat de browser vereist.
  * type=date  → YYYY-MM-DD
@@ -226,16 +238,22 @@ export async function executeAction(
 
       // Datum/tijd-inputs: speciale behandeling zodat de browser de waarde accepteert.
       if (el instanceof HTMLInputElement && DATE_TIME_TYPES.has(el.type.toLowerCase())) {
-        const normalized = normalizeDateValue(el.type.toLowerCase(), action.text);
-        try {
-          el.value = normalized;
-          el.dispatchEvent(new Event("input", { bubbles: true }));
-          el.dispatchEvent(new Event("change", { bubbles: true }));
-        } catch {
-          await fillDateViaKeyboard(el, normalized);
-        }
-        // Als .value leeg bleef (browser weigerde het formaat) → keyboard-fallback
-        if (!el.value && action.text) {
+        const type = el.type.toLowerCase();
+        const normalized = normalizeDateValue(type, action.text);
+        const validPattern = DATE_VALID[type];
+        if (validPattern && validPattern.test(normalized)) {
+          // Geldige waarde: stel .value in (geen browser-warning want formaat klopt)
+          try {
+            el.value = normalized;
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+            el.dispatchEvent(new Event("change", { bubbles: true }));
+          } catch {
+            await fillDateViaKeyboard(el, normalized);
+          }
+        } else {
+          // Ongeldig of onherkenbaar formaat: gebruik ALLEEN keyboard-events.
+          // .value NIET aanraken want dat logt "DD cannot be parsed" als browser-warning
+          // die in het extensie-foutlogboek (Fouten-badge) belandt.
           await fillDateViaKeyboard(el, action.text);
         }
         if (action.submit) {
