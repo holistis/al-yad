@@ -284,6 +284,25 @@ export async function executeAction(
       return { ok: true };
     }
 
+    case "upload": {
+      const el = refMap.get(action.ref) as HTMLInputElement | undefined;
+      if (!el || el.tagName.toLowerCase() !== "input" || el.type !== "file") {
+        return { ok: false, detail: `ref ${action.ref} is geen file-input (of niet gevonden)` };
+      }
+      try {
+        const blob = new Blob([action.content], { type: action.mimeType ?? "application/octet-stream" });
+        const file = new File([blob], action.filename, { type: action.mimeType ?? blob.type });
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        el.files = dt.files;
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, detail: `upload mislukt: ${(e as Error).message}` };
+      }
+    }
+
     case "scroll": {
       const units = action.amount ?? 3;
       const px = units * 120; // 120px per unit — vergelijkbaar met één muiswiel-klik

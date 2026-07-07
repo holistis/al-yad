@@ -441,8 +441,8 @@ function onMessage(raw: unknown): void {
               break;
             }
             case "stop_capture": {
-              const requests = await stopCapture();
-              replyToBrain("CDP_RESULT", { ok: true, command: "stop_capture", requests }, raw.id);
+              const { requests, consoleEntries, webSocketFrames } = await stopCapture();
+              replyToBrain("CDP_RESULT", { ok: true, command: "stop_capture", requests, consoleEntries, webSocketFrames }, raw.id);
               break;
             }
             case "evaluate": {

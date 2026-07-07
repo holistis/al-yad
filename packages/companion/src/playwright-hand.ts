@@ -16,6 +16,9 @@
  *     bug-bounty recon (readonly). De ScopeGuard blokkeert toch alles gevaarlijks.
  */
 import { chromium, type Browser, type Page } from "playwright";
+import { writeFile, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { Action, ActResult, RunStatus, Snapshot, SnapshotNode } from "@yad/shared";
 import { normalizeText, SNAPSHOT_LIMITS } from "@yad/shared";
 import type { HandBridge } from "./agent/loop.js";
@@ -186,6 +189,18 @@ export class PlaywrightHand implements HandBridge {
           await page.keyboard.press(action.key);
           await page.waitForTimeout(80);
           return { ok: true };
+        }
+        case "upload": {
+          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const safeName = action.filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100);
+          const tmpPath = join(tmpdir(), `yad-upload-${Date.now()}-${safeName}`);
+          await writeFile(tmpPath, action.content, "utf-8");
+          try {
+            await el.setInputFiles(tmpPath, { timeout: 8_000 });
+            return { ok: true };
+          } finally {
+            await unlink(tmpPath).catch(() => {});
+          }
         }
         case "select": {
           const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();

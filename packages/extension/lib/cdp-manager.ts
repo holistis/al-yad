@@ -1,27 +1,22 @@
-import type { CdpNetworkEntry } from "@yad/shared";
+import type { CdpConsoleEntry, CdpNetworkEntry, CdpWebSocketFrame } from "@yad/shared";
 
 /**
  * CDP-manager: beheert chrome.debugger-sessies per tab.
  *
- * Wat dit biedt voor bug bounty:
- *  - start_capture: vangt alle HTTP-verzoeken + responses op (inclusief verborgen API-calls)
- *  - stop_capture:  geeft het volledige overzicht terug als gestructureerde JSON
- *  - evaluate:      voert JavaScript uit in de pagina-context (zoals de DevTools Console)
- *  - get_response_body: haalt de volledige response-body op voor een specifiek verzoek
- *
- * Verschil met DevTools klikken: dit is het protocol ónder DevTools. Alles wat je
- * handmatig in de Network-tab ziet, is hier programmatisch beschikbaar.
+ * Biedt voor bug bounty:
+ *  - start_capture: HTTP-requests + response-bodies + console logs + WebSocket frames
+ *  - stop_capture:  geeft alle gevangen data terug als gestructureerde JSON
+ *  - evaluate:      voert JavaScript uit in de pagina-context (zoals DevTools Console)
+ *  - get_response_body: haalt response-body op voor een specifiek requestId
  */
 
-/** Interne opslag: requestId → geaggregeerde data per verzoek. */
 const captured = new Map<string, CdpNetworkEntry>();
+const capturedConsole: CdpConsoleEntry[] = [];
+const capturedWebSockets = new Map<string, { url: string; frames: CdpWebSocketFrame[] }>();
 let captureFilter: string | null = null;
 let captureTabId: number | null = null;
-
-/** Alle tabs waarop de debugger momenteel is bevestigd. */
 const attached = new Set<number>();
 
-/** Verwijder veilig een debugger-bevestiging (negeer al-niet-bevestigde tabs). */
 async function safeDetach(tabId: number): Promise<void> {
   if (!attached.has(tabId)) return;
   attached.delete(tabId);
@@ -32,14 +27,10 @@ async function safeDetach(tabId: number): Promise<void> {
   }
 }
 
-/** Bevestig debugger op een tab als dat nog niet is gebeurd. */
 async function ensureAttached(tabId: number): Promise<void> {
   if (attached.has(tabId)) return;
   await chrome.debugger.attach({ tabId }, "1.3");
   attached.add(tabId);
-
-  // Luister naar CDP-events voor ALLE bevestigde tabs.
-  // Dit luisterblok registreert zichzelf eenmalig; daarna filtert het op tabId.
   if (!cdpListenerRegistered) {
     chrome.debugger.onEvent.addListener(onCdpEvent);
     chrome.debugger.onDetach.addListener(({ tabId: tid }) => {
@@ -55,7 +46,6 @@ async function ensureAttached(tabId: number): Promise<void> {
 
 let cdpListenerRegistered = false;
 
-/** Verwerkt inkomende CDP-events (voornamelijk Network.*). */
 function onCdpEvent(
   source: chrome.debugger.Debuggee,
   method: string,
@@ -63,7 +53,6 @@ function onCdpEvent(
 ): void {
   const tabId = source.tabId;
   if (tabId == null || tabId !== captureTabId) return;
-
   const p = params as Record<string, unknown>;
 
   switch (method) {
@@ -78,7 +67,6 @@ function onCdpEvent(
         requestHeaders: flattenHeaders(req?.["headers"]),
         timestamp: Date.now(),
       };
-      // POST-body (indien aanwezig)
       const postData = req?.["postData"];
       if (typeof postData === "string" && postData.length > 0) {
         entry.requestBody = postData.slice(0, 8_000);
@@ -86,7 +74,6 @@ function onCdpEvent(
       captured.set(entry.requestId, entry);
       break;
     }
-
     case "Network.responseReceived": {
       const id = String(p["requestId"]);
       const entry = captured.get(id);
@@ -98,14 +85,12 @@ function onCdpEvent(
       captured.set(id, entry);
       break;
     }
-
     case "Network.loadingFinished": {
-      // Response-body automatisch ophalen voor kleine responses (< 1 MB).
       const id = String(p["requestId"]);
       const entry = captured.get(id);
       if (!entry || entry.responseBody !== undefined) return;
       if (!captureTabId) return;
-      const tid = captureTabId; // snapshot voor async scope
+      const tid = captureTabId;
       void chrome.debugger
         .sendCommand({ tabId: tid }, "Network.getResponseBody", { requestId: id })
         .then((r) => {
@@ -119,13 +104,59 @@ function onCdpEvent(
             captured.set(id, existing);
           }
         })
-        .catch(() => { /* request al weggegooid — negeer */ });
+        .catch(() => {});
+      break;
+    }
+    case "Network.webSocketCreated": {
+      const wsId = String(p["requestId"]);
+      const wsUrl = String(p["url"] ?? "");
+      if (captureFilter && !wsUrl.includes(captureFilter)) return;
+      capturedWebSockets.set(wsId, { url: wsUrl, frames: [] });
+      break;
+    }
+    case "Network.webSocketFrameReceived": {
+      const wsId = String(p["requestId"]);
+      const ws = capturedWebSockets.get(wsId);
+      if (!ws) return;
+      const resp = p["response"] as Record<string, unknown> | undefined;
+      ws.frames.push({
+        requestId: wsId,
+        url: ws.url,
+        direction: "received",
+        payload: String(resp?.["payloadData"] ?? "").slice(0, 16_000),
+        timestamp: Date.now(),
+      });
+      break;
+    }
+    case "Network.webSocketFrameSent": {
+      const wsId = String(p["requestId"]);
+      const ws = capturedWebSockets.get(wsId);
+      if (!ws) return;
+      const resp = p["response"] as Record<string, unknown> | undefined;
+      ws.frames.push({
+        requestId: wsId,
+        url: ws.url,
+        direction: "sent",
+        payload: String(resp?.["payloadData"] ?? "").slice(0, 16_000),
+        timestamp: Date.now(),
+      });
+      break;
+    }
+    case "Runtime.consoleAPICalled": {
+      const type = String(p["type"] ?? "log") as CdpConsoleEntry["type"];
+      const rawArgs = (p["args"] as Array<Record<string, unknown>> | undefined) ?? [];
+      const args = rawArgs
+        .map((a) => {
+          if (a["value"] !== undefined) return JSON.stringify(a["value"]);
+          return String(a["description"] ?? a["value"] ?? "");
+        })
+        .slice(0, 20);
+      capturedConsole.push({ type, args, timestamp: Date.now() });
       break;
     }
   }
 }
 
-/** Zet headers-object (Chrome geeft variabele types) om naar Record<string,string>. */
 function flattenHeaders(raw: unknown): Record<string, string> {
   if (!raw || typeof raw !== "object") return {};
   const result: Record<string, string> = {};
@@ -139,47 +170,48 @@ function flattenHeaders(raw: unknown): Record<string, string> {
 // Publieke API
 // ──────────────────────────────────────────────
 
-/**
- * Start netwerkverkeer vastleggen op een tab.
- * Gooit als de debugger al bezet is door DevTools.
- */
 export async function startCapture(tabId: number, urlFilter?: string): Promise<void> {
-  // Stop eventuele vorige capture netjes.
   if (captureTabId !== null && captureTabId !== tabId) {
     await stopCapture();
   }
   await ensureAttached(tabId);
   await chrome.debugger.sendCommand({ tabId }, "Network.enable", {
-    maxResourceBufferSize: 10 * 1024 * 1024, // 10 MB buffer
+    maxResourceBufferSize: 10 * 1024 * 1024,
     maxTotalBufferSize: 50 * 1024 * 1024,
   });
+  await chrome.debugger.sendCommand({ tabId }, "Runtime.enable", {});
   captureTabId = tabId;
   captureFilter = urlFilter ?? null;
   captured.clear();
+  capturedConsole.length = 0;
+  capturedWebSockets.clear();
 }
 
-/**
- * Stop het vastleggen en geeft alle gevangen verzoeken terug.
- * Losmaken van de debugger zodat DevTools weer gebruikt kan worden.
- */
-export async function stopCapture(): Promise<CdpNetworkEntry[]> {
-  const results = Array.from(captured.values());
+export async function stopCapture(): Promise<{
+  requests: CdpNetworkEntry[];
+  consoleEntries: CdpConsoleEntry[];
+  webSocketFrames: CdpWebSocketFrame[];
+}> {
+  const requests = Array.from(captured.values());
+  const consoleEntries = [...capturedConsole];
+  const webSocketFrames = Array.from(capturedWebSockets.values()).flatMap((ws) => ws.frames);
   captured.clear();
+  capturedConsole.length = 0;
+  capturedWebSockets.clear();
   if (captureTabId !== null) {
     try {
       await chrome.debugger.sendCommand({ tabId: captureTabId }, "Network.disable", {});
-    } catch { /* tab kan al gesloten zijn */ }
+    } catch {}
+    try {
+      await chrome.debugger.sendCommand({ tabId: captureTabId }, "Runtime.disable", {});
+    } catch {}
     await safeDetach(captureTabId);
     captureTabId = null;
     captureFilter = null;
   }
-  return results;
+  return { requests, consoleEntries, webSocketFrames };
 }
 
-/**
- * Voer een JavaScript-expressie uit in de pagina-context van een tab.
- * Gelijkwaardig aan "typ dit in de DevTools Console en druk Enter".
- */
 export async function evaluateInPage(
   tabId: number,
   expression: string,
@@ -199,7 +231,6 @@ export async function evaluateInPage(
       result?: { type?: string; value?: unknown; description?: string };
       exceptionDetails?: { text?: string };
     };
-
     if (r.exceptionDetails) {
       return {
         value: r.exceptionDetails.text ?? "runtime error",
@@ -209,19 +240,17 @@ export async function evaluateInPage(
     }
     const val = r.result?.value;
     return {
-      value: val === undefined ? (r.result?.description ?? "undefined") : JSON.stringify(val).slice(0, 8_000),
+      value:
+        val === undefined
+          ? (r.result?.description ?? "undefined")
+          : JSON.stringify(val).slice(0, 8_000),
       valueType: r.result?.type ?? "undefined",
     };
   } finally {
-    // Detach alleen als we NIET aan het capturen zijn op deze tab.
     if (tabId !== captureTabId) await safeDetach(tabId);
   }
 }
 
-/**
- * Haal de response-body op voor een specifiek requestId.
- * Alleen bruikbaar terwijl de debugger nog bevestigd is (binnen een capture-sessie).
- */
 export async function getResponseBody(
   tabId: number,
   requestId: string,

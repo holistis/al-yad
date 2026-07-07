@@ -103,6 +103,10 @@ export interface HandPayloads {
     detail?: string;
     /** gevangen netwerkverzoeken (bij stop_capture) */
     requests?: CdpNetworkEntry[];
+    /** gevangen console-entries (bij stop_capture) */
+    consoleEntries?: CdpConsoleEntry[];
+    /** gevangen WebSocket-frames (bij stop_capture) */
+    webSocketFrames?: CdpWebSocketFrame[];
     /** geëvalueerde waarde (bij evaluate) */
     value?: string;
     valueType?: string;
@@ -110,6 +114,22 @@ export interface HandPayloads {
     body?: string;
     base64Encoded?: boolean;
   };
+}
+
+/** Een console.log/warn/error/info/debug vastgelegd tijdens CDP-capture. */
+export interface CdpConsoleEntry {
+  type: "log" | "warn" | "error" | "info" | "debug";
+  args: string[];
+  timestamp: number;
+}
+
+/** Eén WebSocket-frame (verzonden of ontvangen) vastgelegd tijdens CDP-capture. */
+export interface CdpWebSocketFrame {
+  requestId: string;
+  url: string;
+  direction: "sent" | "received";
+  payload: string;
+  timestamp: number;
 }
 
 /** Eén vastgelegd netwerkverzoek inclusief response-data. */

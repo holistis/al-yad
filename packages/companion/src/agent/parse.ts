@@ -131,6 +131,19 @@ export function parseAction(raw: string): ParseResult {
         ok: true,
         action: { kind, key: obj["key"], ...(isStr(obj["ref"]) ? { ref: obj["ref"] } : {}) },
       };
+    case "upload":
+      if (!isStr(obj["ref"]) || !isStr(obj["filename"]) || !isStr(obj["content"]))
+        return { ok: false, error: "upload mist ref, filename of content" };
+      return {
+        ok: true,
+        action: {
+          kind,
+          ref: obj["ref"],
+          filename: obj["filename"].slice(0, 255),
+          content: obj["content"].slice(0, 5_000_000),
+          ...(isStr(obj["mimeType"]) ? { mimeType: obj["mimeType"] } : {}),
+        },
+      };
     case "select":
       if (!isStr(obj["ref"]) || !isStr(obj["value"]))
         return { ok: false, error: "select mist ref of value" };

@@ -197,6 +197,8 @@ function describe(action: Action): string {
       return `Hover over ${action.ref}`;
     case "keyboard":
       return `Toets ${action.key}${action.ref ? ` op ${action.ref}` : ""}`;
+    case "upload":
+      return `Upload ${action.filename} naar ${action.ref}`;
     case "select":
       return `Kies ${action.value} in ${action.ref}`;
     case "extract":
@@ -906,7 +908,7 @@ export class AgentLoop {
       // Effect-nul: onthoud de pre-actie fingerprint voor muterende acties, zodat de
       // volgende iteratie kan checken of er iets veranderde. navigate telt niet mee
       // (verandert per definitie de URL); extract/wait zijn niet-muterend.
-      const isMutating = action.kind === "click" || action.kind === "type" || action.kind === "paste" || action.kind === "select" || action.kind === "hover" || action.kind === "keyboard";
+      const isMutating = action.kind === "click" || action.kind === "type" || action.kind === "paste" || action.kind === "select" || action.kind === "hover" || action.kind === "keyboard" || action.kind === "upload";
       if (result.ok && isMutating) {
         pendingEffectCheck = { pre: orderSensitiveFingerprint(snapshot), step };
       }
@@ -1039,7 +1041,7 @@ export class AgentLoop {
         }
       } else if (
         action.kind === "click" || action.kind === "navigate" ||
-        action.kind === "type" || action.kind === "select"
+        action.kind === "type" || action.kind === "select" || action.kind === "upload"
       ) {
         consecutiveSameUrlExtracts = 0;
         lastExtractUrl = "";
