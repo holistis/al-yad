@@ -6,7 +6,10 @@ import {
   type Attachment,
   type BrainMessage,
   type BrainPayloads,
+  type CdpConsoleEntry,
+  type CdpInterceptedRequest,
   type CdpNetworkEntry,
+  type CdpWebSocketFrame,
   type RunStatus,
   type Snapshot,
 } from "@yad/shared";
@@ -207,20 +210,28 @@ export class BrainSession implements HandBridge {
     command: string;
     detail?: string;
     requests?: CdpNetworkEntry[];
+    consoleEntries?: CdpConsoleEntry[];
+    webSocketFrames?: CdpWebSocketFrame[];
     value?: string;
     valueType?: string;
     body?: string;
     base64Encoded?: boolean;
+    intercepted?: CdpInterceptedRequest;
+    cookies?: Array<{ name: string; value: string; domain: string; path: string; httpOnly: boolean; secure: boolean }>;
   }> {
     return this.request<{
       ok: boolean;
       command: string;
       detail?: string;
       requests?: CdpNetworkEntry[];
+      consoleEntries?: CdpConsoleEntry[];
+      webSocketFrames?: CdpWebSocketFrame[];
       value?: string;
       valueType?: string;
       body?: string;
       base64Encoded?: boolean;
+      intercepted?: CdpInterceptedRequest;
+      cookies?: Array<{ name: string; value: string; domain: string; path: string; httpOnly: boolean; secure: boolean }>;
     }>("CDP_COMMAND", params, timeoutMs);
   }
 

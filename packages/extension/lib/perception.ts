@@ -71,10 +71,34 @@ function roleOf(el: Element): string {
   return tag;
 }
 
+/**
+ * Shadow-DOM-bewust querySelectorAll: doorzoekt recursief alle open shadow roots.
+ * Nodig omdat document.querySelector() stopt bij de shadow boundary.
+ */
+function queryDeep(root: Document | ShadowRoot | Element, selector: string): Element | null {
+  const found = (root as Document | Element).querySelector(selector);
+  if (found) return found;
+  const all = (root as Document | Element).querySelectorAll("*");
+  for (const el of all) {
+    const sr = (el as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot;
+    if (sr) {
+      const r = queryDeep(sr, selector);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+function getElementByIdDeep(id: string): Element | null {
+  return queryDeep(document, `#${CSS.escape(id)}`);
+}
+
 function labelFor(el: Element): string {
   const id = el.getAttribute("id");
   if (id) {
-    const lbl = document.querySelector(`label[for="${CSS.escape(id)}"]`);
+    // Zoek eerst in het reguliere DOM, dan in shadow roots
+    const lbl = document.querySelector(`label[for="${CSS.escape(id)}"]`)
+      ?? queryDeep(document, `label[for="${CSS.escape(id)}"]`);
     if (lbl?.textContent) return lbl.textContent.trim();
   }
   const closest = el.closest("label");
@@ -87,7 +111,8 @@ function nameOf(el: Element): string {
   if (aria) return aria.trim();
   const labelled = el.getAttribute("aria-labelledby");
   if (labelled) {
-    const ref = document.getElementById(labelled);
+    // document.getElementById gaat niet door shadow roots — gebruik deep variant
+    const ref = document.getElementById(labelled) ?? getElementByIdDeep(labelled);
     if (ref?.textContent) return ref.textContent.trim();
   }
   const lbl = labelFor(el);

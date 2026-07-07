@@ -113,7 +113,21 @@ export interface HandPayloads {
     /** response-body (bij get_response_body) */
     body?: string;
     base64Encoded?: boolean;
+    /** onderschept verzoek (bij intercept_enable event) — één verzoek dat wacht op doorgaan */
+    intercepted?: CdpInterceptedRequest;
+    /** cookies van de actieve tab (bij get_cookies) */
+    cookies?: Array<{ name: string; value: string; domain: string; path: string; httpOnly: boolean; secure: boolean }>;
   };
+}
+
+/** Een onderschept HTTP-verzoek dat wacht op intercept_continue (Fetch.requestPaused). */
+export interface CdpInterceptedRequest {
+  requestId: string;
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  postData?: string;
+  resourceType: string;
 }
 
 /** Een console.log/warn/error/info/debug vastgelegd tijdens CDP-capture. */
@@ -196,18 +210,33 @@ export interface BrainPayloads {
   CDP_COMMAND: {
     /** Welke CDP-operatie uitvoeren */
     command:
-      | "start_capture"      // attach debugger + Network.enable, begin netwerkverkeer vastleggen
-      | "stop_capture"       // stop vastleggen + return alle gevangen verzoeken + detach
-      | "evaluate"           // Runtime.evaluate: voer JavaScript uit in de pagina-context
-      | "get_response_body"; // Network.getResponseBody: haal response-body op voor een requestId
+      | "start_capture"         // attach debugger + Network.enable, begin netwerkverkeer vastleggen
+      | "stop_capture"          // stop vastleggen + return alle gevangen verzoeken + detach
+      | "evaluate"              // Runtime.evaluate: voer JavaScript uit in de pagina-context
+      | "get_response_body"     // Network.getResponseBody: haal response-body op voor een requestId
+      | "intercept_enable"      // Fetch.enable: onderschep requests vóór verzending
+      | "intercept_disable"     // Fetch.disable: stop request-interceptie
+      | "intercept_continue"    // Fetch.continueRequest / Fetch.fulfillRequest: laat request door of override response
+      | "get_cookies"           // Network.getCookies: alle cookies voor de actieve tab
+      | "set_cookies";          // Network.setCookies: set cookies voor een URL (sessie-injectie via CDP)
     /** Doeltab; ontbreekt = meest recente web-tab */
     tabId?: number;
-    /** Vang alleen URLs die dit patroon bevatten (voor start_capture, optioneel) */
+    /** Vang alleen URLs die dit patroon bevatten (voor start_capture/intercept_enable, optioneel) */
     urlFilter?: string;
     /** JavaScript-expressie (voor evaluate) */
     expression?: string;
-    /** requestId van een gevangen verzoek (voor get_response_body) */
+    /** requestId van een gevangen verzoek (voor get_response_body / intercept_continue) */
     requestId?: string;
+    /** Overschreven response-body (voor intercept_continue met modified=true) */
+    responseBody?: string;
+    /** Overschreven headers (voor intercept_continue) */
+    modifiedHeaders?: Array<{ name: string; value: string }>;
+    /** Als true: blokkeer het request (voor intercept_continue) */
+    block?: boolean;
+    /** Cookies om te setten (voor set_cookies) */
+    cookies?: Array<{ name: string; value: string; domain?: string; path?: string }>;
+    /** URL voor set_cookies domein-context */
+    cookieUrl?: string;
   };
 }
 
