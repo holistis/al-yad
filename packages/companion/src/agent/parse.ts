@@ -115,6 +115,13 @@ export function parseAction(raw: string): ParseResult {
         ok: true,
         action: { kind, ref: obj["ref"], text: obj["text"], submit: obj["submit"] === true },
       };
+    case "paste":
+      if (!isStr(obj["ref"]) || !isStr(obj["text"]))
+        return { ok: false, error: "paste mist ref of text" };
+      return {
+        ok: true,
+        action: { kind, ref: obj["ref"], text: obj["text"], submit: obj["submit"] === true },
+      };
     case "select":
       if (!isStr(obj["ref"]) || !isStr(obj["value"]))
         return { ok: false, error: "select mist ref of value" };

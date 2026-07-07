@@ -162,6 +162,15 @@ export class PlaywrightHand implements HandBridge {
           await page.waitForTimeout(this.options.spaWaitMs / 2);
           return { ok: true };
         }
+        case "paste": {
+          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          await el.click({ timeout: 8_000 });
+          await page.keyboard.press("Control+a");
+          await page.keyboard.insertText(action.text);
+          if (action.submit) await el.press("Enter");
+          await page.waitForTimeout(this.options.spaWaitMs / 2);
+          return { ok: true };
+        }
         case "select": {
           const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
           await el.selectOption(action.value, { timeout: 8_000 });
