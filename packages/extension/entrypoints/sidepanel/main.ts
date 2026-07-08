@@ -431,7 +431,10 @@ function addDocAttachment(file: File): void {
 
 function renderAttachPreviews(): void {
   const c = document.getElementById("attach-previews") as HTMLElement;
+  // Bewaar de doc-chip — alleen afbeelding-thumbs wissen
+  const docChip = document.getElementById("doc-chip-el");
   c.innerHTML = "";
+  if (docChip) c.append(docChip);
   for (let i = 0; i < pendingAttachments.length; i++) {
     const a = pendingAttachments[i]!;
     const thumb = document.createElement("span");
@@ -882,25 +885,17 @@ function startApp(): void {
     setTimeout(() => { msg.textContent = ""; }, 3000);
   });
 
-  // Attach button (afbeelding)
+  // Upload bijlage — één knop voor afbeeldingen én documenten (.txt, .rtf)
   document.getElementById("attach-btn")?.addEventListener("click", () => {
     document.getElementById("attach-input")?.click();
   });
   document.getElementById("attach-input")?.addEventListener("change", (e) => {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (file) addImageAttachment(file);
-    input.value = "";
-  });
-
-  // Document attach button (CV / .txt / .rtf)
-  document.getElementById("doc-attach-btn")?.addEventListener("click", () => {
-    document.getElementById("doc-input")?.click();
-  });
-  document.getElementById("doc-input")?.addEventListener("change", (e) => {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (file) addDocAttachment(file);
+    if (file) {
+      if (file.type.startsWith("image/")) addImageAttachment(file);
+      else addDocAttachment(file);
+    }
     input.value = "";
   });
 

@@ -34,6 +34,15 @@ Available actions (use inside "steps" array):
 { "kind": "wait", "ms": 1000 }
 { "kind": "finish", "summary": "THE ACTUAL ANSWER for the user", "done": [{"type":"url-contains","value":"/confirmation"}] }
 
+CONVERSATIONAL QUESTIONS — ANSWER DIRECTLY WITHOUT BROWSING:
+If the GOAL is a conversational question about content already in the context (like a CV, document, or image), OR the goal starts with "CONTEXT —" and the question is about that context, OR the question is like "heb je mijn cv gezien?", "kun je dit lezen?", "wat zie je?", "ken je mijn profiel?":
+→ DO NOT navigate. Respond directly using finish with a clear, personal answer in Dutch.
+→ Read the CONTEXT block carefully and summarize what you see (name, experience, skills, etc.).
+→ Offer to help with the next step (e.g. searching for vacancies).
+Example:
+  GOAL: "CONTEXT — Mijn CV (cv.rtf):\n\nJan Janssen, 5 jaar ervaring als developer...\n\n---\n\nheb je mijn cv gezien?"
+  Output: {"steps":[{"kind":"finish","summary":"Ja, ik heb je CV gelezen! Ik zie dat je Jan Janssen bent met 5 jaar ervaring als developer. Wil je dat ik vacatures voor je zoek op LinkedIn of Indeed?"}]}
+
 Rules:
 - Use refs exactly as shown in the snapshot. Never invent a ref.
 - SCROLL: if the element you need is not visible in the current snapshot, scroll first.
