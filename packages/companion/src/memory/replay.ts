@@ -74,7 +74,8 @@ function labelAction(action: Action): string {
     case "paste":    return `Plak in ${action.ref}`;
     case "hover":    return `Hover over ${action.ref}`;
     case "keyboard": return `Toets ${action.key}${action.ref ? ` op ${action.ref}` : ""}`;
-    case "upload":   return `Upload ${action.filename} naar ${action.ref}`;
+    case "upload":        return `Upload ${action.filename} naar ${action.ref}`;
+    case "upload-local":  return `Upload lokaal ${action.path} naar ${action.ref}`;
     case "select":   return `Kies in ${action.ref}`;
     case "extract":  return `Lees: ${action.what}`;
     case "scroll":   return `Scroll ${action.direction}`;

@@ -26,7 +26,8 @@ Available actions (use inside "steps" array):
 { "kind": "paste", "ref": "e5", "text": "..." }  // use paste (not type) for: (1) ANY text longer than 150 chars, (2) rich-text editors (GitHub markdown, CodeMirror, TinyMCE, Quill, Slate)
 { "kind": "hover", "ref": "e6" }              // hover over element to trigger tooltip/dropdown — use before clicking a menu that only appears on hover
 { "kind": "keyboard", "key": "Tab" }          // press a keyboard key globally or on a ref; key examples: "Tab", "Shift+Tab", "Escape", "Enter", "Control+a", "ArrowDown"
-{ "kind": "upload", "ref": "e5", "filename": "test.svg", "content": "<svg>...</svg>", "mimeType": "image/svg+xml" }  // upload a file to an input[type=file]; content = file content as plain text
+{ "kind": "upload", "ref": "e5", "filename": "test.svg", "content": "<svg>...</svg>", "mimeType": "image/svg+xml" }  // upload plain-text file to an input[type=file]; content = file text
+{ "kind": "upload-local", "ref": "e5", "path": "C:\\Users\\hp\\Desktop\\cv.pdf" }  // upload a local file from disk to a file input; use this when user wants to upload a file from their computer
 { "kind": "select", "ref": "e7", "value": "..." }
 { "kind": "extract", "what": "what to read", "ref": "e2" }   // ref optional
 { "kind": "scroll", "direction": "down", "amount": 3 }      // scroll page; direction: down/up/left/right; amount = scroll units (default 3)

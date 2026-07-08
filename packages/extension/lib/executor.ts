@@ -410,7 +410,17 @@ export async function executeAction(
         return { ok: false, detail: `ref ${action.ref} is geen file-input (of niet gevonden)` };
       }
       try {
-        const blob = new Blob([action.content], { type: action.mimeType ?? "application/octet-stream" });
+        let fileData: BlobPart;
+        if (action.base64) {
+          // Decodeer base64 naar bytes — nodig voor binaire bestanden (PDF, DOCX, RTF, ...)
+          const binary = atob(action.content);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          fileData = bytes;
+        } else {
+          fileData = action.content;
+        }
+        const blob = new Blob([fileData], { type: action.mimeType ?? "application/octet-stream" });
         const file = new File([blob], action.filename, { type: action.mimeType ?? blob.type });
         const dt = new DataTransfer();
         dt.items.add(file);
@@ -422,6 +432,9 @@ export async function executeAction(
         return { ok: false, detail: `upload mislukt: ${(e as Error).message}` };
       }
     }
+
+    case "upload-local":
+      return { ok: false, detail: "upload-local wordt door de companion verwerkt en bereikt de pagina nooit direct" };
 
     case "scroll": {
       const units = action.amount ?? 3;

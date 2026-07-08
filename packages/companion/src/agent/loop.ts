@@ -200,6 +200,8 @@ function describe(action: Action): string {
       return `Toets ${action.key}${action.ref ? ` op ${action.ref}` : ""}`;
     case "upload":
       return `Upload ${action.filename} naar ${action.ref}`;
+    case "upload-local":
+      return `Upload lokaal bestand ${action.path} naar ${action.ref}`;
     case "select":
       return `Kies ${action.value} in ${action.ref}`;
     case "extract":

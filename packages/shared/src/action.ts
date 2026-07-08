@@ -11,7 +11,8 @@ export type Action =
   | { kind: "select"; ref: string; value: string }
   | { kind: "hover"; ref: string }
   | { kind: "keyboard"; key: string; ref?: string }
-  | { kind: "upload"; ref: string; filename: string; content: string; mimeType?: string }
+  | { kind: "upload"; ref: string; filename: string; content: string; mimeType?: string; base64?: boolean }
+  | { kind: "upload-local"; ref: string; path: string; mimeType?: string }
   | { kind: "extract"; what: string; ref?: string }
   | { kind: "scroll"; direction: "down" | "up" | "left" | "right"; amount?: number; ref?: string }
   | { kind: "wait"; ms: number }
@@ -28,6 +29,7 @@ export const ACTION_KINDS: readonly ActionKind[] = [
   "hover",
   "keyboard",
   "upload",
+  "upload-local",
   "extract",
   "scroll",
   "wait",

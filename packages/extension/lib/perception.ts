@@ -26,6 +26,9 @@ const INTERACTIVE_SELECTOR = [
 
 
 function isVisible(el: Element): boolean {
+  // input[type=file] is vrijwel altijd via CSS verborgen (opacity:0, width:0, position:absolute)
+  // maar is wél interactief via DataTransfer — altijd opnemen zodat upload-local het kan vinden.
+  if (el instanceof HTMLInputElement && el.type.toLowerCase() === "file") return true;
   const he = el as HTMLElement;
   if (he.hidden) return false;
   if (el.getAttribute("aria-hidden") === "true") return false;
@@ -65,6 +68,7 @@ function roleOf(el: Element): string {
     if (t === "checkbox") return "checkbox";
     if (t === "radio") return "radio";
     if (t === "button" || t === "submit" || t === "reset") return "button";
+    if (t === "file") return "file-input";
     return "textbox";
   }
   if ((el as HTMLElement).isContentEditable) return "textbox";

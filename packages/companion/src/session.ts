@@ -13,7 +13,8 @@ import {
   type RunStatus,
   type Snapshot,
 } from "@yad/shared";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync } from "node:fs";
+import { extname, basename } from "node:path";
 import { dirname } from "node:path";
 import { AgentLoop, type HandBridge, type StuckReason } from "./agent/loop.js";
 import { generateRecoveryHint } from "./agent/recovery.js";
@@ -27,6 +28,27 @@ import { REDACTEDSessionReader } from "./key/session-reader.js";
 import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js";
 import { RecoveryStore } from "./memory/recovery-store.js";
 import type { Substate } from "./agent/substate.js";
+
+const MIME_TYPES: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".rtf": "application/rtf",
+  ".txt": "text/plain",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".mp4": "video/mp4",
+  ".csv": "text/csv",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".zip": "application/zip",
+  ".json": "application/json",
+  ".xml": "application/xml",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".odt": "application/vnd.oasis.opendocument.text",
+};
 
 type RequestType = "REQUEST_SNAPSHOT" | "ACT" | "REQUEST_CONFIRM" | "INJECT_COOKIES" | "INJECT_LOCALSTORAGE" | "REQUEST_SCREENSHOT" | "CDP_COMMAND";
 
@@ -540,7 +562,33 @@ export class BrainSession implements HandBridge {
   }
 
   act(action: Action): Promise<ActResult> {
+    if (action.kind === "upload-local") {
+      return this.actUploadLocal(action.ref, action.path, action.mimeType);
+    }
     return this.request<ActResult>("ACT", { action });
+  }
+
+  private async actUploadLocal(ref: string, filePath: string, mimeType?: string): Promise<ActResult> {
+    try {
+      const content = readFileSync(filePath);
+      if (content.length > 10 * 1024 * 1024) {
+        return { ok: false, detail: "Bestand te groot voor upload (max 10 MB)" };
+      }
+      const ext = extname(filePath).toLowerCase();
+      const detectedMime = mimeType ?? MIME_TYPES[ext] ?? "application/octet-stream";
+      const filename = basename(filePath);
+      const base64 = content.toString("base64");
+      return this.request<ActResult>("ACT", { action: {
+        kind: "upload",
+        ref,
+        filename,
+        content: base64,
+        mimeType: detectedMime,
+        base64: true,
+      } });
+    } catch (e) {
+      return { ok: false, detail: `Bestand lezen mislukt: ${(e as Error).message}` };
+    }
   }
 
   requestConfirm(action: Action, reason: string): Promise<boolean> {

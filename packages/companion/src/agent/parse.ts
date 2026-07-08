@@ -144,6 +144,18 @@ export function parseAction(raw: string): ParseResult {
           ...(isStr(obj["mimeType"]) ? { mimeType: obj["mimeType"] } : {}),
         },
       };
+    case "upload-local":
+      if (!isStr(obj["ref"]) || !isStr(obj["path"]))
+        return { ok: false, error: "upload-local mist ref of path" };
+      return {
+        ok: true,
+        action: {
+          kind,
+          ref: obj["ref"],
+          path: obj["path"],
+          ...(isStr(obj["mimeType"]) ? { mimeType: obj["mimeType"] } : {}),
+        },
+      };
     case "select":
       if (!isStr(obj["ref"]) || !isStr(obj["value"]))
         return { ok: false, error: "select mist ref of value" };
