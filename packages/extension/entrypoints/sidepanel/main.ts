@@ -370,6 +370,64 @@ function showConfirm(id: string, action: unknown, reason: string): void {
 // ---- Attachments ----
 
 const pendingAttachments: PendingAttachment[] = [];
+let pendingDocText: string | null = null;
+let pendingDocName = "";
+
+/** Ruwe RTF → leesbare tekst: strip controlewoorden, bewaar alinea-einden en tekst. */
+function extractRtfText(rtf: string): string {
+  let t = rtf;
+  // Hexadecimale escapes \'XX → karakter (Windows-1252 / Latin-1)
+  t = t.replace(/\\'([0-9a-fA-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
+  // Verwijder geneste RTF-groepen (fonttbl, colortbl, pict, info, …) — maximaal 6 rondes
+  for (let i = 0; i < 6; i++) t = t.replace(/\{[^{}]*\}/g, " ");
+  // Controlekopwoorden met alinea-betekenis → newline/tab
+  t = t.replace(/\\par\b\s?/g, "\n").replace(/\\line\b\s?/g, "\n").replace(/\\tab\b\s?/g, "\t");
+  // Alle overige controlekopwoorden (incl. \pard, \b, \i, \f0, …) → spatie
+  t = t.replace(/\\[a-zA-Z0-9]+(-?\d+)?\s?/g, " ");
+  t = t.replace(/\\./g, " ");          // resterende \ + karakter
+  t = t.replace(/[{}]/g, " ");         // openstaande accolades
+  return t.replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function renderDocChip(): void {
+  document.getElementById("doc-chip-el")?.remove();
+  if (!pendingDocText) return;
+  const c = document.getElementById("attach-previews") as HTMLElement;
+  const chip = document.createElement("span");
+  chip.id = "doc-chip-el";
+  chip.className = "attach-thumb doc-chip";
+  const icon = document.createElement("span");
+  icon.textContent = "📄 ";
+  const nm = document.createElement("span");
+  nm.textContent = pendingDocName.length > 18 ? pendingDocName.slice(0, 16) + "…" : pendingDocName;
+  const rm = document.createElement("button");
+  rm.type = "button"; rm.className = "attach-remove"; rm.title = "Verwijder"; rm.textContent = "✕";
+  rm.onclick = (): void => { pendingDocText = null; pendingDocName = ""; renderDocChip(); };
+  chip.append(icon, nm, rm);
+  c.prepend(chip);
+}
+
+function addDocAttachment(file: File): void {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const hint = document.querySelector(".input-hint") as HTMLElement;
+  if (!["txt", "rtf"].includes(ext)) {
+    const orig = hint.textContent;
+    hint.style.color = "#d97706";
+    hint.textContent = "Sla je CV op als .txt of .rtf voor de beste resultaten.";
+    setTimeout(() => { hint.textContent = orig; hint.style.color = ""; }, 4000);
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (): void => {
+    let text = reader.result as string;
+    if (ext === "rtf") text = extractRtfText(text);
+    if (text.length > 8000) text = text.slice(0, 8000) + "…";
+    pendingDocText = text;
+    pendingDocName = file.name;
+    renderDocChip();
+  };
+  reader.readAsText(file, "utf-8");
+}
 
 function renderAttachPreviews(): void {
   const c = document.getElementById("attach-previews") as HTMLElement;
@@ -415,6 +473,9 @@ function clearAttachments(): void {
   for (const a of pendingAttachments) URL.revokeObjectURL(a.previewUrl);
   pendingAttachments.length = 0;
   renderAttachPreviews();
+  pendingDocText = null;
+  pendingDocName = "";
+  renderDocChip();
 }
 
 // ---- Workflows tab ----
@@ -648,7 +709,12 @@ function collectSettings(): YadSettings {
 
 function startBtnClick(): void {
   const goalEl = $<HTMLTextAreaElement>("#goal");
-  const goal = goalEl.value.trim();
+  let goal = goalEl.value.trim();
+  // Voeg CV-context toe als er een document is bijgevoegd
+  if (pendingDocText) {
+    const defaultGoal = goal || "Zoek vacatures die bij dit CV passen op jobs.be, Indeed.be of LinkedIn. Geef de top 5 met functietitel, bedrijf en link.";
+    goal = `CONTEXT — Mijn CV (${pendingDocName}):\n\n${pendingDocText}\n\n---\n\n${defaultGoal}`;
+  }
   if (!goal) return;
   lastGoal = goal;
   lastRunStatus = "";
@@ -660,7 +726,7 @@ function startBtnClick(): void {
   goalEl.value = "";
   goalEl.style.height = "auto";
   localPlannenShown = true;
-  addLog("plannen", `Taak gestart: ${goal}`);
+  addLog("plannen", `Taak gestart: ${pendingDocText ? `CV bijgevoegd + ${pendingDocName}` : goal}`);
   const attachments = pendingAttachments.map((a) => ({ type: "image" as const, mimeType: a.mimeType, data: a.data, name: a.name }));
   clearAttachments();
   void chrome.runtime.sendMessage({ type: "YAD_GOAL", goal, ...(attachments.length ? { attachments } : {}) });
@@ -816,7 +882,7 @@ function startApp(): void {
     setTimeout(() => { msg.textContent = ""; }, 3000);
   });
 
-  // Attach button
+  // Attach button (afbeelding)
   document.getElementById("attach-btn")?.addEventListener("click", () => {
     document.getElementById("attach-input")?.click();
   });
@@ -824,6 +890,17 @@ function startApp(): void {
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     if (file) addImageAttachment(file);
+    input.value = "";
+  });
+
+  // Document attach button (CV / .txt / .rtf)
+  document.getElementById("doc-attach-btn")?.addEventListener("click", () => {
+    document.getElementById("doc-input")?.click();
+  });
+  document.getElementById("doc-input")?.addEventListener("change", (e) => {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) addDocAttachment(file);
     input.value = "";
   });
 
