@@ -202,6 +202,12 @@ export class PlaywrightHand implements HandBridge {
             await unlink(tmpPath).catch(() => {});
           }
         }
+        case "upload-local": {
+          // Playwright heeft directe bestandstoegang — gebruik setInputFiles met het lokale pad.
+          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          await el.setInputFiles(action.path, { timeout: 8_000 });
+          return { ok: true };
+        }
         case "select": {
           const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
           await el.selectOption(action.value, { timeout: 8_000 });

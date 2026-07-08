@@ -33,13 +33,45 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { extname, basename, join, resolve as resolvePath } from "node:path";
 import { readSteps } from "./history/step-reader.js";
 import { verifySteps } from "./verify/verifier.js";
 import type { BrainSession } from "./session.js";
 import type { Substate } from "./agent/substate.js";
 
 const PORT = 3747;
+
+const FS_MIME_TYPES: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".rtf": "application/rtf",
+  ".txt": "text/plain",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".mp4": "video/mp4",
+  ".csv": "text/csv",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".zip": "application/zip",
+  ".json": "application/json",
+  ".xml": "application/xml",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".odt": "application/vnd.oasis.opendocument.text",
+};
+
+/** Mappen die standaard worden doorzocht bij /fs/list-files en /fs/search-files. */
+function defaultSearchDirs(): string[] {
+  const user = process.env["USERNAME"] ?? process.env["USER"] ?? "hp";
+  return [
+    `C:\\Users\\${user}\\Desktop`,
+    `C:\\Users\\${user}\\Documents`,
+    `C:\\Users\\${user}\\Downloads`,
+  ];
+}
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -665,6 +697,97 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       return;
     }
 
+    // ── /fs/* : lokaal bestandssysteem — lijst, zoek, lees ───────────────────
+
+    if (url === "/fs/list-files" && method === "POST") {
+      try {
+        const raw = await readBody(req);
+        const parsed = raw.trim() ? (JSON.parse(raw) as { dir?: string }) : {};
+        const dirs = typeof parsed.dir === "string" ? [parsed.dir] : defaultSearchDirs();
+        const files: Array<{ name: string; path: string; size: number; ext: string; mimeType: string }> = [];
+        for (const dir of dirs) {
+          try {
+            const entries = readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+              if (!entry.isFile()) continue;
+              const filePath = join(dir, entry.name);
+              const ext = extname(entry.name).toLowerCase();
+              try {
+                const stat = statSync(filePath);
+                files.push({ name: entry.name, path: filePath, size: stat.size, ext, mimeType: FS_MIME_TYPES[ext] ?? "application/octet-stream" });
+              } catch { /* niet stat-baar, overslaan */ }
+            }
+          } catch { /* map bestaat niet */ }
+        }
+        files.sort((a, b) => a.name.localeCompare(b.name));
+        json(res, 200, { ok: true, dirs, files });
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    if (url === "/fs/search-files" && method === "POST") {
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { q?: string; ext?: string; dir?: string };
+        const query = (parsed.q ?? "").toLowerCase();
+        const extFilter = parsed.ext ? (parsed.ext.startsWith(".") ? parsed.ext.toLowerCase() : "." + parsed.ext.toLowerCase()) : null;
+        const dirs = typeof parsed.dir === "string" ? [parsed.dir] : defaultSearchDirs();
+        const matches: Array<{ name: string; path: string; size: number; mimeType: string }> = [];
+        for (const dir of dirs) {
+          try {
+            const entries = readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+              if (!entry.isFile()) continue;
+              const nameLC = entry.name.toLowerCase();
+              if (query && !nameLC.includes(query)) continue;
+              const ext = extname(entry.name).toLowerCase();
+              if (extFilter && ext !== extFilter) continue;
+              const filePath = join(dir, entry.name);
+              try {
+                const stat = statSync(filePath);
+                matches.push({ name: entry.name, path: filePath, size: stat.size, mimeType: FS_MIME_TYPES[ext] ?? "application/octet-stream" });
+              } catch { /* skip */ }
+            }
+          } catch { /* map bestaat niet */ }
+        }
+        json(res, 200, { ok: true, matches });
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    if (url === "/fs/read-file" && method === "POST") {
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { path?: string };
+        if (typeof parsed.path !== "string" || !parsed.path.trim()) {
+          json(res, 400, { ok: false, detail: "path is verplicht" });
+          return;
+        }
+        const filePath = resolvePath(parsed.path);
+        const content = readFileSync(filePath);
+        if (content.length > 10 * 1024 * 1024) {
+          json(res, 413, { ok: false, detail: "Bestand te groot (max 10 MB)" });
+          return;
+        }
+        const ext = extname(filePath).toLowerCase();
+        json(res, 200, {
+          ok: true,
+          path: filePath,
+          filename: basename(filePath),
+          mimeType: FS_MIME_TYPES[ext] ?? "application/octet-stream",
+          size: content.length,
+          content: content.toString("base64"),
+        });
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
     json(res, 404, { error: "Not found", endpoints: [
       "GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result",
       "POST /verify", "POST /save-session", "GET /assist", "POST /assist",
@@ -672,6 +795,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
       "POST /cdp/idor-compare", "POST /cdp/intercept/start", "POST /cdp/intercept/stop",
       "POST /cdp/intercept/continue", "GET /cdp/cookies", "POST /cdp/cookies/set",
+      "POST /fs/list-files", "POST /fs/search-files", "POST /fs/read-file",
     ] });
   });
 
