@@ -391,7 +391,7 @@ function extractRtfText(rtf: string): string {
 
 function renderDocChip(): void {
   document.getElementById("doc-chip-el")?.remove();
-  if (!pendingDocText) return;
+  if (pendingDocText === null) return;
   const c = document.getElementById("attach-previews") as HTMLElement;
   const chip = document.createElement("span");
   chip.id = "doc-chip-el";
@@ -407,14 +407,27 @@ function renderDocChip(): void {
   c.prepend(chip);
 }
 
+function showAttachError(msg: string): void {
+  document.getElementById("attach-error-el")?.remove();
+  const c = document.getElementById("attach-previews") as HTMLElement;
+  const el = document.createElement("div");
+  el.id = "attach-error-el";
+  el.className = "attach-thumb";
+  el.style.cssText = "background:#fef2f2;border-color:#fecaca;color:#b91c1c;width:100%;justify-content:space-between";
+  const txt = document.createElement("span");
+  txt.textContent = msg;
+  const rm = document.createElement("button");
+  rm.type = "button"; rm.className = "attach-remove"; rm.title = "Sluiten"; rm.textContent = "✕";
+  rm.onclick = (): void => { el.remove(); };
+  el.append(txt, rm);
+  c.prepend(el);
+  setTimeout(() => el.remove(), 8000);
+}
+
 function addDocAttachment(file: File): void {
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-  const hint = document.querySelector(".input-hint") as HTMLElement;
   if (!["txt", "rtf"].includes(ext)) {
-    const orig = hint.textContent;
-    hint.style.color = "#d97706";
-    hint.textContent = "Sla je CV op als .txt of .rtf voor de beste resultaten.";
-    setTimeout(() => { hint.textContent = orig; hint.style.color = ""; }, 4000);
+    showAttachError(`❌ ${file.name.slice(0, 22)} — niet leesbaar. Exporteer je CV als .txt via Word → Opslaan als → Tekst.`);
     return;
   }
   const reader = new FileReader();
