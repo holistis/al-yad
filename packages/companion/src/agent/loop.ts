@@ -12,6 +12,8 @@ import { replayCache } from "../memory/replay.js";
 import { makeSignal, type Signal } from "./arbiter.js";
 import { SubstateTracker, type Substate } from "./substate.js";
 import type { RecoveryStore } from "../memory/recovery-store.js";
+import type { SelectorStore } from "../memory/selector-store.js";
+import { generatePredicates, type PredicateChat } from "./predicate-generator.js";
 
 /** Plafond op het aantal keren dat één run Claude Code om een herstelplan mag vragen.
  *  Voorkomt een meta-lus: YAD vraagt hulp → plan faalt → vraagt opnieuw → etc. */
@@ -148,6 +150,18 @@ export interface LoopOptions {
    * session.ts schrijft naar de store na een succesvolle run met recovery.
    */
   recoveryStore?: RecoveryStore;
+  /**
+   * Selector-geheugen: slaat per site op welke (role, name)-elementen succesvol werden gebruikt.
+   * Wordt als context-hint aan het model meegegeven zodat het bekende elementen direct herkent.
+   * Wordt gevuld na elke geslaagde click/type/select/paste.
+   */
+  selectorStore?: SelectorStore;
+  /**
+   * Als true: genereer DONE-predicaten via LLM aan het begin van elke run (als substates leeg zijn).
+   * Maakt één extra LLM-aanroep per run maar produceert sterkere done-checks (url-contains ipv text-present).
+   * Default: false (opt-in — kost tokens).
+   */
+  generatePredicates?: boolean;
 }
 
 /** URL-patronen die duiden op een loginpagina (voor sessie-verloop detectie). */
@@ -277,10 +291,14 @@ export class AgentLoop {
     this.onStuck = opts.onStuck;
     this.substates = opts.substates ?? [];
     this.recoveryStore = opts.recoveryStore;
+    this.selectorStore = opts.selectorStore;
+    this.enablePredicateGen = opts.generatePredicates ?? false;
   }
 
   private readonly substates: Substate[];
   private readonly recoveryStore: RecoveryStore | undefined;
+  private readonly selectorStore: SelectorStore | undefined;
+  private readonly enablePredicateGen: boolean;
 
   private readonly isAborted: () => boolean;
 
@@ -395,7 +413,6 @@ export class AgentLoop {
     this._lastStuckSignalId = undefined; // reset per run
     this._hadRecovery = false; // reset per run
     this._provenRecoveries = []; // reset per run
-    const tracker = new SubstateTracker(this.substates);
     let parseFails = 0;
     let cleanRun = true; // false zodra er een parse-fout is geweest; vuile runs worden niet gecached.
     let lastActionSig = "";
@@ -450,13 +467,28 @@ export class AgentLoop {
     let finishRejections = 0;
     const MAX_FINISH_REJECTIONS = 2;
 
-    // Startpagina ophalen voor cache-sleutel en optionele replay.
+    // Startpagina ophalen voor cache-sleutel, optionele replay en predicate-generatie.
     let startingUrl = "";
     let loopStartStep = 1;
+    let initSnap: Snapshot | undefined;
     try {
-      const initSnap = await this.hand.requestSnapshot();
+      initSnap = await this.hand.requestSnapshot();
       startingUrl = initSnap.url;
     } catch { /* snapshot mislukt → gewoon zonder cache */ }
+
+    // Predicate-generator: genereer DONE-predicaten via LLM als substates leeg zijn (opt-in).
+    // Eén extra LLM-aanroep per run, maar produceert sterkere done-checks (url-contains ipv text-present).
+    const effectiveSubstates: Substate[] = [...this.substates];
+    if (effectiveSubstates.length === 0 && this.enablePredicateGen && initSnap) {
+      try {
+        const generated = await generatePredicates(this.router as PredicateChat, goal, initSnap);
+        if (generated.length > 0) {
+          effectiveSubstates.push(...generated);
+          this.log(`predicate-gen: ${generated.length} substate(s) aangemaakt → "${effectiveSubstates[0]?.label}"`);
+        }
+      } catch { /* graceful degradation — geen predicaten is ok, run gaat gewoon door */ }
+    }
+    const tracker = new SubstateTracker(effectiveSubstates);
 
     if (this.cacheStore && startingUrl) {
       const cacheKey = makeCacheKey(goal, startingUrl);
@@ -747,7 +779,10 @@ export class AgentLoop {
         try {
           const screenshot = this.failedHintScreenshot;
           this.failedHintScreenshot = undefined; // eenmalig gebruik — na deze aanroep niet meer meesturen
-          content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint, tracker.toHint() ?? undefined, screenshot);
+          const selectorHint = this.selectorStore
+            ? (this.selectorStore.getHints(hostnameOf(snapshot.url), pathOf(snapshot.url), snapshot) ?? undefined)
+            : undefined;
+          content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint, tracker.toHint() ?? undefined, screenshot, selectorHint);
         } catch (e) {
           this.hand.update({ status: "fout", step, message: friendlyLlmError(e) });
           return { status: "fout", steps: step - 1 };
@@ -944,6 +979,19 @@ export class AgentLoop {
       const isMutating = action.kind === "click" || action.kind === "type" || action.kind === "paste" || action.kind === "select" || action.kind === "hover" || action.kind === "keyboard" || action.kind === "upload";
       if (result.ok && isMutating) {
         pendingEffectCheck = { pre: orderSensitiveFingerprint(snapshot), step };
+        // Selector-geheugen: sla succesvol gebruikt element op voor toekomstige hints.
+        // Alleen click/type/select/paste — hover/keyboard/upload zijn minder herkenbaar.
+        if (
+          this.selectorStore &&
+          node &&
+          node.name &&
+          (action.kind === "click" || action.kind === "type" || action.kind === "select" || action.kind === "paste")
+        ) {
+          const hostname = hostnameOf(snapshot.url);
+          if (hostname) {
+            this.selectorStore.record(hostname, pathOf(snapshot.url), node.role, node.name, action.kind);
+          }
+        }
       }
       // Onverwachte-navigatie-tracker: sla URL + role op na een geslaagde click op een niet-link.
       // In de volgende iteratie vergelijken we of de URL veranderde ondanks dat de click geen
@@ -1121,6 +1169,7 @@ export class AgentLoop {
     failedHint?: string,
     substateHint?: string,
     failedHintScreenshot?: string,
+    selectorHint?: string,
   ): Promise<string> {
     const backoffs = [0, 4000, 9000]; // eerste poging direct, dan oplopend wachten
     let lastErr: unknown;
@@ -1142,6 +1191,7 @@ export class AgentLoop {
             failedHint,
             substateHint,
             failedHintScreenshot,
+            selectorHint,
           }),
           temperature: 0,
           json: true,
@@ -1155,6 +1205,16 @@ export class AgentLoop {
     }
     throw lastErr;
   }
+}
+
+/** Extraheert hostname uit een URL; leeg bij ongeldige URL. */
+function hostnameOf(url: string): string {
+  try { return new URL(url).hostname; } catch { return ""; }
+}
+
+/** Extraheert pathname uit een URL; leeg bij ongeldige URL. */
+function pathOf(url: string): string {
+  try { return new URL(url).pathname; } catch { return ""; }
 }
 
 /**

@@ -27,6 +27,7 @@ import { CacheStore } from "./memory/cache-store.js";
 import { REDACTEDSessionReader } from "./key/session-reader.js";
 import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js";
 import { RecoveryStore } from "./memory/recovery-store.js";
+import { SelectorStore } from "./memory/selector-store.js";
 import type { Substate } from "./agent/substate.js";
 
 const MIME_TYPES: Record<string, string> = {
@@ -108,6 +109,7 @@ export class BrainSession implements HandBridge {
   private readonly sessionReader = new REDACTEDSessionReader();
   private readonly runHistory = new RunHistoryStore();
   private readonly recoveryStore = new RecoveryStore();
+  private readonly selectorStore = new SelectorStore();
 
   constructor(
     private readonly send: (m: BrainMessage) => void,
@@ -474,6 +476,8 @@ export class BrainSession implements HandBridge {
       runId,
       onStuck: (r) => this.handleStuck(r),
       recoveryStore: this.recoveryStore,
+      selectorStore: this.selectorStore,
+      generatePredicates: true,
       substates: substates ?? [],
     });
     let outcome: RunHistoryEntry | undefined;
