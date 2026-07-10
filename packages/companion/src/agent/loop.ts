@@ -417,6 +417,11 @@ export class AgentLoop {
     let cleanRun = true; // false zodra er een parse-fout is geweest; vuile runs worden niet gecached.
     let lastActionSig = "";
     let repeatCount = 0;
+    // Alternerende ref-detectie: A→B→A→B→... zonder URL-change is een stuck-signaal.
+    // prevSig = de actie van 2 stappen geleden; als huidige sig == prevSig én ≠ lastActionSig
+    // → zit de agent in een 2-cycluslus (e14→e10→e14→e10...).
+    let prevSig = "";
+    let alternateCount = 0;
     let lastTier = "";
     // Judge: telt opeenvolgende "unknown"-verdicts. Bij 3 → escaleer naar mens.
     // Reset automatisch als de URL verandert — URL-change = voortgang, niet vastzitten.
@@ -913,6 +918,31 @@ export class AgentLoop {
       } else {
         repeatCount = 0;
       }
+
+      // Alternerende 2-cyclus detectie: A→B→A→B → na 3 keer stuck-signaal geven.
+      if (sig !== lastActionSig) {
+        if (sig === prevSig && lastActionSig !== "") {
+          alternateCount++;
+          if (alternateCount >= 3) {
+            const r = await this.escalateOrStop({
+              signal: makeSignal("state-loop", `Vastgelopen in 2-cyclus: ${lastActionSig} ↔ ${sig} (${alternateCount}× herhaald)`),
+              step, url: snapshot.url, lastAction: action, goal, history,
+              reset: () => { alternateCount = 0; prevSig = ""; },
+            });
+            if (r === "recovered") continue;
+            this.hand.update({
+              status: "gestopt",
+              step,
+              message: "Vastgelopen in herhalende klik-cyclus. Probeer de taak anders te formuleren.",
+              action,
+            });
+            return { status: "gestopt", steps: step };
+          }
+        } else {
+          alternateCount = 0;
+        }
+      }
+      prevSig = lastActionSig;
       lastActionSig = sig;
 
       const node = refNode(snapshot, action);
