@@ -1226,18 +1226,59 @@ function pathOf(url: string): string {
 /** Lege-summary patronen: model zei "Taak afgerond." maar heeft misschien wél data. */
 const PLACEHOLDER_SUMMARIES = /^(taak afgerond|klaar|done|task completed|afgerond|completed|finish)\.?$/i;
 
+/** Navigatie-/UI-termen die in ruwe paginatekst voorkomen maar geen antwoord zijn. */
+const NAV_NOISE = /^(home|menu|terug|volgende|vorige|inloggen|aanmelden|registreer|privacy|cookie|help|contact|sitemap|taal|language|zoeken?|filters?|sorter|toon\s*meer|load\s*more|page\s*\d|linkedin|facebook|twitter|instagram|whatsapp|jobs|vacatures|alle\s|wachtwoord|email|gebruikersnaam|send|submit|cancel|close|sluiten|ja|nee|ok|bevestig)/i;
+
+/**
+ * Converteert ruwe paginatekst-findings naar een leesbare genummerde lijst.
+ * Wordt gebruikt als fallback wanneer het model geen goede summary schreef.
+ */
+function cleanRawFindings(rawFindings: string[]): string {
+  // Strip de "label: " prefix die loop.ts toevoegt (bv. "vacatures voor AI specialisten: ...")
+  const fullText = rawFindings.map(f => {
+    const colonIdx = f.indexOf(": ");
+    return colonIdx > 0 && colonIdx < 80 ? f.slice(colonIdx + 2) : f;
+  }).join("\n");
+
+  // Split op newlines en pipes, trim, filter
+  const lines = fullText.split(/[\n|]/)
+    .map(l => l.trim())
+    .filter(l => l.length >= 12 && l.length <= 130)
+    .filter(l => !NAV_NOISE.test(l))
+    .filter(l => !/^https?:\/\//.test(l))   // kale URLs
+    .filter(l => !/^\d+$/.test(l));          // alleen cijfers
+
+  if (lines.length === 0) {
+    // Noodval: geef eerste 600 tekens van de ruwe tekst
+    return rawFindings.join("\n").slice(0, 600);
+  }
+
+  // Dedupliceer (case-insensitief)
+  const seen = new Set<string>();
+  const unique = lines.filter(l => {
+    const k = l.toLowerCase().replace(/\s+/g, " ");
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  }).slice(0, 20);
+
+  return unique.map((l, i) => `${i + 1}. ${l}`).join("\n");
+}
+
 function composeAnswer(summary: string, findings: string[]): string {
   const s = (summary ?? "").trim();
   const isEmpty = !s || PLACEHOLDER_SUMMARIES.test(s);
 
   if (isEmpty && findings.length > 0) {
-    // Model gaf lege samenvatting maar er is geëxtraheerde data — gebruik die direct.
-    // Dit voorkomt dat de gebruiker "Taak afgerond." ziet terwijl er antwoorden zijn.
-    return findings.join("\n\n");
+    // Model gaf lege samenvatting maar er is geëxtraheerde data — clean en geef terug.
+    return cleanRawFindings(findings);
   }
   const base = s || "Klaar.";
   if (findings.length === 0) return base;
-  return `${base}\n\n— Gevonden informatie —\n${findings.join("\n\n")}`;
+  // Als de summary al inhoudelijk is (>200 chars), bevat hij waarschijnlijk het antwoord.
+  // Dan de ruwe findings NIET toevoegen — dat verdubbelt alleen de ruis.
+  if (base.length > 200) return base;
+  return `${base}\n\n— Gevonden —\n${cleanRawFindings(findings)}`;
 }
 
 /**
