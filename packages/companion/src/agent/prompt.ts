@@ -252,6 +252,13 @@ export interface BuildMessagesOpts {
    * Alleen bruikbaar als het gekozen model vision ondersteunt; anders genegeerd.
    */
   failedHintScreenshot?: string;
+  /**
+   * Selector-hint vanuit de selector-store: bekende (role, name) elementen die op
+   * deze site in eerdere runs succesvol werden gebruikt. Ingebakken snapshot-filter
+   * garandeert dat alleen daadwerkelijk aanwezige elementen worden getoond.
+   * Null/undefined = geen hint (nieuwe site of geen bekende elementen op deze pagina).
+   */
+  selectorHint?: string;
 }
 
 /** Bouwt de berichten voor de LLM voor één stap van de lus. */
@@ -261,7 +268,7 @@ export function buildMessages(
   history: HistoryItem[],
   opts: BuildMessagesOpts = {},
 ): EngineChatMessage[] {
-  const { language = "nl", attachments = [], failedHint, substateHint, failedHintScreenshot } = opts;
+  const { language = "nl", attachments = [], failedHint, substateHint, failedHintScreenshot, selectorHint } = opts;
 
   const system = SYSTEM + "\n\n" + LANG_INSTRUCTION[language];
 
@@ -271,6 +278,9 @@ export function buildMessages(
   ];
   if (substateHint) {
     parts.push(substateHint, ``);
+  }
+  if (selectorHint) {
+    parts.push(selectorHint, ``);
   }
   parts.push(
     `CURRENT PAGE:`,
