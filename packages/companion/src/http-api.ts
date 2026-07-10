@@ -25,6 +25,7 @@
  *   POST /cdp/intercept/continue→ laat onderschept request door / blokkeer / overschrijf (body: { requestId, block?, responseBody?, modifiedHeaders? })
  *   GET  /cdp/cookies           → haal alle cookies op van de actieve tab
  *   POST /cdp/cookies/set       → set cookies voor de actieve tab (body: { cookies, url? })
+ *   POST /cdp/fill-spa          → vul input-veld in React/Vue/Angular SPA via CDP (body: { selector, value, submit?, waitMs? })
  *
  * Beveiliging (Exposure-check):
  *   - Bindt ALLEEN aan 127.0.0.1 — niet bereikbaar van buiten de machine
@@ -41,6 +42,52 @@ import type { BrainSession } from "./session.js";
 import type { Substate } from "./agent/substate.js";
 
 const PORT = 3747;
+
+/** Detecteert of een tekst eruitziet als een ruwe paginadump (niet gesynthetiseerd). */
+function looksLikeRawDump(text: string): boolean {
+  if (!text || text.length < 200) return false;
+  // Genummerde lijst = al goed gesynthetiseerd
+  if (/^\d+\.\s/.test(text.trim())) return false;
+  // Veel korte woorden aaneengeplakt, weinig echte newlines = raw dump
+  const newlineRatio = (text.match(/\n/g) ?? []).length / text.length;
+  const hasStructure = newlineRatio > 0.01 || /\n\d+\./.test(text);
+  return !hasStructure && text.length > 400;
+}
+
+async function cleanWithGroq(goal: string, rawParts: string[], fallbackSummary?: string): Promise<string> {
+  const apiKey = process.env["GROQ_API_KEY"] ?? "";
+  const allParts = [...rawParts];
+  if (fallbackSummary && looksLikeRawDump(fallbackSummary)) {
+    allParts.push(fallbackSummary);
+  }
+  if (!apiKey || allParts.length === 0) return fallbackSummary ?? rawParts.join("\n");
+  try {
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "Je bent een data-extractor. Geef ALLEEN de gevraagde informatie terug als een nette, overzichtelijke genummerde lijst. Geen navigatie-items, geen menuknoppen, geen cookie-teksten, geen technische rommel. Formaat: '1. Titel — Bedrijf — Locatie' voor vacatures/producten, '1. Naam' voor personen, of een directe zin voor vragen. Maximaal 20 items.",
+          },
+          {
+            role: "user",
+            content: `Doel: "${goal}"\n\nData:\n${allParts.join("\n\n").slice(0, 5000)}\n\nGeef een nette, gestructureerde lijst met alleen de relevante informatie voor dit doel.`,
+          },
+        ],
+        max_tokens: 1000,
+        temperature: 0.1,
+      }),
+    });
+    if (!resp.ok) return fallbackSummary ?? rawParts.join("\n");
+    const data = await resp.json() as { choices?: Array<{ message?: { content?: string } }> };
+    return data.choices?.[0]?.message?.content ?? (fallbackSummary ?? rawParts.join("\n"));
+  } catch {
+    return fallbackSummary ?? rawParts.join("\n");
+  }
+}
 
 const FS_MIME_TYPES: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -124,7 +171,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       }
       try {
         const body = await readBody(req);
-        const parsed = JSON.parse(body) as { goal?: string; url?: string; sync?: boolean; maxSteps?: number; autonomy?: "confirm" | "auto"; substates?: Substate[] };
+        const parsed = JSON.parse(body) as { goal?: string; url?: string; sync?: boolean; maxSteps?: number; autonomy?: "confirm" | "auto"; substates?: Substate[]; clean?: boolean };
         if (typeof parsed.goal !== "string" || !parsed.goal.trim()) {
           json(res, 400, { ok: false, detail: "goal is verplicht" });
           return;
@@ -148,7 +195,24 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
             autonomy: parsed.autonomy === "auto" ? "auto" : undefined,
             substates: Array.isArray(parsed.substates) ? parsed.substates : undefined,
           });
-          json(res, 200, { ok: true, ...result });
+          // Auto-clean: altijd als clean=true of als de summary er raw uitziet.
+          const wantClean = parsed.clean === true || looksLikeRawDump(result.summary ?? "");
+          if (wantClean) {
+            const runId = (result as unknown as Record<string, unknown>)["runId"] as string | undefined;
+            if (runId) {
+              const stepLogPath = process.env["YAD_STEP_LOG_PATH"] ?? "C:\\Code\\yad-step-log.jsonl";
+              const steps = readSteps(stepLogPath, runId, 1, 9999);
+              const extractedParts = steps
+                .filter((s) => typeof s.extracted === "string" && s.extracted.trim().length > 0)
+                .map((s) => s.extracted as string);
+              const cleaned = await cleanWithGroq(rawGoal, extractedParts, result.summary);
+              json(res, 200, { ok: true, ...result, cleaned });
+            } else {
+              json(res, 200, { ok: true, ...result, cleaned: null });
+            }
+          } else {
+            json(res, 200, { ok: true, ...result });
+          }
         } else {
           // Fire-and-forget: resultaat gaat naar de extension sidepanel (bestaand gedrag).
           session.triggerGoal(rawGoal, parsed.url);
@@ -697,6 +761,66 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       return;
     }
 
+    // ── /cdp/fill-spa : vul een input in React/Vue/Angular SPA via CDP ──────────
+    // Body: { selector, value, submit?, waitMs?, tabId? }
+    // selector = CSS-selector van het invoerveld (bv. "#searchInput" of "input[placeholder='Zoeken']")
+    // value    = de tekst die ingevuld moet worden
+    // submit   = true → stuur ook Enter-events (keydown + keypress + keyup) na het invullen
+    // waitMs   = ms te wachten na invoke vóór terugkeren (default 400, voor SPA-debounce)
+
+    if (url === "/cdp/fill-spa" && method === "POST") {
+      if (!session.isConnected()) { json(res, 503, { ok: false, detail: "Chrome niet verbonden" }); return; }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as {
+          selector: string;
+          value: string;
+          submit?: boolean;
+          waitMs?: number;
+          tabId?: number;
+        };
+        if (!parsed.selector) { json(res, 400, { ok: false, detail: "'selector' is verplicht" }); return; }
+        if (typeof parsed.value !== "string") { json(res, 400, { ok: false, detail: "'value' is verplicht" }); return; }
+        const waitMs = parsed.waitMs ?? 400;
+        const doSubmit = parsed.submit === true;
+        // Bouw een JS-expressie die:
+        // 1. Het element opzoekt via de CSS-selector
+        // 2. De waarde instelt via de native prototype-setter (React-compatibel)
+        // 3. 'input' en 'change' events stuurt
+        // 4. Optioneel Enter-events stuurt (keydown + keypress + keyup)
+        const jsExpr = `(function() {
+  const el = document.querySelector(${JSON.stringify(parsed.selector)});
+  if (!el) return { ok: false, detail: 'element niet gevonden: ' + ${JSON.stringify(parsed.selector)} };
+  const proto = Object.getPrototypeOf(el);
+  const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+  try {
+    if (desc && desc.set) desc.set.call(el, ${JSON.stringify(parsed.value)});
+    else el.value = ${JSON.stringify(parsed.value)};
+  } catch(e) {
+    try { el.value = ${JSON.stringify(parsed.value)}; } catch {}
+  }
+  el.dispatchEvent(new Event('input',  { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  ${doSubmit ? `
+  const opts = { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true };
+  el.dispatchEvent(new KeyboardEvent('keydown',  opts));
+  el.dispatchEvent(new KeyboardEvent('keypress', opts));
+  el.dispatchEvent(new KeyboardEvent('keyup',    opts));
+  ` : ""}
+  return { ok: true, filledValue: el.value };
+})()`;
+        const evalResult = await session.cdp({
+          command: "evaluate",
+          expression: jsExpr,
+          tabId: parsed.tabId,
+        }, 10_000);
+        // Wacht op SPA-debounce zodat zoekresultaten laden
+        await new Promise(r => setTimeout(r, waitMs));
+        json(res, evalResult.ok ? 200 : 500, evalResult);
+      } catch (e) { json(res, 500, { ok: false, detail: (e as Error).message }); }
+      return;
+    }
+
     // ── /fs/* : lokaal bestandssysteem — lijst, zoek, lees ───────────────────
 
     if (url === "/fs/list-files" && method === "POST") {
@@ -795,6 +919,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
       "POST /cdp/idor-compare", "POST /cdp/intercept/start", "POST /cdp/intercept/stop",
       "POST /cdp/intercept/continue", "GET /cdp/cookies", "POST /cdp/cookies/set",
+      "POST /cdp/fill-spa",
       "POST /fs/list-files", "POST /fs/search-files", "POST /fs/read-file",
     ] });
   });
