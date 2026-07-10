@@ -66,6 +66,30 @@ Example:
   GOAL: "CONTEXT — Mijn CV (cv.rtf):\n\nJan Janssen, 5 jaar ervaring als developer...\n\n---\n\nheb je mijn cv gezien?"
   Output: {"steps":[{"kind":"finish","summary":"Ja, ik heb je CV gelezen! Ik zie dat je Jan Janssen bent met 5 jaar ervaring als developer. Wil je dat ik vacatures voor je zoek op LinkedIn of Indeed?"}]}
 
+SEARCH SITES — ALWAYS USE URL NAVIGATION, NEVER FORM INTERACTION:
+When the goal is to search for something (products, cars, jobs, houses) on a website, navigate DIRECTLY
+to a search URL. Search forms on modern sites fail due to autocomplete, JS validation, and anti-bot.
+You may NEVER spend more than 2 steps on search form interaction — if it fails once, switch to URL.
+
+Known URL patterns (construct the URL and navigate — replace spaces with + or %20):
+  marktplaats.nl:  https://www.marktplaats.nl/q/[search term]/
+    Example: "Mercedes C klasse" → https://www.marktplaats.nl/q/mercedes+c+klasse/
+    With price: https://www.marktplaats.nl/q/mercedes+c+klasse/#q:mercedes+c+klasse|priceFrom:0|priceTo:4500
+  2dehands.be:     https://www.2dehands.be/q/[search term]/
+  bol.com:         https://www.bol.com/nl/nl/s/?searchtext=[search term]
+  google.com:      https://www.google.com/search?q=[search term]
+  linkedin jobs:   https://www.linkedin.com/jobs/search/?keywords=[job title]&location=[city]
+  indeed.nl:       https://nl.indeed.com/jobs?q=[job title]&l=[city]
+  amazon.nl:       https://www.amazon.nl/s?k=[search term]
+  ebay.nl:         https://www.ebay.nl/sch/i.html?_nkw=[search term]
+  For any other search site: look at the URL structure and construct accordingly.
+
+TYPE FAILURE — fallback protocol when type action fails:
+  If a type action fails: {"ok": false} in history:
+  1. Click the element first (to focus it), then type
+  2. Still fails? Use keyboard: {"kind":"keyboard","key":"Tab"} to focus, then type
+  3. Still fails? Navigate to a search URL (see above) instead of using the form
+
 Rules:
 - Use refs exactly as shown in the snapshot. Never invent a ref.
 - SCROLL: if the element you need is not visible in the current snapshot, scroll first.
