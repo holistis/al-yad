@@ -32,6 +32,7 @@ let heartbeat: ReturnType<typeof setInterval> | null = null;
 let lastPongAt = 0;
 
 let runTabId: number | null = null;
+let stickyTabId: number | null = null;  // de tab waarop YAD het LAATSTE werkte — blijft hangen tussen runs
 let lastWebTabId: number | null = null; // de meest recente http/https-tab die de user bezocht
 let spaJustNavigated = false;           // SPA pushState gedetecteerd → extra wacht vereist
 let runInProgress = false;
@@ -54,10 +55,17 @@ function toSidepanel(msg: unknown): void {
 
 function endRun(): void {
   runInProgress = false;
+  // Onthoud de tab waarop deze run plaatsvond — volgende run start hier ook.
+  if (runTabId != null) stickyTabId = runTabId;
   runTabId = null;
   for (const t of confirmTimers.values()) clearTimeout(t);
   confirmTimers.clear();
   confirmPending.clear();
+}
+
+/** Wordt aangeroepen vanuit background.ts als de gebruiker op het YAD-icoon klikt op een tab. */
+export function setYadTabId(tabId: number): void {
+  stickyTabId = tabId;
 }
 
 export function startNativePort(): void {
@@ -176,12 +184,8 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
   }
 
   runTabId = tabId;
-  // Breng de run-tab naar voren zodat de gebruiker YAD in actie ziet.
-  try {
-    const runTab = await chrome.tabs.get(tabId);
-    await chrome.tabs.update(tabId, { active: true });
-    if (runTab.windowId) await chrome.windows.update(runTab.windowId, { focused: true });
-  } catch { /* tab onleesbaar of window-update mislukt → geen probleem */ }
+  // Niet automatisch naar voren brengen — YAD werkt op de achtergrond zonder de
+  // gebruiker te onderbreken. De run gaat gewoon door op de achtergrond-tab.
   // Startpagina-URL meesturen zodat de companion de juiste sessie kan injecteren.
   let startingUrl: string | undefined;
   try {
@@ -197,28 +201,39 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
 }
 
 /**
- * Bepaalt de tab waarop de taak draait. Voorkeur voor een al-open web-pagina;
- * staat er geen enkele open, dan maakt Yad zelf een verse tab aan, zodat een
- * 'ga naar X'-taak ook werkt vanaf chrome://newtab of een verse install.
+ * Bepaalt de tab waarop de taak draait.
+ *
+ * Regel: YAD kapt NOOIT de tab van de user. Twee gevallen:
+ *   1. stickyTabId aanwezig (user klikte YAD-icoon op die tab, of vorige run zat hier) → gebruik die tab.
+ *   2. Geen stickyTabId → maak een EIGEN achtergrond-tab aan (active: false = geen focus-diefstal).
+ *
+ * De oude "Poging 1: actieve tab" en "Poging 2: lastWebTabId" zijn verwijderd — die
+ * kapten de tab waar de user mee bezig was zodra er geen sticky-tab was.
  */
 async function resolveRunTab(): Promise<number | null> {
-  // Poging 1: actieve tab in het laatste gefocuste window (de tab die de user ziet).
-  const focused = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  const ft = focused[0];
-  if (ft && typeof ft.id === "number" && ft.url && /^https?:\/\//i.test(ft.url)) return ft.id;
-
-  // Poging 2: de meest recent bezochte web-tab (opgeslagen via onActivated/onUpdated).
-  // Vangt het geval op dat het side-panel zelf de focus heeft.
-  if (lastWebTabId != null) {
+  // Poging 0: sticky tab — door user expliciet gekozen (klik op YAD-icoon op die tab)
+  // of overgebleven van de vorige run (endRun() zet stickyTabId = runTabId).
+  if (stickyTabId != null) {
     try {
-      const known = await chrome.tabs.get(lastWebTabId);
-      if (known.url && /^https?:\/\//i.test(known.url)) return lastWebTabId;
+      const known = await chrome.tabs.get(stickyTabId);
+      if (known.url && /^https?:\/\//i.test(known.url)) return stickyTabId;
     } catch {
-      lastWebTabId = null; // tab is weg
+      stickyTabId = null; // tab bestaat niet meer → val door naar nieuwe tab
     }
   }
 
-  // Poging 3: zoek over alle windows naar de meest recent actieve http/https-tab.
+  // Poging 1: maak een EIGEN YAD-tab aan in de achtergrond (active: false = user merkt niets).
+  // Eerste navigate-actie van de agent navigeert hem naar de juiste URL.
+  try {
+    const created = await chrome.tabs.create({ url: "about:blank", active: false });
+    if (typeof created.id === "number") {
+      lastWebTabId = created.id;
+      return created.id;
+    }
+  } catch { /* aanmaken mislukt → noodval hieronder */ }
+
+  // Noodval: tab aanmaken mislukt (bijv. no-permissions edge case) → gebruik bestaande tab.
+  // Dit is de enige situatie waarin een user-tab gebruikt mag worden.
   const all = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
   if (all.length) {
     all.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
@@ -229,17 +244,6 @@ async function resolveRunTab(): Promise<number | null> {
     }
   }
 
-  // Poging 4: geen enkele web-tab open -> maak een verse, lege tab aan. De eerste
-  // navigate-actie van de agent vult hem. Zo werkt 'ga naar nu.nl' altijd.
-  try {
-    const created = await chrome.tabs.create({ url: "about:blank", active: true });
-    if (typeof created.id === "number") {
-      lastWebTabId = created.id;
-      return created.id;
-    }
-  } catch {
-    /* aanmaken mislukt -> null */
-  }
   return null;
 }
 
@@ -373,7 +377,9 @@ function onMessage(raw: unknown): void {
     case "REQUEST_NAVIGATE": {
       const p = raw.payload as { url: string };
       void (async () => {
-        let tabId = lastWebTabId;
+        // Navigeer op de run-tab (als die loopt), anders de sticky tab, anders resolve.
+        // NIET lastWebTabId als eerste keuze — dat zou de email-tab van de user kunnen zijn.
+        let tabId = runTabId ?? stickyTabId;
         if (tabId == null) tabId = await resolveRunTab();
         if (tabId == null) {
           replyToBrain("NAVIGATE_RESULT", { ok: false, detail: "geen actieve tab" }, raw.id);
