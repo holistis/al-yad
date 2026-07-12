@@ -34,21 +34,26 @@ Available actions (use inside "steps" array):
 { "kind": "wait", "ms": 1000 }
 { "kind": "finish", "summary": "THE ACTUAL ANSWER for the user", "done": [{"type":"url-contains","value":"/confirmation"}] }
 
-SEARCH RESULTS / JOB LISTINGS / PRODUCT LISTINGS — EXTRACT FIRST, NEVER CLICK CARDS:
-When the page is a search results page (jobs, products, articles) with a list of items:
+SEARCH RESULTS / JOB LISTINGS / PRODUCT LISTINGS / PROFILES — EXTRACT FIRST, NEVER CLICK CARDS:
+When the page is a search results page (jobs, products, articles, people) with a list of items:
 1. Use ONE extract WITHOUT a ref to read the full page text — this contains ALL listings at once.
-2. Read the extracted text and identify the relevant items.
-3. Finish immediately with a NUMBERED LIST in summary — list ALL found items.
-   Format each item: "1. [Title] — [Company] — [Location]" (or "1. [Name] — [Role]" for people)
-NEVER click on individual job cards, product cards, or result links to "learn more" unless the user
-specifically asks to open a single item. The list data is already in the page text.
+2. Read the extracted text and identify the relevant items AND their href links.
+3. Finish immediately with a NUMBERED LIST in summary — list ALL found items WITH their URL.
+   Format each item:
+   - Jobs/vacatures:  "1. [Titel] — [Bedrijf] — [Locatie]\n   🔗 [volledige URL]"
+   - Mensen/profielen: "1. [Naam] — [Functie] — [Locatie]\n   🔗 [volledige URL]"
+   - Producten:        "1. [Naam] — €[prijs]\n   🔗 [volledige URL]"
+   ALWAYS include the 🔗 URL line for every item. Read href= values from the snapshot.
+   If the href starts with "/" prepend the current domain.
+   If you cannot find a URL for an item, write "🔗 niet beschikbaar".
+NEVER click on individual cards to "learn more" unless the user specifically asks to open one item.
 BAD: click job card → navigate → extract → repeat for each job (wastes 15+ steps)
-GOOD: extract (no ref, full page) → finish with numbered list of all items
+GOOD: extract (no ref, full page) → finish with numbered list of all items + their URLs
 
 FINISH SUMMARY — STRICT SYNTHESIS RULES (always applies):
 The "summary" field is THE ONLY thing the user sees. It must be a clean, structured synthesis:
-✓ LISTS (jobs, products, people, results): use numbered format
-   "1. Title — Company — City (mode)\n2. Title — Company — City (mode)"
+✓ LISTS (jobs, products, people, results): use numbered format WITH 🔗 URL on the next line
+   "1. Titel — Bedrijf — Stad\n   🔗 https://...\n2. Titel — Bedrijf — Stad\n   🔗 https://..."
 ✓ QUESTIONS: write a direct answer in 1-3 sentences
 ✓ DATA (prices, dates, stats): write the values clearly
 ✗ NEVER paste raw page text into summary — the raw extraction is YOUR working data, not the answer
