@@ -2,7 +2,7 @@ import process, { stdin, stdout, stderr } from "node:process";
 import { newId, type BrainMessage } from "@yad/shared";
 import { NativeHost } from "./native-host.js";
 import { BrainSession } from "./session.js";
-import { buildPool } from "./engine/pool.js";
+import { buildPool, buildExternalOllamaPool } from "./engine/pool.js";
 import { LlmRouter } from "./engine/router.js";
 import { loadEnvFile } from "./env.js";
 import { startHttpApi } from "./http-api.js";
@@ -34,6 +34,14 @@ function main(): void {
   log(`motor-pool: ${pool.map((p) => `${p.name}(t${p.tier})`).join(", ")}`);
   const router = new LlmRouter(pool, { log: (m) => log(`[motor] ${m}`) });
 
+  // Aparte Ollama-only router voor extern/klant-verkeer (YAD_EXTERNAL_MODE) — nooit
+  // de eigen gratis/betaalde sleutels van de koning. Leeg als Ollama niet geconfigureerd is.
+  const externalPool = buildExternalOllamaPool();
+  const externalRouter = externalPool.length > 0
+    ? new LlmRouter(externalPool, { log: (m) => log(`[motor-extern] ${m}`) })
+    : undefined;
+  log(`extern-motor-pool: ${externalPool.length > 0 ? externalPool.map((p) => p.name).join(", ") : "GEEN (Ollama niet geconfigureerd — extern verkeer krijgt 503)"}`);
+
   let host!: NativeHost;
   const send = (msg: BrainMessage): void => host.send(msg);
   const session = new BrainSession(send, router, info, log);
@@ -51,7 +59,7 @@ function main(): void {
   );
 
   // Start lokale HTTP trigger-API zodat Claude Code autonoom commando's kan sturen.
-  startHttpApi(session, log);
+  startHttpApi(session, log, externalRouter);
 
   stdin.on("end", () => {
     log("stdin gesloten door Chrome, companion sluit af");

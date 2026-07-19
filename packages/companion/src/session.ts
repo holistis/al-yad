@@ -275,6 +275,22 @@ export class BrainSession implements HandBridge {
     });
   }
 
+  adoptTab(pattern: string): Promise<{ ok: boolean; tabId?: number; url?: string; detail?: string }> {
+    const msg = brainMessage("REQUEST_ADOPT_TAB", { pattern });
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(msg.id);
+        reject(new Error("AdoptTab time-out na 10s"));
+      }, 10_000);
+      this.pending.set(msg.id, {
+        resolve: (p) => resolve(p as { ok: boolean; tabId?: number; url?: string; detail?: string }),
+        reject,
+        timer,
+      });
+      this.send(msg);
+    });
+  }
+
   captureAndSaveSession(label: "A" | "B"): Promise<{ ok: boolean; brand?: string; path?: string; detail?: string }> {
     const msg = brainMessage("REQUEST_SESSION_CAPTURE", { label });
     return new Promise((resolve, reject) => {
@@ -402,7 +418,8 @@ export class BrainSession implements HandBridge {
       case "NAVIGATE_RESULT":
       case "SCREENSHOT_RESULT":
       case "SESSION_CAPTURE_DATA":
-      case "CDP_RESULT": {
+      case "CDP_RESULT":
+      case "ADOPT_TAB_RESULT": {
         const cid = raw.correlationId;
         const pend = cid ? this.pending.get(cid) : undefined;
         if (cid && pend) {
@@ -417,7 +434,7 @@ export class BrainSession implements HandBridge {
     }
   }
 
-  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[], startingUrl?: string, autonomyOverride?: "confirm" | "auto", substates?: Substate[]): Promise<GoalResult> {
+  private async startRun(goal: string, maxSteps?: number, attachments?: Attachment[], startingUrl?: string, autonomyOverride?: "confirm" | "auto", substates?: Substate[], routerOverride?: LlmRouter): Promise<GoalResult> {
     const resultPath = process.env["YAD_RESULT_PATH"] ?? "C:\\Code\\yad-goal-result.json";
     const stepLogPath = process.env["YAD_STEP_LOG_PATH"] ?? "C:\\Code\\yad-step-log.jsonl";
 
@@ -465,7 +482,8 @@ export class BrainSession implements HandBridge {
       }
     }
 
-    const loop = new AgentLoop({ chat: (req) => this.router.chat(req) }, this, {
+    const activeRouter = routerOverride ?? this.router;
+    const loop = new AgentLoop({ chat: (req) => activeRouter.chat(req) }, this, {
       log: this.log,
       isAborted: () => this.aborted,
       maxSteps: maxSteps ?? this.defaultMaxSteps,
@@ -544,9 +562,14 @@ export class BrainSession implements HandBridge {
     return goalResult;
   }
 
-  /** Voert een taak uit en wacht op het resultaat. Gebruikt door POST /goal?sync=true. */
-  async runGoalSync(goal: string, opts?: { maxSteps?: number; startingUrl?: string; autonomy?: "confirm" | "auto"; substates?: Substate[] }): Promise<GoalResult> {
-    return this.startRun(goal, opts?.maxSteps, undefined, opts?.startingUrl, opts?.autonomy, opts?.substates);
+  /**
+   * Voert een taak uit en wacht op het resultaat. Gebruikt door POST /goal?sync=true.
+   * `router`: alleen gezet door http-api.ts voor NIET-lokaal (extern/klant) verkeer —
+   * forceert die run op een aparte Ollama-only router zodat externe/klant-opdrachten
+   * nooit de eigen gratis/betaalde sleutels van de koning aanspreken.
+   */
+  async runGoalSync(goal: string, opts?: { maxSteps?: number; startingUrl?: string; autonomy?: "confirm" | "auto"; substates?: Substate[]; router?: LlmRouter }): Promise<GoalResult> {
+    return this.startRun(goal, opts?.maxSteps, undefined, opts?.startingUrl, opts?.autonomy, opts?.substates, opts?.router);
   }
 
   // ---- HandBridge ----

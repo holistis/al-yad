@@ -23,6 +23,7 @@ export interface PoolEnv {
   YAD_CUSTOM_MODEL?: string;
   OLLAMA_BASE_URL?: string;
   OLLAMA_MODEL?: string;
+  OLLAMA_API_KEY?: string;
   GROQ_MODEL?: string;
   CEREBRAS_MODEL?: string;
   GEMINI_MODEL?: string;
@@ -193,9 +194,33 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
       name: "ollama",
       baseUrl: env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1",
       model: env.OLLAMA_MODEL ?? "qwen2.5:7b-instruct",
+      apiKey: env.OLLAMA_API_KEY,
       tier: 2,
     }),
   );
 
   return providers;
+}
+
+/**
+ * Losse, Ollama-ONLY pool voor extern/klant-verkeer (YAD_EXTERNAL_MODE). Bewust
+ * gescheiden van buildPool(): externe opdrachten mogen NOOIT de eigen gratis/betaalde
+ * sleutels van de koning aanspreken (Groq/Gemini/etc. blijven privé). Gebruikt een
+ * eigen model-env (YAD_EXTERNAL_OLLAMA_MODEL) zodat de koning's eigen OLLAMA_MODEL
+ * (bodem-terugval, kan een zwaarder model zijn) hier niet door wordt beïnvloed.
+ * Benchmark 2026-07-19 op i7-6700/32GB CPU-only: qwen2.5:32b ~85-105s/stap (te traag
+ * voor interactieve runs), qwen2.5:7b ~13-27s/stap (bruikbaar) — vandaar de 7b-default.
+ * Geeft een LEGE array terug als Ollama niet geconfigureerd is (geen stille fallback).
+ */
+export function buildExternalOllamaPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] {
+  if (!env.OLLAMA_BASE_URL) return [];
+  return [
+    new OpenAICompatibleProvider({
+      name: "ollama-external",
+      baseUrl: env.OLLAMA_BASE_URL,
+      model: env["YAD_EXTERNAL_OLLAMA_MODEL"] ?? "qwen2.5:7b",
+      apiKey: env.OLLAMA_API_KEY,
+      tier: 0,
+    }),
+  ];
 }

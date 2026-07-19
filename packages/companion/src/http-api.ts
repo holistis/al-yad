@@ -29,8 +29,12 @@
  *
  * Beveiliging (Exposure-check):
  *   - Bindt ALLEEN aan 127.0.0.1 — niet bereikbaar van buiten de machine
- *   - Weigert requests waarvan remoteAddress niet 127.0.0.1 of ::1 is
- *   - Geen auth nodig: alleen lokale processen (Claude Code) kunnen dit bereiken
+ *   - Lokaal verkeer (remoteAddress 127.0.0.1/::1): ongewijzigd, geen auth nodig
+ *     (alleen lokale processen zoals Claude Code kunnen dit bereiken)
+ *   - Niet-lokaal verkeer: standaard geweigerd (403), tenzij YAD_EXTERNAL_MODE=1
+ *     bewust gezet is. Dan gelden: API-key via YAD_API_KEYS (header X-API-Key),
+ *     endpoint-allowlist (alleen /status + /goal — geen cdp/*, fs/*, save-session),
+ *     rate-limit (20 req/min per key+IP), audit-log (zie external-gate.ts)
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -38,8 +42,10 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, basename, join, resolve as resolvePath } from "node:path";
 import { readSteps } from "./history/step-reader.js";
 import { verifySteps } from "./verify/verifier.js";
+import { checkExternalGate } from "./external-gate.js";
 import type { BrainSession } from "./session.js";
 import type { Substate } from "./agent/substate.js";
+import type { LlmRouter } from "./engine/router.js";
 
 const PORT = 3747;
 
@@ -134,12 +140,18 @@ function json(res: ServerResponse, status: number, data: unknown): void {
   res.end(JSON.stringify(data));
 }
 
-export function startHttpApi(session: BrainSession, log: (m: string) => void): void {
+export function startHttpApi(session: BrainSession, log: (m: string) => void, externalRouter?: LlmRouter): void {
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const addr = req.socket.remoteAddress;
-    if (addr !== "127.0.0.1" && addr !== "::1" && addr !== "::ffff:127.0.0.1") {
-      json(res, 403, { error: "Forbidden — alleen localhost" });
-      return;
+    const isLocalhost = addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+    if (!isLocalhost) {
+      // Niet-lokaal verkeer: standaard exact hetzelfde 403-gedrag als voorheen,
+      // tenzij YAD_EXTERNAL_MODE bewust aan staat (zie external-gate.ts).
+      const gate = checkExternalGate(req, req.url ?? "/", req.method ?? "GET");
+      if (!gate.allow) {
+        json(res, gate.status, gate.body);
+        return;
+      }
     }
 
     const url = req.url ?? "/";
@@ -187,6 +199,20 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
           json(res, 400, { ok: false, detail: "url moet beginnen met http:// of https://" });
           return;
         }
+        // Extern/klant-verkeer: verplicht sync (fire-and-forget levert aan de lokale
+        // sidepanel, geen zin voor een remote client) EN verplicht een geconfigureerde
+        // Ollama-only router — nooit stilzwijgend terugvallen op de eigen sleutels
+        // van de koning (Exposure/Rate-check).
+        if (!isLocalhost) {
+          if (parsed.sync !== true) {
+            json(res, 400, { ok: false, detail: "extern verkeer vereist sync:true" });
+            return;
+          }
+          if (!externalRouter) {
+            json(res, 503, { ok: false, detail: "externe modus actief maar geen Ollama geconfigureerd (OLLAMA_BASE_URL ontbreekt)" });
+            return;
+          }
+        }
         if (parsed.sync === true) {
           // Wacht op het resultaat zodat de Planner (Claude Code) het kan verwerken.
           const result = await session.runGoalSync(rawGoal, {
@@ -194,6 +220,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
             startingUrl: parsed.url,
             autonomy: parsed.autonomy === "auto" ? "auto" : undefined,
             substates: Array.isArray(parsed.substates) ? parsed.substates : undefined,
+            router: !isLocalhost ? externalRouter : undefined,
           });
           // Auto-clean: altijd als clean=true of als de summary er raw uitziet.
           const wantClean = parsed.clean === true || looksLikeRawDump(result.summary ?? "");
@@ -249,6 +276,26 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
         }
         const ok = await session.navigateTo(parsed.url);
         json(res, 200, { ok });
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    if (url === "/adopt-tab" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const body = await readBody(req);
+        const parsed = JSON.parse(body) as { pattern?: string };
+        if (typeof parsed.pattern !== "string" || !parsed.pattern.trim()) {
+          json(res, 400, { ok: false, detail: "pattern is verplicht" });
+          return;
+        }
+        const result = await session.adoptTab(parsed.pattern.trim());
+        json(res, 200, result);
       } catch (e) {
         json(res, 500, { ok: false, detail: (e as Error).message });
       }
@@ -414,9 +461,9 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
         }
         const result = await session.cdp({
           command: "evaluate",
-          expression: parsed.expression.slice(0, 4_000),
+          expression: parsed.expression.slice(0, 20_000),
           tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
-        }, 15_000);
+        }, 60_000);
         json(res, result.ok ? 200 : 500, result);
       } catch (e) {
         json(res, 500, { ok: false, detail: (e as Error).message });
@@ -913,7 +960,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void): v
     }
 
     json(res, 404, { error: "Not found", endpoints: [
-      "GET /status", "POST /capture", "POST /goal", "POST /navigate", "GET /result",
+      "GET /status", "POST /capture", "POST /goal", "POST /navigate", "POST /adopt-tab", "GET /result",
       "POST /verify", "POST /save-session", "GET /assist", "POST /assist",
       "POST /cdp/capture/start", "POST /cdp/capture/stop", "POST /cdp/evaluate",
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
