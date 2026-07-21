@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "host": "node dist/main.js",
-    "playwright": "node dist/main-playwright.js"
+    "playwright": "node dist/main-playwright.js",
+    "server": "node dist/server-playwright.js"
   },
   "dependencies": {
     "@yad/shared": "workspace:*",
