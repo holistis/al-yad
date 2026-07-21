@@ -82,10 +82,12 @@ info "[2/5] Dist kopiëren naar $SERVER..."
 $SCP -rq "$LOCAL_SHARED/dist/"    "$SERVER_USER@$SERVER:$REMOTE_SHARED/dist/"
 $SCP -rq "$LOCAL_COMPANION/dist/" "$SERVER_USER@$SERVER:$REMOTE_COMPANION/dist/"
 
-# Verifieer: check dat server-playwright.js aanwezig is op de server
-REMOTE_CHECK=$($SSH "[ -f $REMOTE_COMPANION/dist/server-playwright.js ] && echo ok || echo miss" 2>/dev/null)
-[ "$REMOTE_CHECK" = "ok" ] || fail "server-playwright.js niet gevonden op server na kopiëren"
-ok "Dist succesvol overgezet naar $SERVER"
+# Verifieer: bestandsgrootte lokaal vs remote moet overeenkomen
+LOCAL_SIZE=$(wc -c < "$LOCAL_COMPANION/dist/server-playwright.js" | tr -d ' ')
+REMOTE_SIZE=$($SSH "wc -c < $REMOTE_COMPANION/dist/server-playwright.js" 2>/dev/null | tr -d ' ')
+[ "$LOCAL_SIZE" = "$REMOTE_SIZE" ] \
+  || fail "server-playwright.js grootte mismatch (lokaal: ${LOCAL_SIZE}B, server: ${REMOTE_SIZE}B) — SCP mislukt"
+ok "Dist succesvol overgezet naar $SERVER (${LOCAL_SIZE} bytes)"
 
 # ════════════════════════════════════════════════════════════════════════════
 # STAP 3 — PM2 herstarten
