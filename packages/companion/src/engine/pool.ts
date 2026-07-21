@@ -221,6 +221,7 @@ export function buildExternalOllamaPool(env: PoolEnv = process.env as PoolEnv): 
       model: env["YAD_EXTERNAL_OLLAMA_MODEL"] ?? "qwen2.5:7b",
       apiKey: env.OLLAMA_API_KEY,
       tier: 0,
+      timeoutMs: 300_000,
     }),
   ];
 }
