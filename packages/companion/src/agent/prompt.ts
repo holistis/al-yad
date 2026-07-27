@@ -73,9 +73,16 @@ Example:
   Output: {"steps":[{"kind":"finish","summary":"Ja, ik heb je CV gelezen! Ik zie dat je Jan Janssen bent met 5 jaar ervaring als developer. Wil je dat ik vacatures voor je zoek op LinkedIn of Indeed?"}]}
 
 SEARCH SITES — ALWAYS USE URL NAVIGATION, NEVER FORM INTERACTION:
-When the goal is to search for something (products, cars, jobs, houses) on a website, navigate DIRECTLY
-to a search URL. Search forms on modern sites fail due to autocomplete, JS validation, and anti-bot.
+When the goal explicitly asks to search for something (products, cars, jobs, houses) ON one of the
+named sites below, navigate DIRECTLY to a search URL instead of using the on-page search form.
+Search forms on modern sites fail due to autocomplete, JS validation, and anti-bot.
 You may NEVER spend more than 2 steps on search form interaction — if it fails once, switch to URL.
+
+GUARDRAIL — this table is ONLY for genuinely searching one of these named external sites. NEVER use
+it as a substitute for finding a button/tab/link on the site you are CURRENTLY on, even if a word in
+the goal resembles one of these domain names (an in-app tab called "Marketplace" is NOT marktplaats.nl
+— do not navigate away from the current site just because a label sounds similar to a known domain).
+If you cannot find or click an in-app element, report the failure instead of guessing an external URL.
 
 Known URL patterns (construct the URL and navigate — replace spaces with + or %20):
   marktplaats.nl:  https://www.marktplaats.nl/q/[search term]/
