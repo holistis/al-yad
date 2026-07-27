@@ -342,7 +342,15 @@ export async function executeAction(
       if (action.ref) {
         const el = refMap.get(action.ref);
         if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
-        return { ok: true, extracted: (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 2000) };
+        const extracted = (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 2000);
+        // Lege tekst op een gevonden element is meestal geen "leeg element" maar een dropdown-
+        // trigger waarvan de opties elders (portal) renderen, of content die nog niet geladen is.
+        // Rapporteer dit als falen i.p.v. stilzwijgend ok:true — anders denkt de agent-loop dat
+        // de lezing gelukt is en stopt hij (zie extract-lus-guard) zonder ooit echte data te zien.
+        if (!extracted) {
+          return { ok: false, detail: `ref ${action.ref} bevat geen tekst — mogelijk nog niet geladen, of de inhoud (bv. dropdown-opties) rendert elders in de DOM` };
+        }
+        return { ok: true, extracted };
       }
       const text = (document.body?.innerText || "").replace(/\s+/g, " ").trim().slice(0, 2000);
       return { ok: true, extracted: text };

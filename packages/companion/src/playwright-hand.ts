@@ -228,7 +228,15 @@ export class PlaywrightHand implements HandBridge {
           let extracted: string;
           if (ref) {
             const el = page.locator(`[data-yad-ref="${ref}"]`).first();
-            extracted = (await el.textContent({ timeout: 5_000 })) ?? "";
+            extracted = ((await el.textContent({ timeout: 5_000 })) ?? "").trim();
+            // Lege tekst op een gevonden ref is meestal een dropdown-trigger waarvan de opties
+            // elders (portal) renderen, of content die nog niet geladen is — niet een "leeg
+            // element". Rapporteer als falen i.p.v. stilzwijgend ok:true (zie extension/lib/
+            // executor.ts voor dezelfde fix aan de Chrome-extensie kant).
+            if (!extracted) {
+              return { ok: false, detail: `ref ${ref} bevat geen tekst — mogelijk nog niet geladen, of de inhoud (bv. dropdown-opties) rendert elders in de DOM` };
+            }
+            return { ok: true, extracted };
           } else {
             // Prefereer <main> of [role="main"] of <article> boven de volledige body.
             // Grote navigatie-blokken (GitHub, Reddit, etc.) beginnen de body.innerText

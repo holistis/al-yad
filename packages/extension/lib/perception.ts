@@ -32,6 +32,16 @@ const INTERACTIVE_SELECTOR = [
   // standaardrol dragen. `-1` blijft buiten beeld: dat betekent juist "wel focusbaar
   // via script, niet in de tab-volgorde", en die zijn zelden een doel op zich.
   '[tabindex]:not([tabindex="-1"])',
+  // Items inside custom (non-native) dropdown/menu popovers — React-Select, MUI, Radix, etc.
+  // render these via a portal after the trigger (role=button/combobox) is clicked. Without these,
+  // the popover's options never enter the snapshot and the agent re-clicks the trigger forever.
+  // Matches what prompt.ts already promises the model ("appear as role=option/menuitem/listitem").
+  "[role=option]",
+  "[role=menuitem]",
+  "[role=menuitemcheckbox]",
+  "[role=menuitemradio]",
+  "[role=listitem]",
+  "[role=tab]",
 ].join(",");
 
 
