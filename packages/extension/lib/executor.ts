@@ -1,4 +1,4 @@
-import type { Action, ActResult } from "@yad/shared";
+import { DENY_WORDS, type Action, type ActResult } from "@yad/shared";
 
 /**
  * De uitvoerder (in de pagina-context): voert een Action deterministisch uit op
@@ -181,6 +181,62 @@ async function typeSlowlyEditable(
   }
 }
 
+/**
+ * Leest de zichtbare tekst waarmee een mens dit element zou herkennen: eigen
+ * tekst/aria-label, en als dat leeg is de dichtstbijzijnde gelabelde voorouder
+ * (maximaal 3 niveaus, zodat een icoon-only knop binnen een "Bestel nu"-kaart
+ * ook wordt gevonden). Gebruikt voor de deny-check vlak vóór een klik.
+ */
+function accessibleTextNear(el: Element): string {
+  const own = (el.getAttribute("aria-label") || el.textContent || "").trim();
+  if (own) return own.slice(0, 200);
+  let node: Element | null = el.parentElement;
+  for (let depth = 0; node && depth < 3; depth++, node = node.parentElement) {
+    const t = (node.getAttribute("aria-label") || node.textContent || "").trim();
+    if (t) return t.slice(0, 200);
+  }
+  return "";
+}
+
+/**
+ * Klikt op het element dat ECHT op (cx, cy) staat gerenderd, met dezelfde
+ * overlay-dismiss + precisie-fix als de ref-based click hieronder. Gedeeld
+ * tussen "click" (cx/cy = midden van de ref) en "click-at" (cx/cy = pixel-
+ * coordinaat van een vision-fallback, geen ref beschikbaar).
+ *
+ * VEILIGHEIDSGRENS: click-at heeft geen vooraf bekende ref/naam, dus de
+ * companion-poort (guardrails.ts) kan de doeltekst niet vooraf checken zoals
+ * bij een gewone klik. Dit is daarom de ENIGE plek waar de tekst van het
+ * daadwerkelijke doelwit bekend is vóór de klik — de deny-check moet hier
+ * blijven staan, niet alleen bovenstrooms.
+ */
+async function clickAtViewportPoint(
+  cx: number,
+  cy: number,
+  fallbackEl?: Element,
+): Promise<ActResult> {
+  let topEl = document.elementFromPoint(cx, cy);
+  if (topEl && fallbackEl && !fallbackEl.contains(topEl) && !topEl.contains(fallbackEl)) {
+    const dismissed = await tryDismissOverlay();
+    if (dismissed) {
+      await sleep(200);
+      topEl = document.elementFromPoint(cx, cy);
+    }
+  }
+  const target = (topEl ?? fallbackEl) as HTMLElement | null;
+  if (!target) return { ok: false, detail: "geen element gevonden op deze positie" };
+
+  const label = accessibleTextNear(target);
+  if (DENY_WORDS.test(label)) {
+    return { ok: false, detail: `geweigerd: doelwit lijkt op betalen/bestellen/verwijderen ("${label.slice(0, 60)}")` };
+  }
+
+  const clickTarget =
+    fallbackEl && target !== fallbackEl && fallbackEl.contains(target) ? target : (fallbackEl as HTMLElement) ?? target;
+  clickTarget.click();
+  return { ok: true };
+}
+
 export async function executeAction(
   action: Action,
   refMap: Map<string, Element>,
@@ -213,20 +269,23 @@ export async function executeAction(
       if (scrollPause > 0) {
         await sleep(scrollPause); // wacht tot scroll klaar + menselijk aarzelen
       }
-
-      // Overlay-check: controleer of het doel zichtbaar is via elementFromPoint.
-      // Als er iets voor hangt dat op een consent-banner lijkt, probeer het eerst weg.
       const rect = (el as HTMLElement).getBoundingClientRect();
       const cx = Math.round(rect.left + rect.width / 2);
       const cy = Math.round(rect.top + rect.height / 2);
-      const topEl = document.elementFromPoint(cx, cy);
-      if (topEl && !el.contains(topEl) && !topEl.contains(el as Node)) {
-        const dismissed = await tryDismissOverlay();
-        if (dismissed) await sleep(200); // extra wacht na dismiss
-      }
+      return clickAtViewportPoint(cx, cy, el);
+    }
 
-      (el as HTMLElement).click();
-      return { ok: true };
+    case "click-at": {
+      // Vision-fallback: geen ref beschikbaar. xFraction/yFraction zijn de positie
+      // (0-1) binnen de screenshot die het Brein zojuist kreeg bij het vastlopen
+      // — vermenigvuldigen met de huidige viewport geeft het CSS-pixel-coordinaat.
+      // Alleen bedoeld voor gebruik na een stuck-signaal (zie loop.ts), niet als
+      // standaard klik-methode.
+      const x = Math.max(0, Math.min(1, action.xFraction));
+      const y = Math.max(0, Math.min(1, action.yFraction));
+      const cx = Math.round(x * window.innerWidth);
+      const cy = Math.round(y * window.innerHeight);
+      return clickAtViewportPoint(cx, cy);
     }
 
     case "type": {
@@ -269,6 +328,9 @@ export async function executeAction(
           await typeSlowly(el, action.text, typeDelay);
         } else {
           setNativeValue(el, action.text);
+          // SPA's (React/Vue) hebben soms een debounce van 300-500ms die zoekacties triggert.
+          // Wacht minimaal 350ms zodat de SPA-state kan updaten vóór submit of extract.
+          await sleep(350);
         }
       } else if ((el as HTMLElement).isContentEditable) {
         if (typeDelay > 0) {
@@ -278,6 +340,31 @@ export async function executeAction(
           el.dispatchEvent(new Event("input", { bubbles: true }));
         }
       } else {
+        // Fallback: Angular/React/Spartacus component wrappers bevatten soms een
+        // <input> of <textarea> als kind-element. Zoek het diepste invoerveld.
+        const childInput = (el as HTMLElement).querySelector<HTMLInputElement | HTMLTextAreaElement>(
+          'input:not([type="hidden"]), textarea'
+        );
+        if (childInput) {
+          childInput.scrollIntoView({ block: "center" });
+          childInput.focus();
+          if (typeDelay > 0) {
+            await typeSlowly(childInput, action.text, typeDelay);
+          } else {
+            setNativeValue(childInput, action.text);
+            await sleep(350);
+          }
+          if (action.submit) {
+            const form = childInput.closest("form");
+            if (form) form.requestSubmit?.() ?? form.submit();
+            else childInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }));
+          }
+          // Controleer of het kind-veld gevuld is
+          if (action.text && !childInput.value) {
+            return { ok: false, detail: "invoer in child-input kwam niet aan (veld bleef leeg)" };
+          }
+          return { ok: true };
+        }
         return { ok: false, detail: "element is geen invoerveld" };
       }
       // Lees terug: meld geen succes als het veld leeg bleef.
@@ -293,9 +380,12 @@ export async function executeAction(
         if (form) {
           form.requestSubmit?.() ?? form.submit();
         } else {
-          el.dispatchEvent(
-            new KeyboardEvent("keydown", { key: "Enter", code: "Enter", bubbles: true }),
-          );
+          // Stuur het volledige toetsenbord-event trio: SPA's (React/Vue/Angular)
+          // luisteren vaak op keyup (niet alleen keydown) om de zoekactie te starten.
+          const enterOpts: KeyboardEventInit = { key: "Enter", code: "Enter", bubbles: true, cancelable: true };
+          el.dispatchEvent(new KeyboardEvent("keydown",  enterOpts));
+          el.dispatchEvent(new KeyboardEvent("keypress", enterOpts));
+          el.dispatchEvent(new KeyboardEvent("keyup",    enterOpts));
         }
       }
       return { ok: true };

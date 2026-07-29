@@ -135,6 +135,18 @@ describe("AgentLoop", () => {
     expect(out.summary).toContain("Helpdesk C");
   });
 
+  it("weigert click-at als er deze beurt geen screenshot is gestuurd (vision-fallback vereist bewijs)", async () => {
+    const hand = new MockHand(); // requestScreenshot() geeft null -> nooit failedHintScreenshot gezet
+    const router = new MockRouter([
+      '{"kind":"click-at","xFraction":0.5,"yFraction":0.5}',
+      // queue-uitputting -> MockRouter valt terug op finish
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    const out = await loop.run("klik op iets");
+    expect(out.status).toBe("klaar"); // tweede beurt valt terug op default finish
+    expect(hand.acts).toHaveLength(0); // click-at is NOOIT uitgevoerd
+  });
+
   it("stopt met fout na drie onleesbare modelantwoorden", async () => {
     const hand = new MockHand();
     const router = new MockRouter(["geen json", "ook niet", "nog steeds niet"]);

@@ -70,6 +70,7 @@ function labelAction(action: Action): string {
   switch (action.kind) {
     case "navigate": return `Ga naar ${action.url}`;
     case "click":    return `Klik op ${action.ref}`;
+    case "click-at": return `Klik op positie (${Math.round(action.xFraction * 100)}%, ${Math.round(action.yFraction * 100)}%)`;
     case "type":     return `Typ in ${action.ref}`;
     case "paste":    return `Plak in ${action.ref}`;
     case "hover":    return `Hover over ${action.ref}`;
