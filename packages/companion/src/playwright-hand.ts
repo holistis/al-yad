@@ -158,6 +158,16 @@ export class PlaywrightHand implements HandBridge {
           await page.waitForTimeout(this.options.spaWaitMs / 2);
           return { ok: true };
         }
+        case "click-at": {
+          // Vision-fallback: geen data-yad-ref beschikbaar, klik op de rauwe
+          // viewport-positie (fractie van de huidige viewport-afmeting).
+          const size = page.viewportSize() ?? { width: 1280, height: 800 };
+          const x = Math.max(0, Math.min(1, action.xFraction)) * size.width;
+          const y = Math.max(0, Math.min(1, action.yFraction)) * size.height;
+          await page.mouse.click(x, y);
+          await page.waitForTimeout(this.options.spaWaitMs / 2);
+          return { ok: true };
+        }
         case "type": {
           const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
           await el.fill(action.text, { timeout: 8_000 });

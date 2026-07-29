@@ -204,6 +204,8 @@ function describe(action: Action): string {
       return `Ga naar ${action.url}`;
     case "click":
       return `Klik op ${action.ref}`;
+    case "click-at":
+      return `Klik op positie (${Math.round(action.xFraction * 100)}%, ${Math.round(action.yFraction * 100)}%) van de screenshot`;
     case "type":
       return `Typ in ${action.ref}${action.submit ? " en verstuur" : ""}`;
     case "paste":
@@ -694,7 +696,9 @@ export class AgentLoop {
 
       // Sessie-verloop detectie: als we halverwege een run op een loginpagina belanden,
       // is de sessie waarschijnlijk verlopen. We pauzeren en vragen de gebruiker te herinloggen.
-      if (step > 1 && isLoginPage(snapshot.url)) {
+      // In auto-modus slaan we deze check over — de agent navigeert bewust naar loginpagina's
+      // om zelf in te loggen (bijv. SimScale signin). Menselijke pauze is dan contraproductief.
+      if (step > 1 && isLoginPage(snapshot.url) && this.autonomy !== "auto") {
         this.hand.update({
           status: "bezig",
           step,
@@ -781,8 +785,10 @@ export class AgentLoop {
         }
 
         let content: string;
+        let sawScreenshotThisTurn = false;
         try {
           const screenshot = this.failedHintScreenshot;
+          sawScreenshotThisTurn = !!screenshot;
           this.failedHintScreenshot = undefined; // eenmalig gebruik — na deze aanroep niet meer meesturen
           const selectorHint = this.selectorStore
             ? (this.selectorStore.getHints(hostnameOf(snapshot.url), pathOf(snapshot.url), snapshot) ?? undefined)
@@ -801,6 +807,21 @@ export class AgentLoop {
           history.push({ action: { kind: "wait", ms: 0 }, ok: false, detail: `plan parse-fout (${planResult.error})` });
           if (parseFails >= 3) {
             this.hand.update({ status: "fout", step, message: "Model bleef onleesbare plannen geven." });
+            return { status: "fout", steps: step };
+          }
+          continue;
+        }
+        // click-at is een vision-fallback: alleen geldig op de beurt waarin het model
+        // ZELF net een screenshot kreeg. Zonder screenshot heeft het model geen
+        // gegronde basis voor pixel-coordinaten — code-niveau afgedwongen, niet
+        // alleen via prompt-instructie, want dit moet ook in "auto"-modus gelden.
+        if (!sawScreenshotThisTurn && planResult.plan.steps.some((s) => s.action.kind === "click-at")) {
+          parseFails++;
+          cleanRun = false;
+          this.log("plan geweigerd: click-at zonder screenshot deze beurt");
+          history.push({ action: { kind: "wait", ms: 0 }, ok: false, detail: "click-at geweigerd — geen screenshot deze beurt" });
+          if (parseFails >= 3) {
+            this.hand.update({ status: "fout", step, message: "Model bleef click-at proberen zonder screenshot." });
             return { status: "fout", steps: step };
           }
           continue;
@@ -1006,7 +1027,7 @@ export class AgentLoop {
       // Effect-nul: onthoud de pre-actie fingerprint voor muterende acties, zodat de
       // volgende iteratie kan checken of er iets veranderde. navigate telt niet mee
       // (verandert per definitie de URL); extract/wait zijn niet-muterend.
-      const isMutating = action.kind === "click" || action.kind === "type" || action.kind === "paste" || action.kind === "select" || action.kind === "hover" || action.kind === "keyboard" || action.kind === "upload";
+      const isMutating = action.kind === "click" || action.kind === "click-at" || action.kind === "type" || action.kind === "paste" || action.kind === "select" || action.kind === "hover" || action.kind === "keyboard" || action.kind === "upload";
       if (result.ok && isMutating) {
         pendingEffectCheck = { pre: orderSensitiveFingerprint(snapshot), step };
         // Selector-geheugen: sla succesvol gebruikt element op voor toekomstige hints.
@@ -1139,6 +1160,10 @@ export class AgentLoop {
           (result.detail ?? (result.extracted ? result.extracted.slice(0, 200) : "")) + judgeDetail
         ).trim() || undefined,
       });
+      // click-at is een vision-gegronde eenmalige beslissing (pixel-positie op DEZE
+      // pagina-staat) — niet cachen voor blinde replay, een andere dag kan de layout
+      // verschoven zijn en dan klikt de replay op iets anders dan bedoeld.
+      if (action.kind === "click-at") cleanRun = false;
       // Actie mislukt → resterende plan-stappen weggooien.
       // Volgende iteratie start met een leeg plan → dwingt nieuwe LLM-aanroep af.
       // Dit is het "stops earlier" mechanisme: geen blinde vervolgstap na een fout.
@@ -1168,7 +1193,7 @@ export class AgentLoop {
           lastExtractUrl = snapshot.url;
         }
       } else if (
-        action.kind === "click" || action.kind === "navigate" ||
+        action.kind === "click" || action.kind === "click-at" || action.kind === "navigate" ||
         action.kind === "type" || action.kind === "select" || action.kind === "upload"
       ) {
         consecutiveSameUrlExtracts = 0;

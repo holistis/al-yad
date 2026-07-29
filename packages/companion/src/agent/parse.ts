@@ -108,6 +108,17 @@ export function parseAction(raw: string): ParseResult {
     case "click":
       if (!isStr(obj["ref"])) return { ok: false, error: "click mist ref" };
       return { ok: true, action: { kind, ref: obj["ref"] } };
+    case "click-at": {
+      const xFraction = obj["xFraction"];
+      const yFraction = obj["yFraction"];
+      if (typeof xFraction !== "number" || typeof yFraction !== "number" || !Number.isFinite(xFraction) || !Number.isFinite(yFraction)) {
+        return { ok: false, error: "click-at mist xFraction of yFraction (getallen 0-1)" };
+      }
+      return {
+        ok: true,
+        action: { kind, xFraction: Math.max(0, Math.min(1, xFraction)), yFraction: Math.max(0, Math.min(1, yFraction)) },
+      };
+    }
     case "type":
       if (!isStr(obj["ref"]) || !isStr(obj["text"]))
         return { ok: false, error: "type mist ref of text" };

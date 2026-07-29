@@ -6,6 +6,7 @@
 export type Action =
   | { kind: "navigate"; url: string }
   | { kind: "click"; ref: string; scrollPause?: number }
+  | { kind: "click-at"; xFraction: number; yFraction: number }
   | { kind: "type"; ref: string; text: string; submit?: boolean; typeDelay?: number }
   | { kind: "paste"; ref: string; text: string; submit?: boolean }
   | { kind: "select"; ref: string; value: string }
@@ -23,6 +24,7 @@ export type ActionKind = Action["kind"];
 export const ACTION_KINDS: readonly ActionKind[] = [
   "navigate",
   "click",
+  "click-at",
   "type",
   "paste",
   "select",

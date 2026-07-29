@@ -48,4 +48,21 @@ describe("parseAction", () => {
     expect(parseAction('{"kind":"navigate","url":"file:///x"}').ok).toBe(false);
     expect(parseAction('{"kind":"navigate","url":"https://ok.nl"}').ok).toBe(true);
   });
+
+  it("leest click-at met geldige fracties", () => {
+    const r = parseAction('{"kind":"click-at","xFraction":0.42,"yFraction":0.67}');
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.action).toEqual({ kind: "click-at", xFraction: 0.42, yFraction: 0.67 });
+  });
+
+  it("klemt click-at fracties naar 0-1", () => {
+    const r = parseAction('{"kind":"click-at","xFraction":1.5,"yFraction":-0.3}');
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.action).toEqual({ kind: "click-at", xFraction: 1, yFraction: 0 });
+  });
+
+  it("faalt op click-at zonder geldige xFraction/yFraction", () => {
+    expect(parseAction('{"kind":"click-at"}').ok).toBe(false);
+    expect(parseAction('{"kind":"click-at","xFraction":"0.5","yFraction":0.5}').ok).toBe(false);
+  });
 });

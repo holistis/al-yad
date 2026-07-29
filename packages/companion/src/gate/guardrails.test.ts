@@ -30,6 +30,21 @@ describe("Poort: deny-lijst", () => {
     expect(checkDenied({ kind: "navigate", url: "https://shop.nl/zoeken" }, { currentUrl: "https://shop.nl/" }).denied).toBe(false);
     expect(checkDenied({ kind: "click", ref: "e2" }, { currentUrl: "https://shop.nl/", targetName: "Volgende pagina" }).denied).toBe(false);
   });
+
+  it("weigert click-at op een betaal-/checkout-pagina (zelfde als gewone klik)", () => {
+    const a: Action = { kind: "click-at", xFraction: 0.5, yFraction: 0.5 };
+    expect(checkDenied(a, { currentUrl: "https://shop.nl/checkout" }).denied).toBe(true);
+  });
+
+  it("weigert click-at zonder bekende pagina-URL (fail-safe, geen targetName mogelijk)", () => {
+    const a: Action = { kind: "click-at", xFraction: 0.5, yFraction: 0.5 };
+    expect(checkDenied(a, { currentUrl: "about:blank" }).denied).toBe(true);
+  });
+
+  it("laat een gewone click-at op een veilige pagina door", () => {
+    const a: Action = { kind: "click-at", xFraction: 0.5, yFraction: 0.5 };
+    expect(checkDenied(a, { currentUrl: "https://shop.nl/" }).denied).toBe(false);
+  });
 });
 
 describe("Poort: confirm-before-act", () => {
@@ -45,6 +60,10 @@ describe("Poort: confirm-before-act", () => {
   it("klik op een opslaan/verstuur-knop vereist bevestiging", () => {
     expect(needsConfirm({ kind: "click", ref: "e1" }, { currentUrl: "https://x.nl/", targetName: "Opslaan" })).toBe(true);
     expect(needsConfirm({ kind: "click", ref: "e1" }, { currentUrl: "https://x.nl/", targetName: "Lees meer" })).toBe(false);
+  });
+
+  it("click-at vereist altijd bevestiging (fail-closed: geen targetName vooraf bekend)", () => {
+    expect(needsConfirm({ kind: "click-at", xFraction: 0.5, yFraction: 0.5 }, { currentUrl: "https://x.nl/" })).toBe(true);
   });
 
   it("cross-origin navigatie vereist bevestiging, zelfde origin niet", () => {

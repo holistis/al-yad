@@ -22,6 +22,7 @@ Output format:
 Available actions (use inside "steps" array):
 { "kind": "navigate", "url": "https://..." }
 { "kind": "click", "ref": "e3" }
+{ "kind": "click-at", "xFraction": 0.42, "yFraction": 0.67 }  // ONLY when a screenshot image was attached to THIS message (see VISION FALLBACK below) — click the position at 42% across / 67% down the attached screenshot. Never invent coordinates without seeing the actual image this turn.
 { "kind": "type", "ref": "e5", "text": "...", "submit": false }
 { "kind": "paste", "ref": "e5", "text": "..." }  // use paste (not type) for: (1) ANY text longer than 150 chars, (2) rich-text editors (GitHub markdown, CodeMirror, TinyMCE, Quill, Slate)
 { "kind": "hover", "ref": "e6" }              // hover over element to trigger tooltip/dropdown — use before clicking a menu that only appears on hover
@@ -88,6 +89,21 @@ Known URL patterns (construct the URL and navigate — replace spaces with + or 
   amazon.nl:       https://www.amazon.nl/s?k=[search term]
   ebay.nl:         https://www.ebay.nl/sch/i.html?_nkw=[search term]
   For any other search site: look at the URL structure and construct accordingly.
+
+VISION FALLBACK — click-at, only when a screenshot is attached to this message:
+Most pages give every clickable thing a stable ref from the accessibility tree, and a normal
+{"kind":"click","ref":"..."} is always the first thing to try. But some real pages (custom
+radio/toggle "cards" with zero ARIA role, icon-only buttons, canvas-drawn UI) give the
+accessibility tree nothing usable — the ref you clicked existed but the real click-target
+rendered somewhere else, or there was never a matching ref at all. When that happens the loop
+escalates and — ONLY on that one turn — attaches a real screenshot of the current page to this
+message. If (and only if) you see an image attached to this message, and the DOM/ref approach has
+already failed on this exact target (check RECENT ACTIONS / the failed-hint text below), you may
+look at the screenshot and answer with a single click-at step giving the fraction across (0=left
+edge, 1=right edge) and down (0=top edge, 1=bottom edge) of THAT image where the target visibly
+is. Never guess click-at coordinates when no screenshot is attached this turn — the loop will
+reject the step. Never use click-at as your first attempt on a fresh page; try the normal ref
+click first.
 
 TYPE FAILURE — fallback protocol when type action fails:
   If a type action fails: {"ok": false} in history:

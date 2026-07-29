@@ -1,4 +1,4 @@
-import type { Action } from "@yad/shared";
+import { DENY_WORDS, type Action } from "@yad/shared";
 
 /**
  * De Poort: harde grenzen in code, niet door de LLM te beoordelen.
@@ -19,9 +19,6 @@ export const DENY_PATHS = [
 ];
 
 const SAFE_SCHEMES = ["http:", "https:"];
-
-const DENY_WORDS =
-  /\b(betaal|afrekenen|kassa|naar\s*de\s*kassa|kasse|caisse|bestel|plaats\s*bestelling|checkout|pay\s*now|place\s*order|delete\s*account|account\s*verwijderen)\b/i;
 
 const CONFIRM_WORDS =
   /\b(opslaan|save|verstuur|verzend|send|submit|bevestig|confirm|verwijder|delete|update|wijzig|aanmaken|create|betaal|bestel)\b/i;
@@ -116,7 +113,7 @@ export function checkDenied(action: Action, ctx: GateContext): GateVerdict {
     return { denied: false };
   }
 
-  if (action.kind === "click" || action.kind === "type" || action.kind === "select" || action.kind === "paste" || action.kind === "upload") {
+  if (action.kind === "click" || action.kind === "click-at" || action.kind === "type" || action.kind === "select" || action.kind === "paste" || action.kind === "upload") {
     // fail-safe: zonder bekende, geldige pagina-URL weigeren we muterende acties.
     if (isUnknownUrl(ctx.currentUrl)) {
       return { denied: true, reason: "onbekende of niet-toegestane pagina-URL" };
