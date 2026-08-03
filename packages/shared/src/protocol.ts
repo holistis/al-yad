@@ -94,6 +94,8 @@ export interface HandPayloads {
   INJECT_LOCALSTORAGE_RESULT: { ok: boolean; count: number };
   /** antwoord op REQUEST_NAVIGATE */
   NAVIGATE_RESULT: { ok: boolean; detail?: string };
+  /** antwoord op REQUEST_ADOPT_TAB */
+  ADOPT_TAB_RESULT: { ok: boolean; tabId?: number; url?: string; detail?: string };
   /** antwoord op REQUEST_SCREENSHOT: base64-PNG van de zichtbare tab */
   SCREENSHOT_RESULT: { ok: boolean; dataUrl?: string; detail?: string };
   /** antwoord op CDP_COMMAND — bevat resultaat van de gevraagde CDP-operatie */
@@ -117,6 +119,12 @@ export interface HandPayloads {
     intercepted?: CdpInterceptedRequest;
     /** cookies van de actieve tab (bij get_cookies) */
     cookies?: Array<{ name: string; value: string; domain: string; path: string; httpOnly: boolean; secure: boolean }>;
+    /** aantal gesloten tabbladen (bij close_other_tabs) */
+    closed?: number;
+    /** aantal tabbladen dat is aangehouden (bij close_other_tabs) */
+    kept?: number;
+    /** totaal aantal tabbladen vóór het sluiten (bij close_other_tabs) */
+    totalBefore?: number;
   };
 }
 
@@ -198,6 +206,8 @@ export interface BrainPayloads {
   REQUEST_CAPTURE_FOR_CLAUDE: Record<string, never>;
   /** vraag de Hand om de actieve tab te navigeren naar een URL en te wachten tot geladen */
   REQUEST_NAVIGATE: { url: string };
+  /** vraag de Hand om een reeds-open tab met pattern in de URL te adopteren als run-tab */
+  REQUEST_ADOPT_TAB: { pattern: string };
   /** vraag de Hand om een screenshot van de actieve run-tab (visuele fallback bij stuck) */
   REQUEST_SCREENSHOT: Record<string, never>;
   /** vraag de Hand om cookies te injecteren voor een URL (sessie-hergebruik) */
@@ -218,7 +228,10 @@ export interface BrainPayloads {
       | "intercept_disable"     // Fetch.disable: stop request-interceptie
       | "intercept_continue"    // Fetch.continueRequest / Fetch.fulfillRequest: laat request door of override response
       | "get_cookies"           // Network.getCookies: alle cookies voor de actieve tab
-      | "set_cookies";          // Network.setCookies: set cookies voor een URL (sessie-injectie via CDP)
+      | "set_cookies"          // Network.setCookies: set cookies voor een URL (sessie-injectie via CDP)
+      | "peek_network_requests" // lees captured Map zonder capture te stoppen (urlFilter = optioneel substring)
+      | "close_other_tabs"      // chrome.tabs.remove: sluit alle tabbladen behalve die matchen op keepUrlContains
+      | "reload_extension";     // chrome.runtime.reload(): herlaad de extensie zelf na een codewijziging (geen chrome://extensions nodig)
     /** Doeltab; ontbreekt = meest recente web-tab */
     tabId?: number;
     /** Vang alleen URLs die dit patroon bevatten (voor start_capture/intercept_enable, optioneel) */
@@ -237,6 +250,8 @@ export interface BrainPayloads {
     cookies?: Array<{ name: string; value: string; domain?: string; path?: string }>;
     /** URL voor set_cookies domein-context */
     cookieUrl?: string;
+    /** Substring die de tab(s) moet(en) bevatten om NIET gesloten te worden (voor close_other_tabs) */
+    keepUrlContains?: string;
   };
 }
 

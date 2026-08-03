@@ -3,7 +3,7 @@ import { isAccepted } from "./acceptance";
 import { getSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { captureSession, getActiveWebTab } from "./session-capture";
 import { injectCookies, injectLocalStorage } from "./session-inject";
-import { startCapture, stopCapture, evaluateInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies } from "./cdp-manager";
+import { startCapture, stopCapture, evaluateInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests } from "./cdp-manager";
 
 /**
  * Beheert de native-messaging-poort naar het Brein (companion) EN vertaalt de
@@ -267,7 +267,7 @@ function connect(): void {
 }
 
 function replyToBrain(
-  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT" | "SESSION_CAPTURE_DATA" | "SCREENSHOT_RESULT" | "CDP_RESULT",
+  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT" | "SESSION_CAPTURE_DATA" | "SCREENSHOT_RESULT" | "CDP_RESULT" | "ADOPT_TAB_RESULT",
   payload: object,
   correlationId: string,
 ): void {
@@ -395,6 +395,28 @@ function onMessage(raw: unknown): void {
       })();
       break;
     }
+    case "REQUEST_ADOPT_TAB": {
+      const p = raw.payload as { pattern: string };
+      void (async () => {
+        try {
+          const tabs = await chrome.tabs.query({});
+          const match = tabs.find(
+            (t) => typeof t.url === "string" && t.url.includes(p.pattern) && typeof t.id === "number"
+          );
+          if (!match || typeof match.id !== "number") {
+            replyToBrain("ADOPT_TAB_RESULT", { ok: false, detail: `geen open tab gevonden met '${p.pattern}' in de URL` }, raw.id);
+            return;
+          }
+          stickyTabId = match.id;
+          runTabId = match.id;
+          await chrome.tabs.update(match.id, { active: true });
+          replyToBrain("ADOPT_TAB_RESULT", { ok: true, tabId: match.id, url: match.url }, raw.id);
+        } catch (e) {
+          replyToBrain("ADOPT_TAB_RESULT", { ok: false, detail: (e as Error).message }, raw.id);
+        }
+      })();
+      break;
+    }
     case "INJECT_LOCALSTORAGE": {
       const p = raw.payload as { items: Record<string, string> };
       const tabId = runTabId ?? lastWebTabId;
@@ -436,8 +458,53 @@ function onMessage(raw: unknown): void {
         block?: boolean;
         cookies?: Array<{ name: string; value: string; domain?: string; path?: string }>;
         cookieUrl?: string;
+        keepUrlContains?: string;
       };
       void (async () => {
+        // Deze twee commando's werken op de hele browser/extensie, niet op één specifieke tab —
+        // apart afgehandeld VOORDAT de tab-vereiste guard hieronder draait, zodat die guard voor
+        // alle overige (wél tab-specifieke) commando's exact zo simpel blijft als hij was.
+        if (p.command === "close_other_tabs") {
+          if (!p.keepUrlContains) {
+            replyToBrain("CDP_RESULT", { ok: false, command: "close_other_tabs", detail: "keepUrlContains ontbreekt" }, raw.id);
+            return;
+          }
+          const keep = p.keepUrlContains;
+          try {
+            const allTabs = await chrome.tabs.query({});
+            const toClose = allTabs.filter((t) => !(t.url ?? t.pendingUrl ?? "").includes(keep));
+            let closed = 0;
+            for (const t of toClose) {
+              if (t.id == null) continue;
+              try {
+                await chrome.tabs.remove(t.id);
+                closed++;
+              } catch {
+                // tab kan intussen al door de gebruiker zelf gesloten zijn — negeren, geen halt
+              }
+            }
+            replyToBrain("CDP_RESULT", {
+              ok: true,
+              command: "close_other_tabs",
+              closed,
+              kept: allTabs.length - toClose.length,
+              totalBefore: allTabs.length,
+            }, raw.id);
+          } catch (e) {
+            replyToBrain("CDP_RESULT", { ok: false, command: "close_other_tabs", detail: (e as Error).message }, raw.id);
+          }
+          return;
+        }
+        if (p.command === "reload_extension") {
+          // Antwoord EERST, want chrome.runtime.reload() breekt deze native-port-verbinding
+          // meteen af (de extensie herstart zichzelf) — na dit punt komt er geen antwoord meer
+          // door. Chrome herstelt de native-messaging-verbinding vanzelf zodra de herladen
+          // extensie weer een verbinding opent.
+          replyToBrain("CDP_RESULT", { ok: true, command: "reload_extension", detail: "extensie herlaadt nu" }, raw.id);
+          setTimeout(() => chrome.runtime.reload(), 150);
+          return;
+        }
+
         // Bepaal de doeltab: expliciet opgegeven, anders run-tab of laatste web-tab.
         const tabId = p.tabId ?? runTabId ?? lastWebTabId;
         if (tabId == null) {
@@ -518,6 +585,11 @@ function onMessage(raw: unknown): void {
               }, raw.id);
               break;
             }
+            case "peek_network_requests": {
+              const entries = peekNetworkRequests(p.urlFilter);
+              replyToBrain("CDP_RESULT", { ok: true, command: "peek_network_requests", requests: entries }, raw.id);
+              break;
+            }
             case "get_cookies": {
               const cookies = await getCookies(tabId);
               replyToBrain("CDP_RESULT", { ok: true, command: "get_cookies", cookies }, raw.id);
@@ -568,9 +640,21 @@ async function handleCaptureForClaude(): Promise<void> {
   }
   toSidepanel({ type: "YAD_CLAUDE_BRIDGE_CAPTURING" });
   try {
-    const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
-    tabs.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
-    const tab = tabs[0];
+    // Prefer de YAD-werktab (stickyTabId) boven de meest-recent-bezochte tab.
+    // Zo pakt capture altijd de tab waar YAD het doel uitvoerde, ook als de gebruiker
+    // ondertussen een andere tab actief heeft (bv. DuckDNS tijdens x402scan-registratie).
+    let tab: chrome.tabs.Tab | undefined;
+    if (stickyTabId != null) {
+      try {
+        const known = await chrome.tabs.get(stickyTabId);
+        if (known.url && /^https?:\/\//i.test(known.url)) tab = known;
+      } catch { /* tab gesloten — val terug op query */ }
+    }
+    if (!tab) {
+      const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
+      tabs.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
+      tab = tabs[0];
+    }
     if (!tab || typeof tab.id !== "number") {
       toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ok: false, detail: "Geen actieve web-tab gevonden." });
       return;
