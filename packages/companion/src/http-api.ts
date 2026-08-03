@@ -29,8 +29,12 @@
  *
  * Beveiliging (Exposure-check):
  *   - Bindt ALLEEN aan 127.0.0.1 — niet bereikbaar van buiten de machine
- *   - Lokaal verkeer (remoteAddress 127.0.0.1/::1): ongewijzigd, geen auth nodig
- *     (alleen lokale processen zoals Claude Code kunnen dit bereiken)
+ *   - Host-header-check tegen DNS-rebinding: een TCP-verbinding kan lokaal lijken
+ *     (remoteAddress 127.0.0.1) terwijl een kwaadwillige webpagina in de browser
+ *     van de gebruiker het verzoek op afstand initieerde. Alleen Host: localhost:3747
+ *     of 127.0.0.1:3747 wordt geaccepteerd als "echt lokaal" (2026-07-28 gefixt).
+ *   - Lokaal verkeer (remoteAddress 127.0.0.1/::1 MET geldige Host-header): ongewijzigd,
+ *     geen auth nodig (alleen lokale processen zoals Claude Code kunnen dit bereiken)
  *   - Niet-lokaal verkeer: standaard geweigerd (403), tenzij YAD_EXTERNAL_MODE=1
  *     bewust gezet is. Dan gelden: API-key via YAD_API_KEYS (header X-API-Key),
  *     endpoint-allowlist (alleen /status + /goal — geen cdp/*, fs/*, save-session),
@@ -140,10 +144,28 @@ function json(res: ServerResponse, status: number, data: unknown): void {
   res.end(JSON.stringify(data));
 }
 
+/**
+ * Blokkeert DNS-rebinding: een kwaadwillige pagina in de browser van de gebruiker
+ * kan een domeinnaam laten "rebinden" naar 127.0.0.1, waardoor req.socket.remoteAddress
+ * gewoon lokaal lijkt terwijl het verzoek in werkelijkheid door vreemde JS op afstand
+ * is gestart. De browser stuurt in dat geval nog steeds de Host-header van de
+ * oorspronkelijke (niet-lokale) hostnaam mee — dat is wat we hier controleren.
+ */
+function hasValidHostHeader(req: IncomingMessage): boolean {
+  const host = req.headers.host ?? "";
+  return host === `localhost:${PORT}` || host === `127.0.0.1:${PORT}`;
+}
+
 export function startHttpApi(session: BrainSession, log: (m: string) => void, externalRouter?: LlmRouter): void {
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const addr = req.socket.remoteAddress;
     const isLocalhost = addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+    if (isLocalhost && !hasValidHostHeader(req)) {
+      // DNS-rebinding-poging: TCP-verbinding lijkt lokaal, maar Host-header verraadt
+      // een externe oorsprong. Behandel als niet-lokaal (dezelfde 403-gate hieronder).
+      json(res, 403, { ok: false, detail: "Ongeldige Host-header — verzoek geweigerd" });
+      return;
+    }
     if (!isLocalhost) {
       // Niet-lokaal verkeer: standaard exact hetzelfde 403-gedrag als voorheen,
       // tenzij YAD_EXTERNAL_MODE bewust aan staat (zie external-gate.ts).
@@ -787,6 +809,50 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       return;
     }
 
+    // ── /close-tabs : sluit alle tabbladen behalve die matchen op keepUrlContains ──
+    // Body: { "keepUrlContains": "web4.ping64.net/roundcube" }
+    if (url === "/close-tabs" && method === "POST") {
+      if (!session.isConnected()) { json(res, 503, { ok: false, detail: "Chrome niet verbonden" }); return; }
+      try {
+        const body = await readBody(req);
+        const parsed = JSON.parse(body) as { keepUrlContains?: string };
+        if (typeof parsed.keepUrlContains !== "string" || !parsed.keepUrlContains.trim()) {
+          json(res, 400, { ok: false, detail: "keepUrlContains is verplicht" });
+          return;
+        }
+        const result = await session.cdp({ command: "close_other_tabs", keepUrlContains: parsed.keepUrlContains }, 10_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) { json(res, 500, { ok: false, detail: (e as Error).message }); }
+      return;
+    }
+
+    // ── /reload-extension : herlaad de YAD-extensie zelf na een codewijziging ──
+    // Geen body nodig. Gebruik dit na een nieuwe `wxt build` i.p.v. handmatig chrome://extensions
+    // te openen (dat is sowieso geblokkeerd voor geautomatiseerde navigatie).
+    if (url === "/reload-extension" && method === "POST") {
+      if (!session.isConnected()) { json(res, 503, { ok: false, detail: "Chrome niet verbonden" }); return; }
+      try {
+        const result = await session.cdp({ command: "reload_extension" }, 10_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) { json(res, 500, { ok: false, detail: (e as Error).message }); }
+      return;
+    }
+
+    // ── /cdp/network/requests : lees gevangen requests zonder capture te stoppen ──
+    // Gebruik na /cdp/capture/start + browser-interactie om tokens/params te extraheren.
+    // Query: ?filter=game/json (optioneel URL-substring)
+    // Voorbeeld: GET /cdp/network/requests?filter=game%2Fjson
+    if (url.startsWith("/cdp/network/requests") && method === "GET") {
+      if (!session.isConnected()) { json(res, 503, { ok: false, detail: "Chrome niet verbonden" }); return; }
+      try {
+        const qs = new URL("http://localhost" + url).searchParams;
+        const filter = qs.get("filter") ?? undefined;
+        const result = await session.cdp({ command: "peek_network_requests", urlFilter: filter }, 10_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) { json(res, 500, { ok: false, detail: (e as Error).message }); }
+      return;
+    }
+
     if (url === "/cdp/cookies/set" && method === "POST") {
       if (!session.isConnected()) { json(res, 503, { ok: false, detail: "Chrome niet verbonden" }); return; }
       try {
@@ -966,7 +1032,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
       "POST /cdp/idor-compare", "POST /cdp/intercept/start", "POST /cdp/intercept/stop",
       "POST /cdp/intercept/continue", "GET /cdp/cookies", "POST /cdp/cookies/set",
-      "POST /cdp/fill-spa",
+      "POST /cdp/fill-spa", "POST /close-tabs", "POST /reload-extension",
       "POST /fs/list-files", "POST /fs/search-files", "POST /fs/read-file",
     ] });
   });
