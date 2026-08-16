@@ -103,6 +103,13 @@ export class BrainSession implements HandBridge {
   /** Wacht op herstelplan van Claude Code via POST /assist. */
   private pendingRecovery: ((plan: string | null) => void) | null = null;
   private recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * De laatste hint die van het gedeelde herstelbrein kwam. Alleen host en storingssoort,
+   * want meer hoeft de server nooit te weten. Rondt de run daarna succesvol af, dan
+   * koppelen we dat terug zodat die hint voorrang krijgt bij de volgende gebruiker.
+   * Zonder die terugkoppeling blijft het geheugen een verzameling ongetoetste gokjes.
+   */
+  private laatsteBreinHint: { host: string; why: string } | null = null;
   // router is niet readonly: UPDATE_CONFIG kan de pool vervangen
   private router: LlmRouter;
   private readonly cacheStore = new CacheStore();
@@ -156,6 +163,49 @@ export class BrainSession implements HandBridge {
       }
     } catch (e) {
       this.log(`[assist] LLM-herstelplan mislukt: ${(e as Error).message} — val terug op bestand`);
+    }
+
+    // Stap 1.5: vraag het gedeelde herstelbrein op de server.
+    //
+    // WAAROM DIT ERTUSSEN ZIT: stap 2 hieronder schrijft een bestand en WACHT OP EEN MENS.
+    // Bij een klant zit daar niemand, dus daar stopt de taak gewoon. Het brein op de
+    // server heeft dat probleem niet, en het kan iets wat een lokaal model niet kan:
+    // onthouden wat er eerder op déze site werkte. Loopt de ene gebruiker vast op een
+    // leveranciersportaal, dan heeft de volgende het antwoord al voordat hij het probleem
+    // tegenkomt.
+    //
+    // PRIVACY: er gaat alleen de HOSTNAAM heen, plus het soort storing en het soort actie.
+    // Geen volledige URL met parameters, geen doeltekst van de gebruiker, geen
+    // pagina-inhoud, geen veldwaarden. Onze hele belofte is dat de data van de gebruiker
+    // zijn machine niet verlaat; wat hier niet weggaat kan ook nooit lekken.
+    //
+    // Uitschakelbaar met YAD_HERSTELBREIN=uit voor wie helemaal niets naar buiten wil.
+    if (process.env["YAD_HERSTELBREIN"] !== "uit") {
+      try {
+        const basis = process.env["YAD_HERSTELBREIN_URL"] ?? "https://wazir-x402.duckdns.org";
+        let host = "";
+        try { host = new URL(reason.url).host; } catch { /* geen bruikbare URL */ }
+        if (host) {
+          const r = await fetch(`${basis}/api/yad-assist`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ host, why: reason.why, actionKind: reason.lastAction?.kind ?? "" }),
+            // Kort: dit mag de run nooit ophouden. Antwoordt de server niet, dan gaan we
+            // gewoon door naar de bestaande route.
+            signal: AbortSignal.timeout(8000),
+          });
+          if (r.ok) {
+            const d = (await r.json()) as { hint?: string; bron?: string; bewezen?: number };
+            if (d.hint) {
+              this.log(`[assist] herstelbrein (${d.bron}, ${d.bewezen ?? 0}x bewezen) voor ${host}/${reason.why}`);
+              this.laatsteBreinHint = { host, why: reason.why };
+              return d.hint;
+            }
+          }
+        }
+      } catch (e) {
+        this.log(`[assist] herstelbrein onbereikbaar: ${(e as Error).message.slice(0, 60)} — ga door`);
+      }
     }
 
     // Stap 2: fallback — schrijf stuck-envelope en wacht op extern plan (Claude Code via /assist)
@@ -506,7 +556,21 @@ export class BrainSession implements HandBridge {
         for (const r of loop.provenRecoveries) {
           this.recoveryStore.record(r.sitePattern, r.failureCategory, r.hint, r.failureClass);
         }
+        // Kwam de redding van het gedeelde brein, meld dan dat hij werkte. Dit is de hele
+        // reden dat het brein beter wordt in plaats van alleen groter: alleen bewezen
+        // hints krijgen voorrang bij de volgende gebruiker.
+        const b = this.laatsteBreinHint;
+        if (b && process.env["YAD_HERSTELBREIN"] !== "uit") {
+          const basis = process.env["YAD_HERSTELBREIN_URL"] ?? "https://wazir-x402.duckdns.org";
+          void fetch(`${basis}/api/yad-assist/gelukt`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(b),
+            signal: AbortSignal.timeout(6000),
+          }).catch(() => { /* terugkoppelen is nooit belangrijker dan de run zelf */ });
+        }
       }
+      this.laatsteBreinHint = null;
       outcome = {
         id: runId,
         goal,
