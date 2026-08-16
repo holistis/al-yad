@@ -268,6 +268,32 @@ export class PlaywrightHand implements HandBridge {
           // er gewacht is terwijl dat niet gebeurde.
           return { ok: false, detail: "wait-for hoort door de agent-lus te worden afgehandeld, niet door de Hand" };
         }
+        // De volgende vier worden hier ECHT uitgevoerd en niet nagebootst met losse
+        // gebeurtenissen: Playwright stuurt ze op driver-niveau, wat betrouwbaarder is
+        // dan wat een content-script in de pagina kan doen.
+        case "drag": {
+          const van = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const naar = page.locator(`[data-yad-ref="${action.toRef}"]`).first();
+          await van.dragTo(naar);
+          return { ok: true };
+        }
+        case "right-click": {
+          await page.locator(`[data-yad-ref="${action.ref}"]`).first().click({ button: "right" });
+          return { ok: true };
+        }
+        case "history": {
+          if (action.direction === "back") await page.goBack();
+          else await page.goForward();
+          return { ok: true };
+        }
+        case "copy": {
+          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const waarde = (await el.inputValue().catch(() => null)) ?? (await el.textContent()) ?? "";
+          if (!waarde) return { ok: false, detail: "element heeft geen tekst of waarde om te kopiëren" };
+          // Het klembord is in een headless context vaak niet beschikbaar. De tekst gaat
+          // hoe dan ook mee terug, zodat een paste-actie erna kan werken.
+          return { ok: true, extracted: waarde.slice(0, 2000) };
+        }
         case "finish": {
           return { ok: true };
         }

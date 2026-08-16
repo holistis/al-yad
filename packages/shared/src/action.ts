@@ -30,6 +30,14 @@ export type Action =
    * (agent/predicate.ts) en shared mag daar niet van afhangen.
    */
   | { kind: "wait-for"; predicate: unknown; timeoutMs?: number; reason?: string }
+  /** Slepen van het ene element naar het andere: lijsten sorteren, bestanden in een dropzone. */
+  | { kind: "drag"; ref: string; toRef: string }
+  /** Rechtermuisknop: contextmenu's van de pagina zelf (het menu van Chrome blijft buiten bereik). */
+  | { kind: "right-click"; ref: string }
+  /** Terug of vooruit in de geschiedenis, zoals de pijltjes in de browser. */
+  | { kind: "history"; direction: "back" | "forward" }
+  /** Tekst van een element naar het klembord, zodat een plak-actie erna werkt. */
+  | { kind: "copy"; ref: string }
   | { kind: "finish"; summary: string };
 
 export type ActionKind = Action["kind"];
@@ -49,6 +57,10 @@ export const ACTION_KINDS: readonly ActionKind[] = [
   "scroll",
   "wait",
   "wait-for",
+  "drag",
+  "right-click",
+  "history",
+  "copy",
   "finish",
 ];
 

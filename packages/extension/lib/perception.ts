@@ -22,6 +22,16 @@ const INTERACTIVE_SELECTOR = [
   "[contenteditable=true]",
   "[onclick]",
   "summary",
+  // Een sleepbaar element IS interactief, ook al is het een kale div. Zonder deze regel
+  // zag de agent sleephandvatten en herordenbare lijstitems helemaal niet, en kon hij de
+  // drag-actie dus nergens op richten. Kwam boven bij het live testen van die actie:
+  // de handeling werkte, maar er was geen enkel element om hem op uit te voeren.
+  "[draggable=true]",
+  // Alles met een tabindex is met het toetsenbord bereikbaar en dus per definitie
+  // bedoeld om mee te werken. Dit vangt dropzones, custom widgets en kaarten die geen
+  // standaardrol dragen. `-1` blijft buiten beeld: dat betekent juist "wel focusbaar
+  // via script, niet in de tab-volgorde", en die zijn zelden een doel op zich.
+  '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
 

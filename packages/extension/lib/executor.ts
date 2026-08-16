@@ -252,6 +252,84 @@ export async function executeAction(
       // laatste zou een aanroeper laten denken dat er gewacht is terwijl dat niet zo is.
       return { ok: false, detail: "wait-for hoort door de agent-lus te worden afgehandeld" };
 
+    case "drag": {
+      // Slepen komt voor bij lijsten sorteren, sliders en dropzones. De HTML5-drag-API
+      // is niet met losse muisgebeurtenissen na te bootsen: je hebt een DataTransfer
+      // nodig, en die moet dezelfde zijn over de hele reeks, anders komt er aan de
+      // andere kant niets aan.
+      const van = refMap.get(action.ref) as HTMLElement | undefined;
+      const naar = refMap.get(action.toRef) as HTMLElement | undefined;
+      if (!van) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
+      if (!naar) return { ok: false, detail: `toRef ${action.toRef} niet gevonden` };
+      van.scrollIntoView({ block: "center" });
+      await sleep(80);
+      const dt = new DataTransfer();
+      const r1 = van.getBoundingClientRect();
+      const r2 = naar.getBoundingClientRect();
+      const p1 = { clientX: r1.left + r1.width / 2, clientY: r1.top + r1.height / 2 };
+      const p2 = { clientX: r2.left + r2.width / 2, clientY: r2.top + r2.height / 2 };
+      const drag = (t: EventTarget, type: string, p: { clientX: number; clientY: number }): void => {
+        t.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt, ...p }));
+      };
+      drag(van, "dragstart", p1);
+      // Ook een dragover op de bron: sommige bibliotheken beginnen pas te volgen na de
+      // eerste beweging, en springen anders het hele gebaar over.
+      drag(van, "drag", p1);
+      drag(naar, "dragenter", p2);
+      await sleep(40);
+      drag(naar, "dragover", p2);
+      await sleep(40);
+      drag(naar, "drop", p2);
+      drag(van, "dragend", p2);
+      return { ok: true };
+    }
+
+    case "right-click": {
+      const el = refMap.get(action.ref) as HTMLElement | undefined;
+      if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
+      el.scrollIntoView({ block: "center" });
+      await sleep(80);
+      const r = el.getBoundingClientRect();
+      const p = { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, bubbles: true, cancelable: true };
+      // button 2 = rechts. De volgorde mousedown, contextmenu, mouseup komt overeen met
+      // wat een echte muis stuurt; sites die alleen op contextmenu luisteren werken ook.
+      el.dispatchEvent(new MouseEvent("mousedown", { ...p, button: 2, buttons: 2 }));
+      el.dispatchEvent(new MouseEvent("contextmenu", { ...p, button: 2, buttons: 2 }));
+      el.dispatchEvent(new MouseEvent("mouseup", { ...p, button: 2, buttons: 0 }));
+      // LET OP: dit opent het menu van de PAGINA. Chrome's eigen contextmenu is voor
+      // een extensie onbereikbaar, dus "opslaan als" via het browsermenu kan hiermee niet.
+      return { ok: true, detail: "contextmenu-gebeurtenis verstuurd (pagina-menu, niet het Chrome-menu)" };
+    }
+
+    case "history": {
+      // Zelfde als de pijltjes in de browser. Bewust geen navigate met een oude URL:
+      // dat verliest de geschiedenis en op een SPA ook de toestand.
+      if (action.direction === "back") history.back();
+      else history.forward();
+      await sleep(300);
+      return { ok: true };
+    }
+
+    case "copy": {
+      const el = refMap.get(action.ref) as HTMLElement | undefined;
+      if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
+      const waarde = (el as HTMLInputElement).value ?? el.textContent ?? "";
+      if (!waarde) return { ok: false, detail: "element heeft geen tekst of waarde om te kopiëren" };
+      try {
+        await navigator.clipboard.writeText(waarde);
+        return { ok: true, extracted: waarde.slice(0, 2000) };
+      } catch (e) {
+        // Het klembord vereist een focus- of permissiecontext die er niet altijd is.
+        // De tekst gaat dan alsnog mee terug in `extracted`, zodat de agent hem kan
+        // gebruiken in een paste-actie. Half lukken is hier beter dan helemaal falen.
+        return {
+          ok: true,
+          extracted: waarde.slice(0, 2000),
+          detail: `klembord geweigerd (${(e as Error).message.slice(0, 60)}) — tekst zit wel in het resultaat`,
+        };
+      }
+    }
+
     case "extract": {
       if (action.ref) {
         const el = refMap.get(action.ref);

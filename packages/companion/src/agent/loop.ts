@@ -231,6 +231,14 @@ function describe(action: Action): string {
       const wat = p?.value ?? p?.role ?? p?.type ?? "voorwaarde";
       return `Wacht tot: ${action.reason ?? wat}`;
     }
+    case "drag":
+      return `Sleep ${action.ref} naar ${action.toRef}`;
+    case "right-click":
+      return `Rechtermuisklik op ${action.ref}`;
+    case "history":
+      return action.direction === "back" ? "Ga terug" : "Ga vooruit";
+    case "copy":
+      return `Kopieer tekst van ${action.ref}`;
     case "finish":
       return action.summary;
   }
