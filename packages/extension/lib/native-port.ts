@@ -39,6 +39,62 @@ let runInProgress = false;
 const confirmPending = new Set<string>();
 const confirmTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+/**
+ * Downloads bijhouden.
+ *
+ * Zonder dit kon YAD wél op een downloadlink klikken, maar daarna niet weten of er iets
+ * binnenkwam, hoe het heette of waar het stond. "Haal het rapport op en mail het" is een
+ * standaardklus en die was dus onmogelijk.
+ *
+ * We houden alleen de afgeronde downloads bij, met naam, pad, grootte en de bron-URL.
+ * De companion draait op dezelfde machine en kan het bestand daarna gewoon van schijf
+ * lezen met zijn bestaande /fs/read-file; het bestand hoeft dus niet door deze pijp.
+ *
+ * De lijst is bewust klein (laatste 20) en wordt in het geheugen gehouden: een
+ * service worker mag afsluiten, en dan is een gemiste download minder erg dan een
+ * bestand dat eindeloos in opslag blijft staan.
+ */
+export interface KlaarDownload {
+  id: number;
+  filename: string;
+  url: string;
+  bytes: number;
+  mime: string;
+  klaarOp: number;
+}
+const klaarDownloads: KlaarDownload[] = [];
+let downloadListenerAan = false;
+
+function volgDownloads(): void {
+  if (downloadListenerAan) return;
+  if (!chrome.downloads?.onChanged) return; // permissie ontbreekt of oude Chrome
+  downloadListenerAan = true;
+  chrome.downloads.onChanged.addListener((delta) => {
+    // Alleen reageren op de overgang naar "complete". onChanged vuurt ook voor
+    // voortgang en dan is `filename` er nog niet, of wijst hij naar het .crdownload-
+    // tijdelijke bestand dat straks niet meer bestaat.
+    if (delta.state?.current !== "complete") return;
+    chrome.downloads.search({ id: delta.id }, (items) => {
+      const it = items?.[0];
+      if (!it) return;
+      klaarDownloads.push({
+        id: it.id,
+        filename: it.filename ?? "",
+        url: it.finalUrl ?? it.url ?? "",
+        bytes: it.fileSize ?? it.totalBytes ?? 0,
+        mime: it.mime ?? "",
+        klaarOp: Date.now(),
+      });
+      while (klaarDownloads.length > 20) klaarDownloads.shift();
+    });
+  });
+}
+
+export function getKlaarDownloads(sinds?: number): KlaarDownload[] {
+  volgDownloads(); // luie start: ook als er nog nooit een download was
+  return sinds ? klaarDownloads.filter((d) => d.klaarOp > sinds) : [...klaarDownloads];
+}
+
 function setStatus(next: ConnStatus, nextDetail?: unknown): void {
   status = next;
   detail = nextDetail;
@@ -249,6 +305,10 @@ async function resolveRunTab(): Promise<number | null> {
 
 function connect(): void {
   setStatus("verbinden");
+  // Downloads gaan meteen volgen, niet pas bij de eerste uitvraag. Een download die
+  // begint voordat iemand ernaar vraagt zou anders gemist worden, en juist die volgorde
+  // is normaal: de agent klikt eerst en vraagt daarna of er iets binnenkwam.
+  volgDownloads();
   try {
     port = chrome.runtime.connectNative(HOST);
   } catch {
@@ -459,6 +519,8 @@ function onMessage(raw: unknown): void {
         cookies?: Array<{ name: string; value: string; domain?: string; path?: string }>;
         cookieUrl?: string;
         keepUrlContains?: string;
+        /** Alleen downloads van ná dit tijdstip (ms), voor list_downloads. */
+        sinds?: number;
       };
       void (async () => {
         // Deze twee commando's werken op de hele browser/extensie, niet op één specifieke tab —
@@ -502,6 +564,16 @@ function onMessage(raw: unknown): void {
           // extensie weer een verbinding opent.
           replyToBrain("CDP_RESULT", { ok: true, command: "reload_extension", detail: "extensie herlaadt nu" }, raw.id);
           setTimeout(() => chrome.runtime.reload(), 150);
+          return;
+        }
+
+        // Downloads zijn browserbreed en hebben geen tab nodig. Dit vóór de tab-eis
+        // afhandelen, want anders krijg je "geen actieve tab" op een vraag die niets met
+        // een tab te maken heeft. Dat is precies het soort misleidende foutmelding waar
+        // je een half uur naar zit te kijken.
+        if (p.command === "list_downloads") {
+          const sinds = typeof p.sinds === "number" ? p.sinds : undefined;
+          replyToBrain("CDP_RESULT", { ok: true, command: "list_downloads", downloads: getKlaarDownloads(sinds) }, raw.id);
           return;
         }
 

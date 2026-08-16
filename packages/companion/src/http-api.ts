@@ -809,6 +809,26 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       return;
     }
 
+    // ── /downloads : welke bestanden zijn er binnengekomen ───────────────────
+    // Zonder dit kon YAD wél op een downloadlink klikken maar daarna niet weten of er
+    // iets binnenkwam, hoe het heette of waar het stond. "Haal het rapport op en mail
+    // het" was daarmee onmogelijk, terwijl dat een standaardklus is.
+    //
+    // Gebruik: noteer de tijd, klik de link, vraag dan `?sinds=<ms>` op. Zonder dat
+    // filter krijg je ook oude downloads terug en denk je onterecht dat je klik werkte.
+    // Het bestand zelf komt hier NIET doorheen: de companion draait op dezelfde machine
+    // en leest het gewoon van schijf met /fs/read-file. Scheelt een pijp vol bytes.
+    if (url.startsWith("/downloads") && method === "GET") {
+      if (!session.isConnected()) { json(res, 503, { ok: false, detail: "Chrome niet verbonden" }); return; }
+      try {
+        const q = new URL(url, "http://x").searchParams.get("sinds");
+        const sinds = q && Number.isFinite(Number(q)) ? Number(q) : undefined;
+        const result = await session.cdp({ command: "list_downloads", sinds }, 10_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) { json(res, 500, { ok: false, detail: (e as Error).message }); }
+      return;
+    }
+
     // ── /close-tabs : sluit alle tabbladen behalve die matchen op keepUrlContains ──
     // Body: { "keepUrlContains": "web4.ping64.net/roundcube" }
     if (url === "/close-tabs" && method === "POST") {

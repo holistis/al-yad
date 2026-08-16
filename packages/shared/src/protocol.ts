@@ -231,6 +231,7 @@ export interface BrainPayloads {
       | "set_cookies"          // Network.setCookies: set cookies voor een URL (sessie-injectie via CDP)
       | "peek_network_requests" // lees captured Map zonder capture te stoppen (urlFilter = optioneel substring)
       | "close_other_tabs"      // chrome.tabs.remove: sluit alle tabbladen behalve die matchen op keepUrlContains
+      | "list_downloads"        // chrome.downloads: welke bestanden zijn afgerond binnengekomen (naam, pad, grootte)
       | "reload_extension";     // chrome.runtime.reload(): herlaad de extensie zelf na een codewijziging (geen chrome://extensions nodig)
     /** Doeltab; ontbreekt = meest recente web-tab */
     tabId?: number;
@@ -252,6 +253,12 @@ export interface BrainPayloads {
     cookieUrl?: string;
     /** Substring die de tab(s) moet(en) bevatten om NIET gesloten te worden (voor close_other_tabs) */
     keepUrlContains?: string;
+    /**
+     * Alleen downloads teruggeven die ná dit tijdstip (ms) zijn afgerond, voor
+     * list_downloads. Noteer de tijd, klik de link, vraag dan hiermee op. Zonder dit
+     * filter krijg je ook oude downloads terug en denk je onterecht dat je klik werkte.
+     */
+    sinds?: number;
   };
 }
 
