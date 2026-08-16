@@ -41,6 +41,25 @@ export interface PoolEnv {
  * provider (geen account-farming). Tier 0 = gratis-cloud, 1 = betaald-waar-het-telt,
  * 2 = Ollama als bodemloze lokale terugval. Ollama zit er altijd in als bodem.
  */
+/**
+ * Staat de harde lokale stand aan? Los gezet zodat elke plek die iets naar buiten stuurt
+ * dezelfde vraag kan stellen, en de belofte niet op één plek wél en elders niet geldt.
+ */
+export function staatOpAlleenLokaal(env: PoolEnv = process.env as PoolEnv): boolean {
+  const v = String((env as Record<string, string | undefined>)["YAD_LOKAAL"] ?? "").toLowerCase();
+  return v === "1" || v === "aan";
+}
+
+/** Draait dit adres op deze computer zelf? */
+export function isLokaleUrl(url: string): boolean {
+  try {
+    const h = new URL(url).hostname.toLowerCase();
+    return h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "[::1]" || h.endsWith(".localhost");
+  } catch {
+    return false;
+  }
+}
+
 export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] {
   const providers: LlmProvider[] = [];
 
@@ -63,13 +82,26 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
    * Wat er anders wél naar het model gaat, en waarom dit dus uitmaakt: de volledige URL,
    * 1500 tekens paginatekst, de opdracht van de gebruiker, en soms een schermafbeelding.
    */
-  const alleenLokaal = String(env["YAD_LOKAAL"] ?? "").toLowerCase() === "1"
-    || String(env["YAD_LOKAAL"] ?? "").toLowerCase() === "aan";
+  const alleenLokaal = staatOpAlleenLokaal(env);
   if (alleenLokaal) {
+    const basis = env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
+    // Deze stand sloot wél elke cloudprovider uit, maar keek niet naar WAAR Ollama draait.
+    // Op deze machine wees OLLAMA_BASE_URL naar een eigen server in Frankfurt, over gewoon
+    // http. De stand die belooft dat er niets weggaat, stuurde dan dus alsnog de volledige
+    // paginatekst onversleuteld het internet op. Precies de stille breuk waar de tekst
+    // hierboven tegen waarschuwt, alleen een verdieping lager. Daarom nu hard weigeren in
+    // plaats van doorgaan: een kapotte belofte is erger dan een taak die zichtbaar faalt.
+    if (!isLokaleUrl(basis)) {
+      throw new Error(
+        `YAD_LOKAAL staat aan, maar OLLAMA_BASE_URL wijst naar ${basis}. Dat is geen adres op ` +
+          `deze computer, dus de paginatekst zou alsnog naar buiten gaan. Zet OLLAMA_BASE_URL op ` +
+          `http://localhost:11434/v1, of zet YAD_LOKAAL uit als je bewust een eigen server gebruikt.`,
+      );
+    }
     return [
       new OpenAICompatibleProvider({
         name: "ollama",
-        baseUrl: env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+        baseUrl: basis,
         // Standaard bewust een KLEIN model. De benchmark bij buildExternalOllamaPool
         // hieronder is gemeten op een i7-6700 met 32 GB: 7b deed daar 13-27 seconden per
         // stap. Op een gewone laptop met 8 GB past een 7b niet eens naast de browser,

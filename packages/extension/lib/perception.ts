@@ -143,11 +143,31 @@ function nameOf(el: Element): string {
   );
 }
 
+/**
+ * Is dit een veld waarvan de inhoud nooit de pagina mag verlaten?
+ *
+ * De waarneming van elk veld gaat mee in de prompt naar het taalmodel. Zonder deze
+ * controle ging de inhoud van een wachtwoordveld dus gewoon mee naar de cloudprovider —
+ * ook wanneer de browser het veld zelf had ingevuld en de gebruiker er niets van wist.
+ * Het model heeft die waarde nergens voor nodig: dat een wachtwoordveld gevuld is, is de
+ * enige informatie die telt, en die geven we hieronder als "(ingevuld)".
+ *
+ * Naast type=password ook op de autocomplete-hint controleren, want sites bouwen
+ * wachtwoordvelden regelmatig als type=text met een zichtbaar-maken-knop ernaast.
+ */
+function isGeheimVeld(el: Element): boolean {
+  if ((el as HTMLInputElement).type === "password") return true;
+  const hint = el.getAttribute("autocomplete")?.toLowerCase() ?? "";
+  return hint.includes("password") || hint === "one-time-code" || hint === "cc-number" || hint === "cc-csc";
+}
+
 function valueOf(el: Element): string | undefined {
   const tag = el.tagName.toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select") {
     const v = (el as HTMLInputElement).value;
-    return v ? v.slice(0, 120) : undefined;
+    if (!v) return undefined;
+    if (isGeheimVeld(el)) return "(ingevuld)";
+    return v.slice(0, 120);
   }
   if (tag === "a") {
     const href = (el as HTMLAnchorElement).href;
