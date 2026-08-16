@@ -5,6 +5,12 @@ import type { Action } from "@yad/shared";
 // `defineContentScript` wordt door WXT auto-geimporteerd.
 export default defineContentScript({
   matches: ["<all_urls>"],
+  // Ook ín iframes draaien. Zonder dit ziet YAD alleen het hoofdframe, en juist de
+  // dingen die ertoe doen zitten vaak in een vreemd frame: betaalformulieren, ingesloten
+  // logins, chatwidgets. Perception haalt same-origin frames al binnen via
+  // contentDocument, maar cross-origin gooit dan een SecurityError en het frame blijft
+  // onzichtbaar. Een eigen script ín dat frame heeft dat probleem niet.
+  allFrames: true,
   runAt: "document_idle",
   main() {
     // Idempotent: bij inject-op-aanvraag kan dit script tweemaal laden.
