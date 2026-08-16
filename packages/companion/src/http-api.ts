@@ -48,6 +48,7 @@ import { readSteps } from "./history/step-reader.js";
 import { verifySteps } from "./verify/verifier.js";
 import { checkExternalGate } from "./external-gate.js";
 import { checkUpdate } from "./update-check.js";
+import { staatOpAlleenLokaal } from "./engine/pool.js";
 import type { BrainSession } from "./session.js";
 import type { Substate } from "./agent/substate.js";
 import type { LlmRouter } from "./engine/router.js";
@@ -66,6 +67,12 @@ function looksLikeRawDump(text: string): boolean {
 }
 
 async function cleanWithGroq(goal: string, rawParts: string[], fallbackSummary?: string): Promise<string> {
+  // Deze aanroep gaat rechtstreeks naar Groq en niet via buildPool(), en ontsnapte daarmee
+  // aan de harde lokale stand: met YAD_LOKAAL aan gingen de opdracht en 5000 tekens
+  // paginatekst alsnog naar een Amerikaanse partij, met de sleutel van de eigenaar.
+  // Zonder deze controle is "er gaat niets naar buiten" simpelweg onwaar, en dat is
+  // precies de zin waarop we het product verkopen.
+  if (staatOpAlleenLokaal()) return fallbackSummary ?? rawParts.join("\n");
   const apiKey = process.env["GROQ_API_KEY"] ?? "";
   const allParts = [...rawParts];
   if (fallbackSummary && looksLikeRawDump(fallbackSummary)) {

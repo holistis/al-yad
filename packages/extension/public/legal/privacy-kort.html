@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacyverklaring Yad</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; line-height: 1.6; color: #1a1a1a; }
+      h1, h2 { line-height: 1.25; }
+      h2 { margin-top: 2em; }
+      table { border-collapse: collapse; margin: 1em 0; width: 100%; }
+      td, th { border: 1px solid #d1d5db; padding: 6px 10px; text-align: left; vertical-align: top; }
+      .open { background: #fffbeb; border-left: 4px solid #d97706; padding: .6em 1em; margin: 1.5em 0; }
+      footer { margin-top: 3em; color: #555; font-size: .92em; }
+    </style>
+  </head>
+  <body>
+
+<h1>Privacyverklaring Yad</h1>
+
+<p>Yad is een hulpje dat terugkerend werk in je browser voor je uitvoert. Deze pagina legt
+uit wat er met jouw gegevens gebeurt. Hij is kort, want er gebeurt weinig, en we schrijven
+liever op wat er echt is dan een lange tekst over dingen die we niet doen.</p>
+
+<p>Deze verklaring beschrijft de browserextensie en het programma dat daarbij op jouw
+computer draait. Hij gaat niet over de servermodus, waarbij Yad op een server van jezelf
+draait; dan bepaal je zelf wat er met de gegevens gebeurt.</p>
+
+<h2>De korte versie</h2>
+
+<p>Het werk gebeurt op jouw computer. De extensie zelf maakt geen enkele verbinding met
+internet. Wat er wel weggaat, gaat weg via het programma op jouw computer, en dat is precies
+het lijstje hieronder. Meer is er niet.</p>
+
+<h2>Wat er naar buiten gaat, en waarheen</h2>
+
+<table>
+  <tr><th>Waarheen</th><th>Wat precies</th><th>Wanneer</th></tr>
+  <tr>
+    <td><strong>Het taalmodel dat jij kiest</strong><br />
+      Bijvoorbeeld Google, Groq, Cerebras, OpenRouter, Together of Mistral. Of een model dat
+      bij jou op de computer draait, dan gaat er niets weg.</td>
+    <td>Het adres van de pagina waar je bent, de titel, een lijst van maximaal 120 knoppen
+      en velden met hun opschrift, de eerste 1500 tekens tekst van de pagina, jouw opdracht,
+      en de laatste zes handelingen. Loopt Yad vast, dan ook een schermafbeelding van het
+      zichtbare deel van dat tabblad.<br /><br />
+      Wat er niet meegaat: de inhoud van wachtwoordvelden, pincodes, eenmalige codes en
+      creditcardnummers. Die worden vervangen door het woord "ingevuld" voordat er iets
+      verstuurd wordt.</td>
+    <td>Bij elke denkstap, zolang je een model in de cloud gebruikt. Kies je een model op je
+      eigen computer, dan gebeurt dit nooit.</td>
+  </tr>
+  <tr>
+    <td><strong>Ons herstelgeheugen</strong><br />
+      wazir-x402.duckdns.org</td>
+    <td>Drie dingen: de hostnaam van de site (dus "portaal.leverancier.nl", zonder pad en
+      zonder wat erachter staat), het soort storing, en het soort handeling dat misging.
+      Geen pagina-inhoud, geen ingevulde velden, geen volledige webadressen.</td>
+    <td>Alleen als Yad ergens vastloopt. Zo leert hij die site voor iedereen. Uit te zetten
+      met de instelling YAD_HERSTELBREIN=uit.</td>
+  </tr>
+  <tr>
+    <td><strong>Onze versiecontrole</strong><br />
+      wazir-x402.duckdns.org</td>
+    <td>Niets over jou. Er wordt een bestandje opgehaald met het laatste versienummer, en
+      dat wordt op jouw computer vergeleken. Zoals bij elk internetverzoek ziet onze server
+      wel je IP-adres en het tijdstip.</td>
+    <td>Alleen wanneer je zelf op controleren klikt. Uit te zetten met YAD_UPDATE_CHECK=uit.</td>
+  </tr>
+</table>
+
+<p>Dat is de volledige lijst. Er zit geen bezoekersteller in Yad, geen gedragsmeting, geen
+foutrapportage naar ons, en geen enkele partij die meekijkt. Dat is niet alleen een belofte:
+je kunt het nakijken, want de broncode ligt open.</p>
+
+<h2>Als je wilt dat er helemaal niets weggaat</h2>
+
+<p>Zet de instelling YAD_LOKAAL op 1. Dan gebruikt Yad alleen een taalmodel dat bij jou op de
+computer draait, en wordt elke aanbieder in de cloud uitgesloten. Niet achteraan gezet maar
+uitgesloten, want een terugval betekent dat de belofte breekt zodra het lokaal even niet lukt,
+en dan merk je daar niets van. Lukt het lokaal niet, dan stopt de taak met een foutmelding.</p>
+
+<p>Yad weigert in deze stand ook te starten als het lokale model in werkelijkheid op een
+andere computer draait. Dat klinkt streng, maar anders zou "er gaat niets weg" iets zijn dat
+per ongeluk onwaar kan worden.</p>
+
+<p>Eerlijk over de prijs hiervan: lokaal is trager. Reken op ongeveer vijftien seconden per
+denkstap tegenover minder dan een seconde met een model in de cloud. Voor werk dat 's nachts
+of tijdens de lunch loopt merk je dat niet. Zit je erbij te wachten, dan wel.</p>
+
+<h2>Wat er op jouw computer blijft staan</h2>
+
+<p>Deze dingen blijven bij jou en gaan nergens heen:</p>
+
+<ul>
+  <li>Je instellingen, waaronder de sleutels van de taalmodellen die je gebruikt. Die staan
+    in de opslag van de extensie, in gewone tekst. Wie bij je ingelogde Chrome-profiel kan,
+    kan er dus bij.</li>
+  <li>Je opgeslagen taken en de geschiedenis van eerdere opdrachten.</li>
+  <li>Een tijdelijk geheugen van gelukte handelingen per site, zodat hetzelfde werk de
+    volgende keer sneller gaat. Dat wordt na zeven dagen opgeruimd.</li>
+  <li>Een logbestand van de stappen, met de bezochte adressen en de opgehaalde tekst.</li>
+</ul>
+
+<p>Wil je dit weggooien, verwijder dan de map met gegevens van het programma en de extensie
+uit Chrome. Dan is alles weg.</p>
+
+<h2>Waarom we dit mogen</h2>
+
+<p>Voor het uitvoeren van de opdracht die jij geeft is de grondslag de overeenkomst met jou:
+zonder deze verwerking kan Yad het werk niet doen. Voor het herstelgeheugen is de grondslag
+ons gerechtvaardigd belang om het product te laten werken op sites waar het misgaat, en
+daarom is dat ook tot drie gegevens beperkt die niet naar jou herleidbaar zijn. Je kunt het
+uitzetten.</p>
+
+<h2>Je rechten</h2>
+
+<p>Je mag opvragen welke gegevens wij over je hebben, ze laten verbeteren of laten wissen, en
+bezwaar maken. In de praktijk is dat kort: buiten de drie hierboven genoemde stromen hebben
+wij niets van je, en het herstelgeheugen bevat geen gegevens die naar jou te herleiden zijn.
+Je kunt ook altijd een klacht indienen bij de Autoriteit Persoonsgegevens.</p>
+
+<h2>Kinderen</h2>
+
+<p>Yad is bedoeld voor zakelijk gebruik en niet voor kinderen onder de zestien.</p>
+
+<h2>Als er iets misgaat</h2>
+
+<p>Ontdekken wij een datalek, dan melden wij dat binnen 48 uur aan wie het raakt en, waar dat
+verplicht is, aan de Autoriteit Persoonsgegevens. Dat is strenger dan de 72 uur die de wet
+voorschrijft, omdat wij vinden dat je het gewoon snel hoort te weten.</p>
+
+<h2>Wijzigingen</h2>
+
+<p>Verandert er iets aan wat hierboven staat, dan passen wij deze pagina aan en verhogen wij
+het versienummer onderaan. Gaat het om een echte verandering in wat er naar buiten gaat, dan
+melden wij dat ook in het programma zelf, want een stille wijziging op een webpagina is geen
+melding.</p>
+
+<h2>Wie wij zijn</h2>
+
+<p>Holistisch Adviseur, ingeschreven bij de Kamer van Koophandel onder nummer 86816632.</p>
+
+<div class="open">
+  <p><strong>Nog in te vullen voordat deze pagina online gaat.</strong> Deze twee dingen zijn
+  bewust leeg gelaten in plaats van ingevuld met iets aannemelijks:</p>
+  <ul>
+    <li>Het vestigingsadres.</li>
+    <li>Het e-mailadres voor vragen over privacy en voor het melden van beveiligingsproblemen.</li>
+  </ul>
+  <p>Een privacyverklaring met een verzonnen adres of een niet-bestaand e-mailadres is geen
+  concept maar een vervalsing, en kost precies het vertrouwen dat dit document moet geven.</p>
+</div>
+
+<footer>
+  <p>Versie 1.0. Laatst bijgewerkt op 16 augustus 2026.</p>
+  <p>Deze verklaring is opgesteld op basis van een regel-voor-regel inventarisatie van de
+  broncode, niet op basis van wat het product zou moeten doen. Hij is niet door een jurist
+  gecontroleerd. Voor de zakelijke afspraken met klanten, met verwerkersovereenkomst en
+  aansprakelijkheid, ligt er een uitgebreider document klaar dat wel langs een jurist moet.</p>
+</footer>
+
+  </body>
+</html>

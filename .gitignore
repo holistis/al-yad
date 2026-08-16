@@ -23,3 +23,11 @@ data/benchmark-results-*.json
 **/data/run-history.jsonl
 **/data/action-cache.json
 **/data/recovery-store.jsonl
+# externe-toegang audit-log (machine-specifiek, kan gevoelige IP's bevatten)
+**/data/external-audit.jsonl
+# lokale SSH-sleutel voor ollama-tunnel (mag NOOIT de repo in)
+ollama_key
+ollama_key.pub
+
+# Winkelbuild (aparte map zodat hij de werkversie niet overschrijft)
+.output-winkel/

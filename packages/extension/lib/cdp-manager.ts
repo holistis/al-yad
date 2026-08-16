@@ -17,6 +17,31 @@ let captureFilter: string | null = null;
 let captureTabId: number | null = null;
 const attached = new Set<number>();
 
+/**
+ * Is de debugger-permissie aanwezig?
+ *
+ * De winkelversie (Chrome Web Store) wordt gebouwd zonder `debugger`, omdat die permissie
+ * netwerk-onderschepping mogelijk maakt en daarmee zwaar wordt beoordeeld. Alles wat de
+ * klant echt doet — klikken, typen, lezen, navigeren, downloaden — loopt via het
+ * content-script en heeft de debugger niet nodig. Alleen netwerk-inspectie en
+ * request-onderschepping vallen weg.
+ *
+ * Runtime-detectie in plaats van een build-vlag: dan kan er geen versie ontstaan waarin de
+ * code denkt dat hij de permissie heeft terwijl het manifest hem niet vraagt.
+ */
+export function heeftCdp(): boolean {
+  return typeof chrome !== "undefined" && typeof chrome.debugger !== "undefined";
+}
+
+function eisCdp(): void {
+  if (!heeftCdp()) {
+    throw new Error(
+      "Netwerk-inspectie zit niet in deze versie van Yad. Die vraagt de debugger-permissie, " +
+        "en die zit alleen in de volledige versie buiten de Chrome Web Store om.",
+    );
+  }
+}
+
 async function safeDetach(tabId: number): Promise<void> {
   if (!attached.has(tabId)) return;
   attached.delete(tabId);
@@ -29,6 +54,7 @@ async function safeDetach(tabId: number): Promise<void> {
 
 async function ensureAttached(tabId: number): Promise<void> {
   if (attached.has(tabId)) return;
+  eisCdp();
   await chrome.debugger.attach({ tabId }, "1.3");
   attached.add(tabId);
   // Page-domein aanzetten zodat we javascriptDialogOpening binnenkrijgen. Zonder dit
@@ -291,10 +317,56 @@ export function peekNetworkRequests(filter?: string): CdpNetworkEntry[] {
   return all.filter((e) => e.url.includes(filter));
 }
 
+/**
+ * Terugval voor `evaluate` zonder debugger-permissie (de winkelversie).
+ *
+ * chrome.scripting mag ook in de MAIN-wereld draaien, dus een uitdrukking uitvoeren kan
+ * daar ook. Eén echt verschil: Runtime.evaluate van de debugger trekt zich niets aan van
+ * het beveiligingsbeleid van de pagina, `new Function` wel. Op sites met een strenge
+ * Content-Security-Policy faalt deze terugval dus, en dat melden we eerlijk in plaats van
+ * een lege waarde terug te geven die op een gelukte meting lijkt.
+ */
+async function evalueerViaScripting(
+  tabId: number,
+  expression: string,
+): Promise<{ value: string; valueType: string; error?: string }> {
+  try {
+    const [uitslag] = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      args: [expression.slice(0, 4_000)],
+      func: (expr: string) => {
+        try {
+          // eslint-disable-next-line no-new-func
+          const v: unknown = new Function(`return (${expr})`)();
+          // Zelfde vorm en zelfde afkapping als de debugger-versie hierboven, anders
+          // krijgt de aanroeper stilletjes een ander antwoord afhankelijk van de build.
+          return { type: typeof v, value: v === undefined ? "undefined" : JSON.stringify(v).slice(0, 8_000) };
+        } catch (e) {
+          return { type: "error", value: String(e) };
+        }
+      },
+    });
+    const r = uitslag?.result as { type?: string; value?: string } | undefined;
+    if (!r) return { value: "", valueType: "undefined", error: "geen resultaat uit de pagina" };
+    if (r.type === "error") return { value: "", valueType: "error", error: r.value };
+    return { value: r.value ?? "", valueType: r.type ?? "undefined" };
+  } catch (e) {
+    return {
+      value: "",
+      valueType: "error",
+      error:
+        `evaluate lukte niet zonder debugger-permissie (${String(e)}). ` +
+        "Op pagina's met een streng beveiligingsbeleid kan dit alleen met de volledige versie.",
+    };
+  }
+}
+
 export async function evaluateInPage(
   tabId: number,
   expression: string,
 ): Promise<{ value: string; valueType: string; error?: string }> {
+  if (!heeftCdp()) return evalueerViaScripting(tabId, expression);
   await ensureAttached(tabId);
   try {
     const r = (await chrome.debugger.sendCommand(

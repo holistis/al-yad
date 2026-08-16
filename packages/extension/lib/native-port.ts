@@ -66,6 +66,44 @@ const klaarDownloads: KlaarDownload[] = [];
 let downloadListenerAan = false;
 
 /**
+ * De lijst overleeft nu ook een slapende service worker.
+ *
+ * GEMETEN, niet vermoed: over vier benchmarkrondes slaagde "downloaden" twee keer en
+ * faalde het twee keer, in zowel de winkel- als de volledige build. Steeds met dezelfde
+ * melding "niets binnengekomen", terwijl het bestand wél op schijf stond. Dat is geen
+ * toeval maar het patroon van MV3: registreren bij het laden van de module zorgt dat
+ * Chrome de worker wékt voor de gebeurtenis, maar het geheugen van die worker is weg
+ * zodra hij daarna weer afsluit. De vorige reparatie loste de helft van het probleem op.
+ *
+ * chrome.storage.session in plaats van .local: dit hoort bij deze browsersessie, mag na
+ * afsluiten weg, en komt zo niet op schijf te staan. Bestandsnamen van een klant horen
+ * niet langer te blijven liggen dan nodig.
+ */
+const DL_SLEUTEL = "yad_klaar_downloads";
+
+async function bewaarDownloads(lijst: KlaarDownload[]): Promise<void> {
+  try {
+    await chrome.storage.session.set({ [DL_SLEUTEL]: lijst.slice(-20) });
+  } catch {
+    /* storage.session ontbreekt in oudere Chrome: dan blijft alleen het geheugen over */
+  }
+}
+
+async function leesDownloads(): Promise<KlaarDownload[]> {
+  try {
+    const r = await chrome.storage.session.get(DL_SLEUTEL);
+    const bewaard = (r?.[DL_SLEUTEL] as KlaarDownload[] | undefined) ?? [];
+    // Samenvoegen op id: het geheugen kan een record hebben dat nog niet is weggeschreven,
+    // de opslag kan er een hebben van vóór de laatste herstart van de worker.
+    const perId = new Map<number, KlaarDownload>();
+    for (const d of [...bewaard, ...klaarDownloads]) perId.set(d.id, d);
+    return [...perId.values()].sort((a, b) => a.klaarOp - b.klaarOp);
+  } catch {
+    return [...klaarDownloads];
+  }
+}
+
+/**
  * De luisteraar wordt bij het laden van de module geregistreerd, niet pas bij de eerste
  * uitvraag. Dat is geen stijlkwestie maar de manier waarop MV3 werkt: een service worker
  * mag afsluiten, en Chrome wekt hem alleen voor gebeurtenissen waarvan de luisteraar bij
@@ -96,6 +134,9 @@ function volgDownloads(): void {
         klaarOp: Date.now(),
       });
       while (klaarDownloads.length > 20) klaarDownloads.shift();
+      // Meteen wegschrijven. Wachten tot de uitvraag is precies te laat: de worker mag
+      // tussen deze gebeurtenis en die uitvraag afsluiten, en dan is het geheugen leeg.
+      void bewaarDownloads(klaarDownloads);
     });
   });
 }
@@ -104,9 +145,10 @@ function volgDownloads(): void {
 // begint terwijl hij slaapt. Zie de uitleg bij volgDownloads.
 volgDownloads();
 
-export function getKlaarDownloads(sinds?: number): KlaarDownload[] {
+export async function getKlaarDownloads(sinds?: number): Promise<KlaarDownload[]> {
   volgDownloads(); // vangnet: mocht de registratie bij het laden zijn mislukt
-  return sinds ? klaarDownloads.filter((d) => d.klaarOp > sinds) : [...klaarDownloads];
+  const alle = await leesDownloads();
+  return sinds ? alle.filter((d) => d.klaarOp > sinds) : alle;
 }
 
 function setStatus(next: ConnStatus, nextDetail?: unknown): void {
@@ -595,7 +637,8 @@ function onMessage(raw: unknown): void {
         // je een half uur naar zit te kijken.
         if (p.command === "list_downloads") {
           const sinds = typeof p.sinds === "number" ? p.sinds : undefined;
-          replyToBrain("CDP_RESULT", { ok: true, command: "list_downloads", downloads: getKlaarDownloads(sinds) }, raw.id);
+          const lijst = await getKlaarDownloads(sinds);
+          replyToBrain("CDP_RESULT", { ok: true, command: "list_downloads", downloads: lijst }, raw.id);
           return;
         }
 

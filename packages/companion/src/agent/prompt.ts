@@ -277,12 +277,34 @@ function renderSnapshot(s: Snapshot): string {
   ].join("\n");
 }
 
+/**
+ * Haalt getypte geheimen uit de actie-geschiedenis vóór die naar het model gaat.
+ *
+ * De waarneming maskeert wachtwoordvelden al (zie isGeheimVeld in de extensie), maar de
+ * geschiedenis ging daar langs: die logt de actie zelf, en bij `type` staat de getypte
+ * tekst daar letterlijk in. Typte de agent een wachtwoord, dan ging dat alsnog mee.
+ *
+ * Het model heeft de tekst niet nodig om verder te plannen; dát er getypt is en of het
+ * lukte, is genoeg. Daarom vervangen we de inhoud in plaats van de actie weg te laten.
+ */
+const GEHEIM_PATROON = /wachtwoord|password|passwd|pincode|pin\b|otp|2fa|code|cvv|csc|secret|token|api[-_ ]?key/i;
+
+function schoonAf(actie: unknown): unknown {
+  if (!actie || typeof actie !== "object") return actie;
+  const a = actie as Record<string, unknown>;
+  if (typeof a["text"] !== "string" || !a["text"]) return actie;
+  // Verdacht op grond van het veld waarin getypt werd, of van de omschrijving erbij.
+  const context = `${String(a["ref"] ?? "")} ${String(a["reason"] ?? "")} ${String(a["label"] ?? "")}`;
+  if (!GEHEIM_PATROON.test(context)) return actie;
+  return { ...a, text: `(${(a["text"] as string).length} tekens, verborgen)` };
+}
+
 function renderHistory(history: HistoryItem[]): string {
   if (history.length === 0) return "(no actions yet)";
   return history
     .slice(-6)
     .map((h, i) => {
-      const a = JSON.stringify(h.action);
+      const a = JSON.stringify(schoonAf(h.action));
       return `  ${i + 1}. ${a} -> ${h.ok ? "ok" : "FOUT"}${h.detail ? ` (${h.detail})` : ""}`;
     })
     .join("\n");

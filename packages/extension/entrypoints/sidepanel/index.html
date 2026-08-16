@@ -171,6 +171,23 @@
       #start:disabled { background: #d1d5db; cursor: not-allowed; }
       .input-hint { font-size: 11px; color: #d1d5db; margin-top: 3px; padding-left: 3px; }
 
+      /* Paginascan: werkt los van het Brein, zie de toelichting in de opmaak hieronder. */
+      #scan-blok { margin-top: 10px; padding-left: 3px; }
+      #scan-btn {
+        background: none; border: 1px solid #4b5563; color: #d1d5db; border-radius: 6px;
+        padding: 5px 10px; font-size: 11px; cursor: pointer;
+      }
+      #scan-btn:hover { background: #374151; }
+      #scan-btn:disabled { opacity: .55; cursor: default; }
+      #scan-uitslag { margin-top: 8px; font-size: 11px; max-height: 240px; overflow-y: auto; }
+      #scan-uitslag .kop { color: #9ca3af; margin-bottom: 5px; }
+      #scan-uitslag .rij {
+        display: flex; gap: 7px; padding: 3px 0; border-bottom: 1px solid #374151;
+      }
+      #scan-uitslag .rol { color: #6ee7b7; flex: 0 0 62px; }
+      #scan-uitslag .naam { color: #e5e7eb; word-break: break-word; }
+      #scan-uitslag .leeg { color: #9ca3af; font-style: italic; }
+
       /* ---- Overige tabs ---- */
       .section-title {
         font-size: 12px; font-weight: 600; color: #6b7280;
@@ -379,6 +396,19 @@
             </button>
           </div>
           <div class="input-hint" data-i18n="pasteHint">Of plak een afbeelding (Ctrl+V)</div>
+
+          <!--
+            Paginascan. Werkt zonder het lokale Brein, en dat is met opzet.
+            Twee redenen. Voor de gebruiker: je kunt meteen zien of Yad deze site goed
+            leest, vóór je iets installeert. Voor de winkel: een extensie die zonder een
+            ander programma niets doet, wordt afgewezen op "single purpose is launching
+            another app" (handhavingscode Yellow Lithium). Dit is echte functionaliteit,
+            geen alibi: het is de snelste manier om te zien waarom een taak ergens misgaat.
+          -->
+          <div id="scan-blok">
+            <button type="button" id="scan-btn" data-i18n="scanBtn">Bekijk wat Yad op deze pagina ziet</button>
+            <div id="scan-uitslag" class="hidden"></div>
+          </div>
         </div>
       </div>
 

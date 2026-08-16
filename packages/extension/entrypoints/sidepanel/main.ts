@@ -1003,9 +1003,88 @@ function startApp(): void {
   });
 }
 
+// ---- Paginascan: de enige functie die zonder het Brein werkt ----
+
+/**
+ * Laat zien welke knoppen en velden Yad op de huidige pagina herkent.
+ *
+ * Werkt bewust zonder het lokale Brein. Dat heeft twee kanten die allebei echt zijn.
+ *
+ * Voor de gebruiker: dit is het eerste wat je wilt weten voordat je iets installeert, en
+ * het is later het snelste antwoord op "waarom pakt hij die knop niet". Ziet Yad het veld
+ * niet, dan hoef je niet verder te zoeken in je opdracht.
+ *
+ * Voor de winkel: Google verwijdert extensies waarvan het enige doel is een ander
+ * programma te starten. Zonder deze knop is Yad precies dat, want de startknop staat uit
+ * zolang het Brein niet draait. Dit is geen alibi maar de goedkoopste verzekering die er is,
+ * en hij levert de gebruiker ook nog iets op.
+ */
+async function scanPagina(): Promise<void> {
+  const knop = $<HTMLButtonElement>("#scan-btn");
+  const uit = $<HTMLElement>("#scan-uitslag");
+  uit.classList.remove("hidden");
+  knop.disabled = true;
+  uit.textContent = "Bezig met kijken…";
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id || !/^https?:/i.test(tab.url ?? "")) {
+      uit.innerHTML = `<p class="leeg">Dit werkt alleen op een gewone webpagina. Ga eerst naar een site.</p>`;
+      return;
+    }
+
+    let snap: { nodes?: Array<{ ref: string; role?: string; name?: string }> } | undefined;
+    try {
+      snap = await chrome.tabs.sendMessage(tab.id, { type: "YAD_SNAPSHOT" }, { frameId: 0 });
+    } catch {
+      // Het leesscript zit er nog niet in, bijvoorbeeld op een tabblad dat al openstond
+      // toen de extensie werd geïnstalleerd. Alsnog injecteren en het opnieuw vragen.
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content-scripts/content.js"] });
+      snap = await chrome.tabs.sendMessage(tab.id, { type: "YAD_SNAPSHOT" }, { frameId: 0 });
+    }
+
+    const nodes = snap?.nodes ?? [];
+    if (nodes.length === 0) {
+      uit.innerHTML = `<p class="leeg">Geen bedienbare elementen gevonden. Dat gebeurt op pagina's die alles in een afgeschermd kader laden.</p>`;
+      return;
+    }
+
+    const rijen = nodes
+      .slice(0, 60)
+      .map((n) => {
+        const rol = document.createElement("span");
+        rol.className = "rol";
+        rol.textContent = n.role ?? "?";
+        const naam = document.createElement("span");
+        naam.className = "naam";
+        naam.textContent = n.name && n.name.trim() ? n.name : "(zonder opschrift)";
+        const rij = document.createElement("div");
+        rij.className = "rij";
+        rij.append(rol, naam);
+        return rij;
+      });
+
+    const kop = document.createElement("p");
+    kop.className = "kop";
+    kop.textContent =
+      nodes.length > 60
+        ? `${nodes.length} elementen herkend, de eerste 60 staan hieronder.`
+        : `${nodes.length} elementen herkend.`;
+
+    // Met append en textContent in plaats van innerHTML: een pagina mag zelf bepalen wat
+    // er in een knoplabel staat, en dat is niets om ongefilterd in ons paneel te zetten.
+    uit.replaceChildren(kop, ...rijen);
+  } catch (e) {
+    uit.innerHTML = `<p class="leeg">Kon de pagina niet lezen: ${String(e).slice(0, 160)}</p>`;
+  } finally {
+    knop.disabled = false;
+  }
+}
+
 // ---- Init ----
 
 async function init(): Promise<void> {
+  $<HTMLButtonElement>("#scan-btn").addEventListener("click", () => void scanPagina());
   if (await isAccepted()) startApp();
   else showGate();
 }
