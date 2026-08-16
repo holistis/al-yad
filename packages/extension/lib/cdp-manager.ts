@@ -31,6 +31,13 @@ async function ensureAttached(tabId: number): Promise<void> {
   if (attached.has(tabId)) return;
   await chrome.debugger.attach({ tabId }, "1.3");
   attached.add(tabId);
+  // Page-domein aanzetten zodat we javascriptDialogOpening binnenkrijgen. Zonder dit
+  // bevriest de hele tab op een confirm() en blijft /status ten onrechte groen melden.
+  try {
+    await chrome.debugger.sendCommand({ tabId }, "Page.enable", {});
+  } catch {
+    /* Page.enable kan falen op bijzondere tabs; de rest blijft gewoon werken */
+  }
   if (!cdpListenerRegistered) {
     chrome.debugger.onEvent.addListener(onCdpEvent);
     chrome.debugger.onDetach.addListener(({ tabId: tid }) => {
@@ -46,12 +53,53 @@ async function ensureAttached(tabId: number): Promise<void> {
 
 let cdpListenerRegistered = false;
 
+/**
+ * Hoe we omgaan met een dialoogvenster. Standaard veilig: alleen `alert` wordt
+ * geaccepteerd (die heeft geen andere knop), de rest wordt geannuleerd omdat annuleren
+ * de niet-destructieve keuze is. Een "verwijder alles?" automatisch bevestigen is
+ * precies wat je niet wilt. Een taak die bewust moet bevestigen zet de stand om.
+ */
+type DialogPolicy = "safe" | "accept-all" | "dismiss-all";
+let dialogPolicy: DialogPolicy = "safe";
+
+/** De laatste vensters, zodat het brein weet dat ze er waren en wat erin stond. */
+export interface SeenDialog { type: string; message: string; accepted: boolean; at: number }
+const recentDialogs: SeenDialog[] = [];
+
+export function setDialogPolicy(p: DialogPolicy): void {
+  dialogPolicy = p;
+}
+
+export function takeRecentDialogs(): SeenDialog[] {
+  return recentDialogs.splice(0, recentDialogs.length);
+}
+
 function onCdpEvent(
   source: chrome.debugger.Debuggee,
   method: string,
   params: unknown,
 ): void {
   const tabId = source.tabId;
+
+  // Dialoogvensters MOETEN vóór de capture-filter worden afgehandeld. Ze kunnen op elke
+  // aangesloten tab opduiken, ook op een die we niet aan het opnemen zijn, en een
+  // onafgehandeld venster bevriest die tab volledig.
+  if (method === "Page.javascriptDialogOpening" && tabId != null) {
+    const d = params as { type?: string; message?: string };
+    const type = String(d.type ?? "confirm");
+    // `alert` heeft alleen een OK-knop; die kun je niet zinvol annuleren.
+    const accept =
+      dialogPolicy === "accept-all" ? true :
+      dialogPolicy === "dismiss-all" ? false :
+      type === "alert";
+    recentDialogs.push({ type, message: String(d.message ?? ""), accepted: accept, at: Date.now() });
+    if (recentDialogs.length > 20) recentDialogs.shift();
+    void chrome.debugger
+      .sendCommand({ tabId }, "Page.handleJavaScriptDialog", { accept })
+      .catch(() => { /* venster was al weg */ });
+    return;
+  }
+
   if (tabId == null || tabId !== captureTabId) return;
   const p = params as Record<string, unknown>;
 
@@ -210,6 +258,14 @@ export async function stopCapture(): Promise<{
     captureFilter = null;
   }
   return { requests, consoleEntries, webSocketFrames };
+}
+
+// Lees gevangen requests zonder capture te stoppen of de Map te wissen.
+// filter = optionele URL-substring (bv. "game/json" of "api/v1").
+export function peekNetworkRequests(filter?: string): CdpNetworkEntry[] {
+  const all = Array.from(captured.values());
+  if (!filter) return all;
+  return all.filter((e) => e.url.includes(filter));
 }
 
 export async function evaluateInPage(
