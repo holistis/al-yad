@@ -17,6 +17,19 @@ export type Action =
   | { kind: "extract"; what: string; ref?: string }
   | { kind: "scroll"; direction: "down" | "up" | "left" | "right"; amount?: number; ref?: string }
   | { kind: "wait"; ms: number }
+  /**
+   * Wachten TOT iets waar is, in plaats van een vast aantal milliseconden.
+   *
+   * `wait` is gokken: te kort en je mist het, te lang en je verspilt de klant zijn tijd.
+   * Een mens wacht niet drie seconden, hij wacht tot de knop er staat. Dit doet dat: de
+   * lus haalt herhaaldelijk een snapshot op en toetst het predicaat, tot het klopt of de
+   * tijd op is. De predicaat-taal is dezelfde die de agent al gebruikt voor
+   * state-correctness, dus geen nieuw begrip om te leren.
+   *
+   * `predicate` is bewust los getypeerd: het echte type woont in de companion
+   * (agent/predicate.ts) en shared mag daar niet van afhangen.
+   */
+  | { kind: "wait-for"; predicate: unknown; timeoutMs?: number; reason?: string }
   | { kind: "finish"; summary: string };
 
 export type ActionKind = Action["kind"];
@@ -35,6 +48,7 @@ export const ACTION_KINDS: readonly ActionKind[] = [
   "extract",
   "scroll",
   "wait",
+  "wait-for",
   "finish",
 ];
 
