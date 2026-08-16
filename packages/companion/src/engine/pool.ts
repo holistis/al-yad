@@ -44,6 +44,46 @@ export interface PoolEnv {
 export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] {
   const providers: LlmProvider[] = [];
 
+  /**
+   * LOKALE STAND: niets van de pagina verlaat deze machine.
+   *
+   * WAAROM DIT EEN HARDE STAND IS EN GEEN VOORKEUR:
+   * Er bestond al een manier om een provider vooraan te zetten (YAD_PRIMARY_PROVIDER),
+   * en je zou denken dat "ollama eerst" genoeg is. Dat is het niet. De cloudproviders
+   * blijven dan in de pool staan als terugval, en zodra het lokale model traag is of
+   * even niet antwoordt, schuift hij door en gaat de paginatekst alsnog naar buiten.
+   * De gebruiker merkt daar niets van.
+   *
+   * Een privacybelofte die stilletjes kan breken is erger dan geen belofte, want er
+   * wordt wél op vertrouwd. Daarom sluit deze stand alle andere providers UIT in plaats
+   * van ze naar achteren te schuiven: dan is er niets om naar door te schuiven en kan de
+   * belofte niet stil sneuvelen. Lukt het lokaal niet, dan faalt de taak zichtbaar, en
+   * dat is precies wat je wilt weten.
+   *
+   * Wat er anders wél naar het model gaat, en waarom dit dus uitmaakt: de volledige URL,
+   * 1500 tekens paginatekst, de opdracht van de gebruiker, en soms een schermafbeelding.
+   */
+  const alleenLokaal = String(env["YAD_LOKAAL"] ?? "").toLowerCase() === "1"
+    || String(env["YAD_LOKAAL"] ?? "").toLowerCase() === "aan";
+  if (alleenLokaal) {
+    return [
+      new OpenAICompatibleProvider({
+        name: "ollama",
+        baseUrl: env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+        // Standaard bewust een KLEIN model. De benchmark bij buildExternalOllamaPool
+        // hieronder is gemeten op een i7-6700 met 32 GB: 7b deed daar 13-27 seconden per
+        // stap. Op een gewone laptop met 8 GB past een 7b niet eens naast de browser,
+        // dus daar is een 3b het startpunt. Wie meer geheugen heeft zet OLLAMA_MODEL zelf hoger.
+        model: env.OLLAMA_MODEL ?? "qwen2.5:3b",
+        apiKey: env.OLLAMA_API_KEY,
+        tier: 0,
+        // Ruim: lokaal draaien is traag, en een time-out die te krap staat zou de stand
+        // onbruikbaar maken om de verkeerde reden.
+        timeoutMs: 300_000,
+      }),
+    ];
+  }
+
   // Welke provider is door de gebruiker als 'sterkste, altijd eerst' gemarkeerd?
   // Die krijgt tier -1 (vóór de gratis pool). Backward-compat: YAD_PAID_PRIMARY.
   const paidPrimary = (env.YAD_PAID_PRIMARY ?? "").toLowerCase() === "true";
