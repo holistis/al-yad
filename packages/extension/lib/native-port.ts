@@ -828,7 +828,7 @@ async function handleSnapshot(corr: string): Promise<void> {
   }
   try {
     await ensureContentScript(runTabId);
-    const snapshot = (await chrome.tabs.sendMessage(runTabId, { type: "YAD_SNAPSHOT" })) as Snapshot;
+    const snapshot = await snapshotAlleFrames(runTabId);
     // Verrijk de snapshot met een eventuele site-override van de gebruiker.
     const enriched = await augmentSnapshot(snapshot);
     replyToBrain("SNAPSHOT_RESULT", { snapshot: enriched }, corr);
@@ -839,6 +839,68 @@ async function handleSnapshot(corr: string): Promise<void> {
       corr,
     );
   }
+}
+
+/**
+ * Scheidingsteken tussen frame-id en element-ref: `f3:e7` is element e7 in frame 3.
+ *
+ * Het hoofdframe houdt bewust zijn kale refs (`e7`). Zo verandert er niets aan het
+ * gedrag op de overgrote meerderheid van pagina's, die helemaal geen frames hebben, en
+ * blijven bestaande caches en logregels leesbaar.
+ */
+const FRAME_SCHEIDING = ":";
+
+/** Splitst `f3:e7` in frame 3 en ref e7. Zonder voorvoegsel: hoofdframe. */
+function ontleedRef(ref: string): { frameId: number; ref: string } {
+  const m = /^f(\d+):(.+)$/.exec(ref);
+  return m ? { frameId: Number(m[1]), ref: m[2]! } : { frameId: 0, ref };
+}
+
+/**
+ * Haalt een snapshot op uit ALLE frames van de tab en voegt ze samen.
+ *
+ * WAAROM: het content-script draaide alleen in het hoofdframe, en perception haalt
+ * same-origin iframes binnen via contentDocument. Bij een cross-origin frame gooit dat
+ * een SecurityError en blijft de inhoud onzichtbaar. Juist daar zitten de dingen die er
+ * toe doen: betaalformulieren, ingesloten logins, chatwidgets. Met `allFrames: true`
+ * draait ons script ín dat frame en heeft het dat probleem niet.
+ *
+ * Frames die niet antwoorden worden stil overgeslagen. Dat is bewust: een advertentie-
+ * frame zonder ons script mag nooit de hele waarneming laten mislukken.
+ */
+async function snapshotAlleFrames(tabId: number): Promise<Snapshot> {
+  const hoofd = (await chrome.tabs.sendMessage(tabId, { type: "YAD_SNAPSHOT" }, { frameId: 0 })) as Snapshot;
+
+  let frames: chrome.webNavigation.GetAllFrameResultDetails[] | undefined;
+  try {
+    frames = (await chrome.webNavigation.getAllFrames({ tabId })) ?? undefined;
+  } catch {
+    return hoofd; // geen frame-informatie: hoofdframe is dan alles wat we hebben
+  }
+  const subs = (frames ?? []).filter((f) => f.frameId !== 0 && /^https?:/.test(f.url));
+  if (subs.length === 0) return hoofd;
+
+  // Plafond op 8 frames: pagina's met tientallen advertentie-frames zouden anders elke
+  // waarneming traag maken, terwijl die frames zelden het doel van de taak zijn.
+  const nodes = [...hoofd.nodes];
+  const stukjes: string[] = [];
+  for (const f of subs.slice(0, 8)) {
+    try {
+      const s = (await chrome.tabs.sendMessage(tabId, { type: "YAD_SNAPSHOT" }, { frameId: f.frameId })) as Snapshot;
+      if (!s?.nodes?.length) continue;
+      for (const n of s.nodes) nodes.push({ ...n, ref: `f${f.frameId}${FRAME_SCHEIDING}${n.ref}` });
+      if (s.textDigest) stukjes.push(s.textDigest);
+    } catch {
+      /* frame zonder ons script of al weg — overslaan, nooit de hele snapshot laten vallen */
+    }
+  }
+
+  return {
+    ...hoofd,
+    nodes,
+    // De tekst van de frames erachter plakken zodat het brein weet wat erin staat.
+    textDigest: stukjes.length ? `${hoofd.textDigest}\n${stukjes.join("\n")}` : hoofd.textDigest,
+  };
 }
 
 /** Voegt siteProfileOverride toe als de gebruiker een override heeft ingesteld. */
@@ -877,7 +939,19 @@ async function handleAct(corr: string, action: Action): Promise<void> {
       return;
     }
     await ensureContentScript(runTabId);
-    const result = await chrome.tabs.sendMessage(runTabId, { type: "YAD_ACT", action });
+    // Draagt de ref een frame-voorvoegsel (`f3:e7`), dan hoort de actie in dát frame
+    // thuis. Zonder deze routering zou een klik op een veld in een betaal-iframe naar
+    // het hoofdframe gaan, daar geen element met die ref vinden, en falen met een
+    // melding die nergens naar wijst.
+    const refInAction = (action as { ref?: string }).ref;
+    if (typeof refInAction === "string" && refInAction.includes(FRAME_SCHEIDING)) {
+      const { frameId, ref } = ontleedRef(refInAction);
+      const inFrame = { ...(action as object), ref } as typeof action;
+      const r = await chrome.tabs.sendMessage(runTabId, { type: "YAD_ACT", action: inFrame }, { frameId });
+      replyToBrain("ACT_RESULT", r as object, corr);
+      return;
+    }
+    const result = await chrome.tabs.sendMessage(runTabId, { type: "YAD_ACT", action }, { frameId: 0 });
     replyToBrain("ACT_RESULT", result as object, corr);
   } catch (e) {
     replyToBrain("ACT_RESULT", { ok: false, detail: (e as Error).message }, corr);

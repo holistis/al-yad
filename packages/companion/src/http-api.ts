@@ -809,6 +809,45 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       return;
     }
 
+    // ── /snapshot : wat ZIET de agent precies ────────────────────────────────
+    // /capture geeft een vereenvoudigde tekstweergave (url, titel, tekst, links) die
+    // bedoeld is voor een mens of voor Claude. De agent werkt met iets heel anders:
+    // een lijst interactieve elementen met refs. Dat verschil kostte me een verkeerde
+    // conclusie — ik zag shadow-DOM-inhoud niet in /capture en dacht dat de agent hem
+    // ook niet zag, terwijl perception open shadow roots juist wél doorloopt.
+    //
+    // Daarom dit endpoint: exact de snapshot waarop de agent zijn besluiten baseert,
+    // inclusief de refs. Onmisbaar om te controleren of iets werkelijk waarneembaar is
+    // en niet alleen in theorie bereikbaar.
+    if (url === "/snapshot" && (method === "GET" || method === "POST")) {
+      if (!session.isConnected()) { json(res, 503, { ok: false, detail: "Chrome niet verbonden" }); return; }
+      try {
+        const snap = await session.requestSnapshot();
+        json(res, 200, { ok: true, snapshot: snap });
+      } catch (e) { json(res, 500, { ok: false, detail: (e as Error).message }); }
+      return;
+    }
+
+    // ── /act : voer één losse actie uit, zonder LLM ──────────────────────────
+    // Alles ging tot nu toe via /goal, en dat vraagt een taalmodel om te plannen. Voor
+    // het toetsen van een enkele mogelijkheid ("kan hij typen in een cross-origin
+    // iframe") is dat onhandig, traag en quotum-afhankelijk, en je meet dan het model
+    // in plaats van de hand. Hiermee kun je precies één actie afvuren en het resultaat
+    // zien. Dit draagt ook de capaciteitsproef die als regressietest draait.
+    if (url === "/act" && method === "POST") {
+      if (!session.isConnected()) { json(res, 503, { ok: false, detail: "Chrome niet verbonden" }); return; }
+      try {
+        const parsed = JSON.parse(await readBody(req)) as { action?: unknown };
+        if (!parsed.action || typeof parsed.action !== "object") {
+          json(res, 400, { ok: false, detail: "action (object) is verplicht" });
+          return;
+        }
+        const result = await session.act(parsed.action as Parameters<typeof session.act>[0]);
+        json(res, 200, { ok: true, result });
+      } catch (e) { json(res, 500, { ok: false, detail: (e as Error).message }); }
+      return;
+    }
+
     // ── /downloads : welke bestanden zijn er binnengekomen ───────────────────
     // Zonder dit kon YAD wél op een downloadlink klikken maar daarna niet weten of er
     // iets binnenkwam, hoe het heette of waar het stond. "Haal het rapport op en mail
