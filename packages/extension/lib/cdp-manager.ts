@@ -218,6 +218,29 @@ function flattenHeaders(raw: unknown): Record<string, string> {
 // Publieke API
 // ──────────────────────────────────────────────
 
+/**
+ * Zorgt dat dialoogvensters op deze tab worden afgehandeld, ook zonder dat er verder
+ * iets met CDP gebeurt.
+ *
+ * WAAROM APART: de afhandeling zat in `ensureAttached`, en die draait pas bij een
+ * CDP-commando. Bij een gewone klik-actie is er geen debugger, dus geen Page-domein, dus
+ * geen javascriptDialogOpening, en dan bevriest de tab alsnog op een confirm(). Mijn
+ * eerste test slaagde puur omdat er vlak daarvoor toevallig een /cdp/evaluate was
+ * gedaan; de capaciteitsproef viel er meteen over. Een reparatie die afhangt van iets
+ * ongerelateerds is geen reparatie.
+ *
+ * Mislukken is geen ramp: op chrome:// en Web Store-pagina's mag een extensie niet
+ * aankoppelen. Dan werkt de rest gewoon door, alleen zonder dialoogvangnet.
+ */
+export async function zorgVoorDialoogVangnet(tabId: number): Promise<boolean> {
+  try {
+    await ensureAttached(tabId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function startCapture(tabId: number, urlFilter?: string): Promise<void> {
   if (captureTabId !== null && captureTabId !== tabId) {
     await stopCapture();
