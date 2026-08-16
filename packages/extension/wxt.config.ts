@@ -15,7 +15,12 @@ export default defineConfig({
     // tabs + host_permissions zijn nodig om de actieve tab te bedienen.
     // LET OP: <all_urls> is breed; vóór een Web Store-inzending versmallen naar
     // activeTab/optionele host-permissions (zie bouwplan, Web Store-risico).
-    permissions: ["nativeMessaging", "sidePanel", "storage", "tabs", "scripting", "webNavigation", "cookies", "debugger"],
+    // `downloads` is nodig omdat een agent zonder downloads de helft van het echte werk
+    // niet kan doen: "haal het rapport op en mail het" is een standaardklus. Klikken op
+    // een downloadlink lukte al, maar YAD wist daarna niet of er iets binnenkwam en al
+    // helemaal niet waar het stond. Met deze permissie zien we naam, pad en grootte, en
+    // kan de companion het bestand van schijf lezen met zijn bestaande /fs/read-file.
+    permissions: ["nativeMessaging", "sidePanel", "storage", "tabs", "scripting", "webNavigation", "cookies", "debugger", "downloads"],
     host_permissions: ["<all_urls>"],
     icons: {
       "16": "icons/icon-16.png",
