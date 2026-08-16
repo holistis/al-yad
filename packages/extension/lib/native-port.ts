@@ -65,6 +65,16 @@ export interface KlaarDownload {
 const klaarDownloads: KlaarDownload[] = [];
 let downloadListenerAan = false;
 
+/**
+ * De luisteraar wordt bij het laden van de module geregistreerd, niet pas bij de eerste
+ * uitvraag. Dat is geen stijlkwestie maar de manier waarop MV3 werkt: een service worker
+ * mag afsluiten, en Chrome wekt hem alleen voor gebeurtenissen waarvan de luisteraar bij
+ * het laden bekend was. Registreer je lui, dan mis je precies de download die begon
+ * terwijl de worker sliep.
+ *
+ * Dat is niet theoretisch: de capaciteiten-wacht meldde downloaden als teruggevallen na
+ * een run waarin verder niets veranderd was, en dit was de oorzaak.
+ */
 function volgDownloads(): void {
   if (downloadListenerAan) return;
   if (!chrome.downloads?.onChanged) return; // permissie ontbreekt of oude Chrome
@@ -90,8 +100,12 @@ function volgDownloads(): void {
   });
 }
 
+// Meteen bij het laden van de module, zodat Chrome de worker wekt voor een download die
+// begint terwijl hij slaapt. Zie de uitleg bij volgDownloads.
+volgDownloads();
+
 export function getKlaarDownloads(sinds?: number): KlaarDownload[] {
-  volgDownloads(); // luie start: ook als er nog nooit een download was
+  volgDownloads(); // vangnet: mocht de registratie bij het laden zijn mislukt
   return sinds ? klaarDownloads.filter((d) => d.klaarOp > sinds) : [...klaarDownloads];
 }
 
