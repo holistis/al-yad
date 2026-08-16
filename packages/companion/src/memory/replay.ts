@@ -82,6 +82,10 @@ function labelAction(action: Action): string {
     case "scroll":   return `Scroll ${action.direction}`;
     case "wait":     return `Wacht ${action.ms}ms`;
     case "wait-for": return `Wacht tot: ${action.reason ?? (action.predicate as { type?: string })?.type ?? "voorwaarde"}`;
+    case "drag":        return `Sleep ${action.ref} naar ${action.toRef}`;
+    case "right-click": return `Rechtermuisklik op ${action.ref}`;
+    case "history":     return action.direction === "back" ? "Ga terug" : "Ga vooruit";
+    case "copy":        return `Kopieer tekst van ${action.ref}`;
     case "finish":   return action.summary;
   }
 }
