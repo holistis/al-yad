@@ -72,19 +72,43 @@ const nodeBin = process.execPath.replace(/"/g, '""');
 const launcher = `@echo off\r\n"${nodeBin}" "${companionEntry}" %*\r\n`;
 writeFileSync(launcherPath, launcher, "utf8");
 
-// 6. Host-manifest met allowed_origins op de afgeleide extensie-ID.
+// 6. Host-manifest met allowed_origins.
+//
+// Meerdere ID's, niet één. De lokaal afgeleide ID hoort erbij voor ontwikkelwerk, maar
+// zodra de extensie uit een winkel komt is de ID een andere, en Chrome en Edge geven elk
+// hun eigen. Stond hier alleen de lokale ID, dan werkt de geïnstalleerde extensie bij een
+// klant gewoon niet: de browser weigert de verbinding met het Brein zonder zichtbare
+// fout, en de gebruiker ziet alleen dat er niets gebeurt.
+//
+// Winkel-ID's toevoegen zodra ze bekend zijn:
+//   YAD_EXTRA_EXT_IDS=abc...,def... pnpm setup-host
+// of vul WINKEL_IDS hieronder in, dan zit het in de uitgeleverde installatie.
+const WINKEL_IDS: string[] = [
+  // "…", // Chrome Web Store, invullen na publicatie
+  // "…", // Edge Add-ons, invullen na publicatie
+];
+
+const extraIds = (process.env["YAD_EXTRA_EXT_IDS"] ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+// Edge is ook Chromium en gebruikt dezelfde chrome-extension://-vorm, dus één schema volstaat.
+const alleIds = [...new Set([extId, ...WINKEL_IDS, ...extraIds])];
+
 const hostManifest = {
   name: HOST_NAME,
   description: "Yad companion (het Brein) native messaging host",
   path: launcherPath,
   type: "stdio",
-  allowed_origins: [`chrome-extension://${extId}/`],
+  allowed_origins: alleIds.map((id) => `chrome-extension://${id}/`),
 };
 const hostManifestPath = resolve(nmDir, `${HOST_NAME}.json`);
 writeFileSync(hostManifestPath, JSON.stringify(hostManifest, null, 2) + "\n", "utf8");
 
 console.log("");
 console.log("Extensie-ID      :", extId);
+console.log("Toegestane ID's  :", alleIds.length === 1 ? "alleen de lokale" : alleIds.join(", "));
 console.log("manifest key     :", manifestKey.slice(0, 32) + "...");
 console.log("Host-manifest    :", hostManifestPath);
 console.log("Launcher         :", launcherPath);
