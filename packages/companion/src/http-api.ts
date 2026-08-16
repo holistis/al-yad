@@ -179,8 +179,67 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
     const url = req.url ?? "/";
     const method = req.method ?? "GET";
 
-    if (url === "/status" && method === "GET") {
-      json(res, 200, { ok: true, connected: session.isConnected(), version: "0.1.0" });
+    // ── /status : leeft de verbinding, en kán hij ook echt iets? ─────────────
+    //
+    // Dit meldde eerder `connected: true` terwijl de pagina muurvast zat achter een
+    // onafgehandeld dialoogvenster. Elke opdracht liep vast en de meter stond op groen.
+    // Voor iets dat verhuurd wordt is dat het gevaarlijkste soort defect, want de klant
+    // ziet gezond terwijl er niets gebeurt.
+    //
+    // `connected` zegt alleen dat de native-messaging-pijp openstaat. Dat is niet
+    // hetzelfde als kunnen werken. Daarom nu ook `responsive`: we vragen de pagina echt
+    // iets, met een korte tijdslimiet. Antwoordt hij niet, dan staat er `responsive:
+    // false` met de reden erbij.
+    //
+    // De diepe controle kost een halve seconde en staat daarom niet standaard aan: veel
+    // aanroepers pollen /status in een lus. Met `?deep=1` vraag je erom, en dat is wat de
+    // gezondheidslus doet.
+    if (url.startsWith("/status") && method === "GET") {
+      const connected = session.isConnected();
+      const wilDiep = new URL(url, "http://x").searchParams.get("deep") === "1";
+      if (!wilDiep || !connected) {
+        json(res, 200, { ok: true, connected, version: "0.1.0" });
+        return;
+      }
+      const start = Date.now();
+      try {
+        // Bewust de goedkoopste vraag die er is. Komt er antwoord, dan is de tab niet
+        // geblokkeerd; wát het antwoord is doet er niet toe.
+        const snap = await Promise.race([
+          session.requestSnapshot(),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("geen antwoord binnen 6s")), 6_000)),
+        ]);
+        // Niet binair melden. Bij het testen bleek een geblokkeerde pagina er 5725 ms
+        // over te doen waar hij normaal 104 ms nodig heeft: vijftig keer trager, maar
+        // technisch nog binnen de tijd, dus "responsive: true". Voor een agent is zo'n
+        // pagina praktisch stuk. Dood-of-levend is hier te grof; de reactietijd zelf is
+        // het signaal.
+        const reactieMs = Date.now() - start;
+        const traag = reactieMs > 1_500;
+        json(res, 200, {
+          ok: true,
+          connected,
+          responsive: true,
+          gezond: !traag,
+          reactieMs,
+          ...(traag
+            ? { waarschuwing: `pagina reageert traag (${reactieMs}ms, normaal onder 300ms) — druk, geblokkeerd of een zware pagina` }
+            : {}),
+          url: snap?.url ?? null,
+          version: "0.1.0",
+        });
+      } catch (e) {
+        // Geen 503: de companion zelf leeft prima. Het is de browserkant die niet
+        // reageert, en dat onderscheid wil je kunnen zien.
+        json(res, 200, {
+          ok: true,
+          connected,
+          responsive: false,
+          reden: (e as Error).message.slice(0, 120),
+          hint: "de tab reageert niet — meestal een openstaand dialoogvenster of een vastgelopen pagina; navigeren helpt",
+          version: "0.1.0",
+        });
+      }
       return;
     }
 
