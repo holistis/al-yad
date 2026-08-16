@@ -47,6 +47,7 @@ import { extname, basename, join, resolve as resolvePath } from "node:path";
 import { readSteps } from "./history/step-reader.js";
 import { verifySteps } from "./verify/verifier.js";
 import { checkExternalGate } from "./external-gate.js";
+import { checkUpdate } from "./update-check.js";
 import type { BrainSession } from "./session.js";
 import type { Substate } from "./agent/substate.js";
 import type { LlmRouter } from "./engine/router.js";
@@ -865,6 +866,21 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
         const result = await session.cdp({ command: "get_cookies" }, 10_000);
         json(res, result.ok ? 200 : 500, result);
       } catch (e) { json(res, 500, { ok: false, detail: (e as Error).message }); }
+      return;
+    }
+
+    // ── /update-check : draait de klant op de nieuwste versie ────────────────
+    // Bewust een aparte, expliciete vraag en niets dat vanzelf installeert. Zie
+    // update-check.ts voor wat wel en niet automatisch kán: de companion mag zichzelf
+    // vervangen, een Chrome-extensie mag dat van Chrome niet, en het belangrijkste deel
+    // (weten hoe je met een lastige site omgaat) komt sowieso live van het herstelbrein.
+    if (url === "/update-check" && (method === "GET" || method === "POST")) {
+      try {
+        const info = await checkUpdate("0.1.0");
+        json(res, 200, { ok: true, ...info });
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
       return;
     }
 
