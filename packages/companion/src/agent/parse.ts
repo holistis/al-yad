@@ -198,6 +198,25 @@ export function parseAction(raw: string): ParseResult {
         return { ok: false, error: "wait mist ms" };
       return { ok: true, action: { kind, ms: Math.max(0, Math.min(ms, 30_000)) } };
     }
+    case "wait-for": {
+      // Het predicaat zelf wordt hier NIET gevalideerd: dat doet parsePredicate in de
+      // lus, met de evaluator ernaast die de types al kent. Hier alleen controleren dat
+      // er überhaupt een object staat, zodat een model dat `wait-for` zonder predicaat
+      // teruggeeft meteen een leesbare fout krijgt in plaats van pas bij het wachten.
+      const p = obj["predicate"];
+      if (p === undefined || p === null || typeof p !== "object")
+        return { ok: false, error: "wait-for mist predicate (object)" };
+      const t = obj["timeoutMs"];
+      return {
+        ok: true,
+        action: {
+          kind,
+          predicate: p,
+          ...(typeof t === "number" && Number.isFinite(t) ? { timeoutMs: Math.max(500, Math.min(t, 60_000)) } : {}),
+          ...(isStr(obj["reason"]) ? { reason: obj["reason"] } : {}),
+        },
+      };
+    }
     case "finish":
       if (!isStr(obj["summary"])) return { ok: false, error: "finish mist summary" };
       return { ok: true, action: { kind, summary: obj["summary"] } };

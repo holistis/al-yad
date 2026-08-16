@@ -81,6 +81,7 @@ function labelAction(action: Action): string {
     case "extract":  return `Lees: ${action.what}`;
     case "scroll":   return `Scroll ${action.direction}`;
     case "wait":     return `Wacht ${action.ms}ms`;
+    case "wait-for": return `Wacht tot: ${action.reason ?? (action.predicate as { type?: string })?.type ?? "voorwaarde"}`;
     case "finish":   return action.summary;
   }
 }

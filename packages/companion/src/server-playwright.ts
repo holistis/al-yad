@@ -27,6 +27,10 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import process from "node:process";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "playwright";
 import { loadEnvFile } from "./env.js";
 import { buildExternalOllamaPool } from "./engine/pool.js";
 import { LlmRouter } from "./engine/router.js";
@@ -35,6 +39,8 @@ import { CacheStore } from "./memory/cache-store.js";
 import { RunHistoryStore } from "./history/run-history.js";
 import { PlaywrightHand } from "./playwright-hand.js";
 import { checkExternalGate } from "./external-gate.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 loadEnvFile();
 
@@ -306,10 +312,56 @@ renderHistory();
 </html>`;
 }
 
+// ── Young Consult helpers (buiten request handler) ───────────────────────────
+const YC_CONFIG_PATH = "/opt/al-yad/recruiter/config.json";
+const YC_SESSION_PATH = "/opt/al-yad/recruiter/linkedin-session.json";
+const YC_DASHBOARD_PATH = "/opt/al-yad/recruiter/dashboard.html";
+
+function ycReadConfig(): Record<string, unknown> {
+  try { return JSON.parse(readFileSync(YC_CONFIG_PATH, "utf8")); } catch { return { presets: [] }; }
+}
+function ycWriteConfig(cfg: Record<string, unknown>) {
+  writeFileSync(YC_CONFIG_PATH, JSON.stringify(cfg, null, 2), "utf8");
+}
+
+function checkRecentContact(datumMatches: string[] | null): { recentContact: boolean; contactDatum: string | null } {
+  if (!datumMatches) return { recentContact: false, contactDatum: null };
+  for (const d of datumMatches) {
+    // Normaliseer DD-MM-YYYY → YYYY-MM-DD
+    const parts = d.split(/[-\/]/);
+    let parsed: Date | null = null;
+    if (parts.length === 3) {
+      const [a, b, c] = parts;
+      if (c && c.length === 4) {
+        // DD-MM-YYYY
+        parsed = new Date(`${c}-${(b ?? "01").padStart(2, "0")}-${(a ?? "01").padStart(2, "0")}`);
+      } else if (a && a.length === 4) {
+        // YYYY-MM-DD
+        parsed = new Date(d);
+      } else {
+        parsed = new Date(d);
+      }
+    }
+    if (parsed && !isNaN(parsed.getTime())) {
+      const maanden = (Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24 * 30);
+      if (maanden < 2) return { recentContact: true, contactDatum: d };
+    }
+  }
+  return { recentContact: false, contactDatum: null };
+}
+
 // ── HTTP server ─────────────────────────────────────────────────────────────
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const url = req.url ?? "/";
   const method = req.method ?? "GET";
+
+  // CORS voor YC dashboard fetch calls vanuit de browser
+  if (url.startsWith("/yc")) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    if (method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+  }
 
   // Web UI: GET / is openbaar (geen API-key nodig voor de pagina zelf).
   // De pagina stuurt vervolgens requests naar /goal met de ingebedde sleutel.
@@ -322,11 +374,82 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     return;
   }
 
-  // Auth + rate-limit via de bestaande externe poort
-  const gate = checkExternalGate(req, url, method);
-  if (!gate.allow) {
-    json(res, gate.status, gate.body);
-    return;
+  // ── Young Consult /yc/* endpoints (geen API-key vereist — eigen dashboard) ──
+  if (url.startsWith("/yc")) {
+    if (url === "/yc" && method === "GET") {
+      try {
+        const html = readFileSync(YC_DASHBOARD_PATH, "utf8");
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(html);
+      } catch {
+        res.writeHead(404); res.end("dashboard.html niet gevonden — deploy recruiter/dashboard.html naar /opt/al-yad/recruiter/");
+      }
+      return;
+    }
+    if (url === "/yc/status" && method === "GET") {
+      const hasSession = existsSync(YC_SESSION_PATH);
+      json(res, 200, { ok: true, linkedinSessie: hasSession });
+      return;
+    }
+    if (url === "/yc/config" && method === "GET") {
+      const cfg = ycReadConfig();
+      json(res, 200, { presets: (cfg["presets"] as unknown[]) ?? [], standaard: cfg["standaard_zoekopdracht"] });
+      return;
+    }
+    if (url === "/yc/preset-save" && method === "POST") {
+      const body = JSON.parse(await readBody(req)) as Record<string, unknown>;
+      const { naam, functietitel, locatie } = body;
+      if (!naam || !functietitel || !locatie) { json(res, 400, { ok: false }); return; }
+      const cfg = ycReadConfig();
+      if (!Array.isArray(cfg["presets"])) cfg["presets"] = [];
+      const presets = cfg["presets"] as Record<string, unknown>[];
+      const id = (naam as string).toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      const idx = presets.findIndex((p) => p["id"] === id);
+      const preset = { id, naam, functietitel, locatie, ...body };
+      if (idx >= 0) presets[idx] = preset; else presets.unshift(preset);
+      ycWriteConfig(cfg);
+      json(res, 200, { ok: true, preset });
+      return;
+    }
+    if (url === "/yc/preset-delete" && method === "POST") {
+      const body = JSON.parse(await readBody(req)) as { id?: string };
+      const cfg = ycReadConfig();
+      if (Array.isArray(cfg["presets"])) {
+        cfg["presets"] = (cfg["presets"] as Record<string, unknown>[]).filter((p) => p["id"] !== body.id);
+      }
+      ycWriteConfig(cfg);
+      json(res, 200, { ok: true });
+      return;
+    }
+    if (url === "/yc/import-session" && method === "POST") {
+      try {
+        const body = JSON.parse(await readBody(req)) as { cookies?: unknown[] };
+        if (!Array.isArray(body.cookies) || body.cookies.length === 0) {
+          json(res, 400, { ok: false, detail: "cookies array is leeg" }); return;
+        }
+        if (!existsSync("/opt/al-yad/recruiter")) mkdirSync("/opt/al-yad/recruiter", { recursive: true });
+        writeFileSync(YC_SESSION_PATH, JSON.stringify({ cookies: body.cookies }, null, 2), "utf8");
+        json(res, 200, { ok: true, count: body.cookies.length });
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+    if (url === "/yc/scan" && method === "POST") {
+      // Scan wordt hieronder afgehandeld — val door naar het grote scan-blok
+    } else {
+      json(res, 404, { error: "Onbekend YC-endpoint" });
+      return;
+    }
+  }
+
+  // Auth + rate-limit via de bestaande externe poort (voor /status, /goal, etc.)
+  if (!url.startsWith("/yc")) {
+    const gate = checkExternalGate(req, url, method);
+    if (!gate.allow) {
+      json(res, gate.status, gate.body);
+      return;
+    }
   }
 
   if (url === "/status" && method === "GET") {
@@ -384,6 +507,403 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     } finally {
       releaseLock();
     }
+    return;
+  }
+
+  // ── Young Consult scan (POST /yc/scan) ──────────────────────────────────
+  if (url === "/yc/scan" && method === "POST") {
+    let params: Record<string, unknown>;
+    try {
+      params = JSON.parse(await readBody(req)) as Record<string, unknown>;
+    } catch {
+      json(res, 400, { ok: false, detail: "Ongeldige JSON" });
+      return;
+    }
+
+    const functietitel = String(params["functietitel"] ?? "").trim();
+    const locatie = String(params["locatie"] ?? "").trim();
+    const maxKandidaten = Math.min(Number(params["max_kandidaten"] ?? 10), 25);
+    const afstudeerVan = Number(params["afstudeer_van"] ?? 2019);
+    const afstudeerTot = Number(params["afstudeer_tot"] ?? 2025);
+
+    if (!functietitel || !locatie) {
+      json(res, 400, { ok: false, detail: "functietitel en locatie zijn verplicht" });
+      return;
+    }
+
+    // SSE headers
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    });
+
+    const stuur = (type: string, data: unknown) => {
+      try { res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`); } catch { /* client disconnected */ }
+    };
+
+    const logStuur = (tekst: string) => stuur("log", { tekst });
+
+    // Run scan async, don't await here
+    (async () => {
+      const cfg = ycReadConfig();
+      const eazyLogin = cfg["eazymatch"] as { url?: string; gebruikersnaam?: string; wachtwoord?: string } | undefined;
+
+      stuur("start", { functietitel, locatie });
+      logStuur(`=== Young Consult Scan ===`);
+      logStuur(`Functie: ${functietitel} | Locatie: ${locatie}`);
+      logStuur(`Afstudeerjaar: ${afstudeerVan}–${afstudeerTot} | Max: ${maxKandidaten}`);
+
+      const browser = await chromium.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+      });
+      try {
+        const ctx = await browser.newContext({
+          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          viewport: { width: 1366, height: 768 },
+          locale: "nl-NL",
+          timezoneId: "Europe/Amsterdam",
+          extraHTTPHeaders: { "Accept-Language": "nl-NL,nl;q=0.9,en;q=0.8" },
+        });
+
+        // Verberg automation-fingerprint
+        await ctx.addInitScript(`
+          Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+          Object.defineProperty(navigator, 'plugins', { get: () => [1,2,3] });
+        `);
+
+        // Injecteer LinkedIn-sessie als aanwezig (voor profiel-detail stap)
+        let heeftLinkedInSessie = false;
+        if (existsSync(YC_SESSION_PATH)) {
+          try {
+            const sessionData = JSON.parse(readFileSync(YC_SESSION_PATH, "utf8")) as { cookies?: unknown[] };
+            if (Array.isArray(sessionData.cookies) && sessionData.cookies.length > 0) {
+              await ctx.addCookies(sessionData.cookies as Parameters<typeof ctx.addCookies>[0]);
+              logStuur(`LinkedIn-sessie geladen (${sessionData.cookies.length} cookies)`);
+              heeftLinkedInSessie = true;
+            }
+          } catch { logStuur("⚠ LinkedIn-sessie kon niet worden geladen"); }
+        } else {
+          logStuur("Geen LinkedIn-sessie — zoeken via Google X-ray (werkt ook zonder login)");
+        }
+
+        // ── Stap 1: LinkedIn zoeken ─────────────────────────────────────────
+        // LinkedIn vereist een ingelogde sessie voor zoekresultaten.
+        // Zonder sessie: geef duidelijke instructie en stop.
+        logStuur(`\n[1/3] LinkedIn doorzoeken op "${functietitel}" in "${locatie}"...`);
+
+        if (!heeftLinkedInSessie) {
+          logStuur("❌ Geen LinkedIn-sessie gevonden.");
+          logStuur("   Volg deze stappen om de scanner te activeren:");
+          logStuur("   1. Installeer 'Cookie Editor' in Chrome");
+          logStuur("   2. Log in op linkedin.com");
+          logStuur("   3. Open Cookie Editor → Export (JSON)");
+          logStuur("   4. Klik '🔑 Sessie instellen' bovenaan het dashboard");
+          logStuur("   5. Plak de cookies en klik Opslaan");
+          logStuur("   → Daarna werkt de scan volledig automatisch.");
+          stuur("klaar", { exitCode: 1, ok: false, reden: "linkedin_sessie_nodig" });
+          return;
+        }
+
+        function extractJaarUitTekst(tekst: string): number | null {
+          const lowerTekst = tekst.toLowerCase();
+          const eduIdx = ["opleiding", "education", "studie", "university", "hogeschool",
+            "bachelor", "master", "hbo", "wo", "mbo", "fontys", "avans", "zuyd",
+            "tu/e", "tue", "eindhoven", "tilburg", "saxion"].reduce((best, kw) => {
+              const idx = lowerTekst.indexOf(kw);
+              return (idx >= 0 && (best < 0 || idx < best)) ? idx : best;
+            }, -1);
+          const zoekTekst = eduIdx >= 0 ? tekst.substring(Math.max(0, eduIdx - 50), eduIdx + 800) : tekst;
+          const matches = zoekTekst.match(/\b(20\d{2})\b/g);
+          if (!matches) return null;
+          const jaren = matches.map(Number).filter(j => j >= 2015 && j <= 2026).sort((a, b) => b - a);
+          return jaren.length > 0 ? (jaren[0] ?? null) : null;
+        }
+
+        const linkedinPage = await ctx.newPage();
+        // Wacht even zodat cookies zijn geladen
+        await linkedinPage.waitForTimeout(500);
+
+        // LinkedIn people search met locatie-filter
+        const zoekUrl = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(functietitel + " " + locatie)}&origin=GLOBAL_SEARCH_HEADER`;
+        try {
+          await linkedinPage.goto(zoekUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+        } catch {
+          logStuur("⚠ Timeout bij LinkedIn-laden — doorgaan met wat geladen is");
+        }
+        await linkedinPage.waitForTimeout(3500);
+
+        // Check of sessie geldig is
+        const huidigeUrl = linkedinPage.url();
+        if (huidigeUrl.includes("linkedin.com/login") || huidigeUrl.includes("linkedin.com/authwall") || huidigeUrl.includes("linkedin.com/uas/login")) {
+          logStuur("❌ LinkedIn sessie is verlopen.");
+          logStuur("   → Importeer nieuwe cookies via het '🔑 Sessie instellen' knopje.");
+          stuur("klaar", { exitCode: 1, ok: false, reden: "linkedin_sessie_verlopen" });
+          return;
+        }
+
+        // Scroll om meer resultaten te laden
+        await linkedinPage.evaluate("window.scrollTo(0, 400)");
+        await linkedinPage.waitForTimeout(1500);
+        await linkedinPage.evaluate("window.scrollTo(0, 900)");
+        await linkedinPage.waitForTimeout(1500);
+
+        // Extraheer kandidaten uit zoekresultaten
+        const rawKandidatenJson = await linkedinPage.evaluate(`(function(){
+          var seen = {}; var results = [];
+          // Zoekresultaat-items: elk persoon staat in een li.reusable-search__result-container
+          var items = document.querySelectorAll('li.reusable-search__result-container, li[class*="result-container"]');
+          if (items.length === 0) {
+            // Fallback: alle profiellinks op de pagina
+            items = [document.body];
+          }
+          var anchors = document.querySelectorAll('a[href*="/in/"]');
+          for (var i = 0; i < anchors.length; i++) {
+            var a = anchors[i]; var href = a.href || '';
+            var m = href.match(/linkedin\\.com\\/in\\/([a-zA-Z0-9_-]{3,80})/);
+            if (!m) continue;
+            var slug = m[1];
+            if (slug === 'undefined' || slug.length < 3) continue;
+            if (seen[slug]) continue; seen[slug] = true;
+            // Naam ophalen: zoek aria-hidden spans (LinkedIn structuur)
+            var naam = '';
+            var ariaSpans = a.querySelectorAll('span[aria-hidden="true"]');
+            if (ariaSpans.length > 0) naam = ariaSpans[0].textContent ? ariaSpans[0].textContent.trim() : '';
+            if (!naam) {
+              var visibleSpan = a.querySelector('span:not([aria-hidden])');
+              naam = visibleSpan ? visibleSpan.textContent ? visibleSpan.textContent.trim() : '' : '';
+            }
+            if (!naam) naam = a.textContent ? a.textContent.trim().split('\\n')[0].trim() : '';
+            naam = naam.replace(/\\s+/g,' ').trim().slice(0,70);
+            var woorden = naam.split(' ').filter(function(w){return w.length>1;});
+            if (woorden.length < 2 || naam.length > 70) continue;
+            if (/^(Connect|Follow|LinkedIn|Premium|Recruiter|Message|Pending|View|Bekijk|Stuur|Volg|Log|Sign|More|Share)/i.test(naam)) continue;
+            // Samenvatting (headline/functie)
+            var card = a.closest('li, .entity-result');
+            var headline = card ? (card.querySelector('.entity-result__primary-subtitle, .entity-result__summary, [class*="subtitle"]') || null) : null;
+            var samenvatting = headline ? headline.textContent ? headline.textContent.trim() : '' : '';
+            results.push({ naam: naam, url: 'https://www.linkedin.com/in/' + slug, snippet: samenvatting });
+          }
+          return JSON.stringify(results.slice(0, 30));
+        })()`) as string;
+
+        let gevondenKandidaten: { naam: string; url: string; snippet: string }[] = [];
+        try { gevondenKandidaten = JSON.parse(rawKandidatenJson); } catch { gevondenKandidaten = []; }
+
+        logStuur(`${gevondenKandidaten.length} profielen gevonden op LinkedIn`);
+
+        if (gevondenKandidaten.length === 0) {
+          logStuur("⚠ Geen profielen gevonden. Mogelijke oorzaken:");
+          logStuur("  - LinkedIn toont minder resultaten voor deze zoekopdracht");
+          logStuur("  - Probeer een bredere functietitel (bv. 'sales' i.p.v. 'sales support medewerker')");
+          stuur("klaar", { exitCode: 1, ok: false, reden: "geen_resultaten" });
+          return;
+        }
+
+        stuur("log", { tekst: `JSON_EVENT:${JSON.stringify({ type: "kandidaten_gevonden", data: { namen: gevondenKandidaten.map(k => k.naam), kandidaten: gevondenKandidaten, totaal: gevondenKandidaten.length } })}` });
+
+        // ── Stap 2: Afstudeerjaar verificatie per profiel ──────────────────
+        logStuur(`\n[2/3] Afstudeerjaar controleren per profiel...`);
+
+        const gefilterd: { naam: string; url: string; afstudeerjaar: number | null; snippet: string }[] = [];
+
+        for (const k of gevondenKandidaten.slice(0, maxKandidaten + 8)) {
+          // Bezoek LinkedIn-profiel voor afstudeerjaar
+          let gevondenJaar: number | null = null;
+          try {
+            await linkedinPage.goto(k.url, { waitUntil: "domcontentloaded", timeout: 20_000 });
+            await linkedinPage.waitForTimeout(2000 + Math.random() * 800);
+            const profielUrl = linkedinPage.url();
+            if (profielUrl.includes("login") || profielUrl.includes("authwall")) {
+              logStuur("⚠ LinkedIn sessie verlopen tijdens scan");
+              break;
+            }
+            await linkedinPage.evaluate("window.scrollTo(0, 600)");
+            await linkedinPage.waitForTimeout(600);
+            await linkedinPage.evaluate("window.scrollTo(0, 1400)");
+            await linkedinPage.waitForTimeout(800);
+            const profielTekst = await linkedinPage.evaluate("document.body ? document.body.innerText || '' : ''") as string;
+            gevondenJaar = extractJaarUitTekst(profielTekst);
+          } catch {
+            logStuur(`  ? ${k.naam} — profiel niet geladen, overgeslagen`);
+            continue;
+          }
+
+          // Jaar-filter
+          if (gevondenJaar !== null && (gevondenJaar < afstudeerVan || gevondenJaar > afstudeerTot)) {
+            logStuur(`  ✗ ${k.naam} — afgestudeerd ${gevondenJaar} (buiten ${afstudeerVan}–${afstudeerTot})`);
+            continue;
+          }
+          logStuur(`  ✓ ${k.naam} — ${gevondenJaar ? `afgestudeerd ${gevondenJaar}` : "jaar niet gevonden (meegenomen)"}`);
+          gefilterd.push({ ...k, afstudeerjaar: gevondenJaar });
+          if (gefilterd.length >= maxKandidaten) break;
+
+          // Kleine vertraging tussen profielbezoeken (respectvol, minder kans op rate-limit)
+          await linkedinPage.waitForTimeout(1000 + Math.random() * 500);
+        }
+
+        logStuur(`${gefilterd.length} kandidaten na jaar-filter`);
+
+        // ── Stap 3: EazyMatch check ─────────────────────────────────────────
+        logStuur(`\n[3/3] EazyMatch checken (${gefilterd.length} kandidaten)...`);
+        const eazyPage = await ctx.newPage();
+        let eazyIngelogd = false;
+
+        if (eazyLogin?.url) {
+          try {
+            await eazyPage.goto(eazyLogin.url, { waitUntil: "domcontentloaded", timeout: 20_000 });
+            await eazyPage.waitForTimeout(3000);
+
+            const heeftLoginForm = await eazyPage.evaluate(`!!(document.querySelector('#loginPassword'))`) as boolean;
+            if (heeftLoginForm && eazyLogin.gebruikersnaam && eazyLogin.wachtwoord) {
+              logStuur("EazyMatch: inloggen...");
+              // EazyMatch heeft vaste ID's: #loginUsername, #loginPassword, #loginSubmitButton
+              await eazyPage.locator("#loginUsername").fill(eazyLogin.gebruikersnaam, { timeout: 5000 });
+              await eazyPage.waitForTimeout(200);
+              await eazyPage.locator("#loginPassword").fill(eazyLogin.wachtwoord, { timeout: 5000 });
+              await eazyPage.waitForTimeout(200);
+              await eazyPage.locator("#loginSubmitButton").click({ timeout: 5000 });
+              await eazyPage.waitForTimeout(5000); // EazyMatch laadt langzaam (ExtJS)
+              logStuur(`EazyMatch: ingelogd (url: ${eazyPage.url().slice(0, 70)})`);
+            }
+            // Check of login geslaagd is
+            const nogLoginForm = await eazyPage.evaluate(`!!(document.querySelector('#loginPassword'))`) as boolean;
+            eazyIngelogd = !nogLoginForm;
+            if (eazyIngelogd) {
+              logStuur("EazyMatch: sessie actief ✓");
+              await eazyPage.waitForTimeout(2000); // Wacht tot ExtJS-interface geladen is
+            } else {
+              logStuur("⚠ EazyMatch: login mislukt — kandidaten worden zonder CRM-check gerapporteerd");
+            }
+          } catch (e) {
+            logStuur(`⚠ EazyMatch: fout bij inloggen — ${(e as Error).message.slice(0, 80)}`);
+          }
+        }
+
+        const rapport: { naam: string; url: string; afstudeerjaar: number | null; eazymatch: { gevonden: boolean; info: string; recentContact?: boolean; contactDatum?: string | null } }[] = [];
+
+        for (let ri = 0; ri < gefilterd.length; ri++) {
+          const k = gefilterd[ri]!;
+          logStuur(`  [${ri + 1}/${gefilterd.length}] ${k.naam}...`);
+          let eazy: { gevonden: boolean; info: string; recentContact?: boolean; contactDatum?: string | null } = {
+            gevonden: false,
+            info: eazyIngelogd ? "Niet in systeem" : "EazyMatch niet beschikbaar",
+          };
+
+          if (eazyIngelogd) {
+            try {
+              const voornaam = k.naam.split(" ")[0] ?? k.naam;
+              const achternaam = k.naam.split(" ").slice(1).join(" ");
+
+              // Helper: zoek in EazyMatch, return het resultaten-panel als tekst
+              const zoekInEazy = async (zoekterm: string): Promise<{ panelTekst: string; aantalStr: string }> => {
+                await eazyPage.evaluate(`(function(q){
+                  var veld = document.querySelector('input[name="mainSearchField"]') ||
+                             document.querySelector('input[class*="x-form-search"]');
+                  if(!veld) return;
+                  var ns = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value');
+                  if(ns && ns.set) ns.set.call(veld, q);
+                  veld.dispatchEvent(new Event('input',{bubbles:true}));
+                  veld.dispatchEvent(new Event('change',{bubbles:true}));
+                })(${JSON.stringify(zoekterm)})`);
+                await eazyPage.waitForTimeout(300);
+                await eazyPage.evaluate(`(function(){
+                  var t = document.querySelector('.x-form-search-trigger,.x-btn-icon-search');
+                  if(t){ t.click(); return; }
+                  var v = document.querySelector('input[name="mainSearchField"]');
+                  if(v) v.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,key:'Enter',keyCode:13}));
+                })()`);
+                await eazyPage.waitForTimeout(3500);
+                // Haal het resultaten-panel op (bevat "geen filter|kandidaten|bestanden")
+                const panelData = await eazyPage.evaluate(`(function(){
+                  var panels = document.querySelectorAll('.x-panel-body');
+                  for(var i=0;i<panels.length;i++){
+                    var t = panels[i].innerText;
+                    if(t.includes('geen filter') && t.includes('kandidaten') && t.includes('bestanden'))
+                      return { panelTekst: t.slice(0,12000), aantalStr: '' };
+                  }
+                  // Fallback: kijk naar telling-element
+                  var tell = document.querySelector('[class*=paging],[class*=toolbar]');
+                  return { panelTekst: document.body.innerText.slice(0,8000), aantalStr: tell ? tell.innerText : '' };
+                })()`) as { panelTekst: string; aantalStr: string };
+                // Haal ook de "Getoond X - Y van Z" tekst op
+                const aantalEl = await eazyPage.evaluate(`(function(){
+                  var all = document.querySelectorAll('*');
+                  for(var i=0;i<all.length;i++){
+                    if(all[i].children.length===0 && /Getoond\\s+\\d+/.test(all[i].textContent))
+                      return all[i].textContent.trim();
+                  }
+                  return '';
+                })()`) as string;
+                return { panelTekst: panelData.panelTekst, aantalStr: aantalEl };
+              };
+
+              // Zoek op volledige naam
+              let eazyData = await zoekInEazy(k.naam);
+              let zoekbasis = "volledige naam";
+
+              const nulResult = (t: string) => /geen gegevens|0 - 0 van 0/i.test(t) || (!t.includes(k.naam) && !t.includes(voornaam));
+              const heeftResult = (d: { panelTekst: string; aantalStr: string }) =>
+                /Getoond\s+\d/i.test(d.aantalStr) && !nulResult(d.panelTekst);
+
+              // Fallback op voornaam
+              if (!heeftResult(eazyData) && achternaam.length > 2) {
+                eazyData = await zoekInEazy(voornaam);
+                zoekbasis = "voornaam";
+              }
+
+              if (!heeftResult(eazyData)) {
+                eazy = { gevonden: false, info: "Niet in systeem" };
+              } else {
+                // Extraheer kandidaatinfo uit het panel
+                const panelTekst = eazyData.panelTekst;
+                const naamLower = k.naam.toLowerCase();
+                const voornaamLower = voornaam.toLowerCase();
+                let startIdx = panelTekst.toLowerCase().indexOf(naamLower);
+                if (startIdx < 0) startIdx = panelTekst.toLowerCase().indexOf(voornaamLower);
+
+                const kandidaatBlok = startIdx >= 0
+                  ? panelTekst.substring(startIdx, startIdx + 600).replace(/\n{3,}/g, "\n").trim()
+                  : panelTekst.substring(0, 400).trim();
+
+                // Datum check: "beschikbaar: ja, van DD-MM-YYYY" of andere datum in blok
+                const datumMatches = kandidaatBlok.match(/\b(\d{1,2}[-\/]\d{1,2}[-\/](?:20)?\d{2})\b/g);
+                const { recentContact, contactDatum } = checkRecentContact(datumMatches);
+                if (recentContact) {
+                  logStuur(`  ⏭ ${k.naam} — recent contact (${contactDatum}), overgeslagen`);
+                  continue;
+                }
+
+                // Bouw een leesbaar uittreksel
+                const uittreksel = kandidaatBlok.slice(0, 400).replace(/\t/g, " ").trim();
+                eazy = { gevonden: true, info: uittreksel, recentContact: false, contactDatum };
+              }
+            } catch {
+              eazy = { gevonden: false, info: "EazyMatch fout" };
+            }
+            await eazyPage.waitForTimeout(700);
+          }
+
+          rapport.push({ naam: k.naam, url: k.url, afstudeerjaar: k.afstudeerjaar, eazymatch: eazy });
+          stuur("log", { tekst: `JSON_EVENT:${JSON.stringify({ type: "kandidaat_klaar", data: { naam: k.naam, url: k.url, afstudeerjaar: k.afstudeerjaar, index: rapport.length - 1, eazymatch: eazy } })}` });
+          logStuur(`  ✓ ${k.naam} — ${eazy.gevonden ? "in EazyMatch" : "NIEUW"}`);
+        }
+
+        const inSysteem = rapport.filter(r => r.eazymatch.gevonden).length;
+        logStuur(`\n========================================`);
+        logStuur(`Scan klaar. ${rapport.length} kandidaten gevonden.`);
+        logStuur(`  Nieuw: ${rapport.length - inSysteem} | Al in EazyMatch: ${inSysteem}`);
+        stuur("log", { tekst: `JSON_EVENT:${JSON.stringify({ type: "scan_klaar", data: { totaal: rapport.length, nieuw: rapport.length - inSysteem, inSysteem } })}` });
+        stuur("klaar", { exitCode: 0, ok: true });
+      } catch (e) {
+        logStuur(`Scan fout: ${(e as Error).message}`);
+        stuur("klaar", { exitCode: 1, ok: false });
+      } finally {
+        await browser.close();
+      }
+    })().catch((e) => { try { logStuur("Onverwachte fout: " + (e as Error).message); stuur("klaar", { exitCode: 1, ok: false }); res.end(); } catch {} });
     return;
   }
 

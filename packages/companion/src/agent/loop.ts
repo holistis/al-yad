@@ -3,7 +3,7 @@ import type { ChatRequest } from "../engine/types.js";
 import { buildMessages, type HistoryItem } from "./prompt.js";
 import { parseMicroPlan, type PlannedStep } from "./parse.js";
 import { callJudge } from "../judge/judge.js";
-import { evaluatePredicates } from "./predicate.js";
+import { evaluatePredicates, evaluatePredicate, parsePredicate } from "./predicate.js";
 import { checkDenied, needsConfirm, pathIsDenied, type GateContext } from "../gate/guardrails.js";
 import type { SnapshotNode } from "@yad/shared";
 import { getSiteProfile, getProfileByTier, type SiteProfile, type SiteTier } from "../engine/site-profile.js";
@@ -226,6 +226,11 @@ function describe(action: Action): string {
       return `Scroll ${action.direction}${action.amount ? ` (${action.amount}x)` : ""}`;
     case "wait":
       return `Wacht ${action.ms}ms`;
+    case "wait-for": {
+      const p = action.predicate as { type?: string; value?: string; role?: string } | null;
+      const wat = p?.value ?? p?.role ?? p?.type ?? "voorwaarde";
+      return `Wacht tot: ${action.reason ?? wat}`;
+    }
     case "finish":
       return action.summary;
   }
@@ -403,6 +408,64 @@ export class AgentLoop {
     return Math.round(base + this.random() * base * 1.3);
   }
 
+  /**
+   * Wacht tot een voorwaarde waar is, in plaats van een vast aantal milliseconden.
+   *
+   * WAAROM DIT ER MOEST KOMEN: het enige wachtmiddel was `wait: { ms }`, en dat is
+   * gokken. Te kort en de agent handelt op een pagina die er nog niet is; te lang en
+   * de klant betaalt voor niets. Op een trage site verschuift dat venster ook nog eens
+   * per keer, dus een getal dat gisteren werkte faalt vandaag.
+   *
+   * Een mens wacht niet drie seconden, hij wacht tot de knop er staat. Dat is precies
+   * wat dit doet: elke 400 ms een verse snapshot, predicaat toetsen, klaar zodra het
+   * klopt. Gemiddeld wordt een taak hierdoor sneller EN betrouwbaarder, omdat de meeste
+   * vaste wachttijden veel te ruim zijn gekozen uit voorzichtigheid.
+   *
+   * Het predicaat komt uit dezelfde taal die de agent al gebruikt voor
+   * state-correctness, dus er valt niets nieuws te leren en de evaluator is al getest.
+   *
+   * `indeterminate` telt bewust NIET als klaar. Tekst-predicaten kunnen "niet gevonden"
+   * teruggeven puur omdat de tekstsamenvatting is afgekapt; daarop stoppen zou een
+   * valse voltooiing zijn. Bij twijfel wachten we door tot de tijd op is.
+   */
+  private async waitForCondition(action: Action & { kind: "wait-for" }): Promise<ActResult> {
+    const pred = parsePredicate(action.predicate);
+    if (!pred) {
+      return { ok: false, detail: `wait-for: onleesbaar predicaat ${JSON.stringify(action.predicate).slice(0, 120)}` };
+    }
+    // Plafond op 60s: langer wachten is bijna altijd een verkeerde aanname over de
+    // pagina, en dan wil je een eerlijke mislukking zien in plaats van een agent die
+    // minutenlang stil lijkt te hangen.
+    const timeoutMs = Math.min(Math.max(action.timeoutMs ?? 15_000, 500), 60_000);
+    const startedAt = Date.now();
+    let rondes = 0;
+
+    while (Date.now() - startedAt < timeoutMs) {
+      let snap: Snapshot;
+      try {
+        snap = await this.hand.requestSnapshot();
+      } catch (e) {
+        // Een enkele mislukte snapshot is geen reden om op te geven; de pagina kan
+        // midden in een navigatie zitten. Doorproberen tot de tijd op is.
+        await this.sleep(400);
+        rondes++;
+        continue;
+      }
+      rondes++;
+      if (evaluatePredicate(pred, snap) === "match") {
+        const ms = Date.now() - startedAt;
+        return { ok: true, detail: `voorwaarde werd waar na ${ms}ms (${rondes} controles)` };
+      }
+      await this.sleep(400);
+    }
+
+    const ms = Date.now() - startedAt;
+    return {
+      ok: false,
+      detail: `wait-for liep af na ${ms}ms zonder dat "${pred.type}" waar werd (${rondes} controles)`,
+    };
+  }
+
   async run(goal: string, maxStepsOverride?: number, attachments?: Attachment[]): Promise<RunOutcome> {
     const maxSteps = Math.min(maxStepsOverride ?? this.maxSteps, 40);
     const history: HistoryItem[] = [];
@@ -508,7 +571,11 @@ export class AgentLoop {
         });
         const replay = await replayCache(
           cached,
-          (a) => this.hand.act(a),
+          // `wait-for` moet ook hier langs de lus-afhandeling. replayCache praat
+          // rechtstreeks met de Hand, en die kent deze actie niet: er valt in de pagina
+          // niets uit te voeren, we kijken alleen of een voorwaarde inmiddels waar is.
+          // Zonder deze omleiding zou een herhaalde taak uit de cache erop stukvallen.
+          (a) => (a.kind === "wait-for" ? this.waitForCondition(a) : this.hand.act(a)),
           (msg, step, action) => this.hand.update({ status: "bezig", step, message: msg, action }),
         );
         this.cacheStore.hit(cacheKey);
@@ -1005,7 +1072,12 @@ export class AgentLoop {
       this.hand.update({ status: "bezig", step, message: describe(action), action });
       let result: ActResult;
       try {
-        result = await this.hand.act(enriched);
+        // `wait-for` gaat NIET naar de Hand. Er valt niets uit te voeren in de pagina:
+        // we kijken alleen herhaaldelijk of een voorwaarde inmiddels waar is. Dat hoort
+        // hier, waar de snapshots al binnenkomen.
+        result = action.kind === "wait-for"
+          ? await this.waitForCondition(action)
+          : await this.hand.act(enriched);
       } catch (e) {
         result = { ok: false, detail: (e as Error).message };
       }

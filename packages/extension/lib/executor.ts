@@ -246,6 +246,12 @@ export async function executeAction(
       await sleep(Math.min(action.ms, 15_000));
       return { ok: true };
 
+    case "wait-for":
+      // Wordt door de agent-lus afgehandeld met herhaalde snapshots; in de pagina valt
+      // er niets uit te voeren. Eerlijke fout in plaats van stil `ok: true`, want dat
+      // laatste zou een aanroeper laten denken dat er gewacht is terwijl dat niet zo is.
+      return { ok: false, detail: "wait-for hoort door de agent-lus te worden afgehandeld" };
+
     case "extract": {
       if (action.ref) {
         const el = refMap.get(action.ref);

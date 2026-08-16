@@ -260,6 +260,14 @@ export class PlaywrightHand implements HandBridge {
           await page.waitForTimeout(action.ms);
           return { ok: true };
         }
+        case "wait-for": {
+          // Hoort hier nooit te komen: de lus vangt wait-for af en lost het op met
+          // herhaalde snapshots, want er valt in de pagina niets uit te voeren. Toch
+          // een eerlijke fout in plaats van stil `ok: true`, zodat een toekomstige
+          // aanroeper die de lus omzeilt het meteen merkt in plaats van te denken dat
+          // er gewacht is terwijl dat niet gebeurde.
+          return { ok: false, detail: "wait-for hoort door de agent-lus te worden afgehandeld, niet door de Hand" };
+        }
         case "finish": {
           return { ok: true };
         }
