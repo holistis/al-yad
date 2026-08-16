@@ -3,7 +3,7 @@ import { isAccepted } from "./acceptance";
 import { getSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { captureSession, getActiveWebTab } from "./session-capture";
 import { injectCookies, injectLocalStorage } from "./session-inject";
-import { startCapture, stopCapture, evaluateInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests } from "./cdp-manager";
+import { startCapture, stopCapture, evaluateInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
 
 /**
  * Beheert de native-messaging-poort naar het Brein (companion) EN vertaalt de
@@ -240,6 +240,11 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
   }
 
   runTabId = tabId;
+  // Meteen het dialoogvangnet leggen, vóór er ook maar één actie gebeurt. Een confirm()
+  // bevriest de hele tab, en dan helpt achteraf aankoppelen niet meer. Bewust niet
+  // afwachten: de run mag hier niet op wachten, en mislukken (chrome://-pagina's) is
+  // geen reden om de run te blokkeren.
+  void zorgVoorDialoogVangnet(tabId);
   // Niet automatisch naar voren brengen — YAD werkt op de achtergrond zonder de
   // gebruiker te onderbreken. De run gaat gewoon door op de achtergrond-tab.
   // Startpagina-URL meesturen zodat de companion de juiste sessie kan injecteren.
@@ -468,6 +473,9 @@ function onMessage(raw: unknown): void {
             return;
           }
           stickyTabId = match.id;
+          // Ook hier het dialoogvangnet leggen: adopteren is vaak de eerste handeling,
+          // en daarna kan er meteen een actie komen die een confirm() opent.
+          void zorgVoorDialoogVangnet(match.id);
           runTabId = match.id;
           await chrome.tabs.update(match.id, { active: true });
           replyToBrain("ADOPT_TAB_RESULT", { ok: true, tabId: match.id, url: match.url }, raw.id);
