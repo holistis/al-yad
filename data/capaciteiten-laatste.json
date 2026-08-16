@@ -1,0 +1,120 @@
+{
+  "ts": "2026-08-16T11:41:05.834Z",
+  "totaalScore": 14,
+  "aantal": 14,
+  "percentage": 100,
+  "perCategorie": {
+    "waarneming": {
+      "aantal": 6,
+      "score": 6
+    },
+    "handeling": {
+      "aantal": 7,
+      "score": 7
+    },
+    "betrouwbaarheid": {
+      "aantal": 1,
+      "score": 1
+    }
+  },
+  "metingen": [
+    {
+      "competentie": "snapshot-snelheid",
+      "categorie": "waarneming",
+      "score": 1,
+      "bewijs": "9 elementen",
+      "ms": 8
+    },
+    {
+      "competentie": "shadow DOM",
+      "categorie": "waarneming",
+      "score": 1,
+      "bewijs": "e2",
+      "ms": 0
+    },
+    {
+      "competentie": "same-origin iframe",
+      "categorie": "waarneming",
+      "score": 1,
+      "bewijs": "e7",
+      "ms": 0
+    },
+    {
+      "competentie": "cross-origin iframe",
+      "categorie": "waarneming",
+      "score": 1,
+      "bewijs": "f16:e1",
+      "ms": 0
+    },
+    {
+      "competentie": "sleepbaar element",
+      "categorie": "waarneming",
+      "score": 1,
+      "bewijs": "e4",
+      "ms": 0
+    },
+    {
+      "competentie": "tabindex-element",
+      "categorie": "waarneming",
+      "score": 1,
+      "bewijs": "e5",
+      "ms": 0
+    },
+    {
+      "competentie": "dialoogvenster overleven",
+      "categorie": "handeling",
+      "score": 1,
+      "bewijs": "tab reageert nog",
+      "ms": 10
+    },
+    {
+      "competentie": "slepen",
+      "categorie": "handeling",
+      "score": 1,
+      "bewijs": "ontving-lading",
+      "ms": 203
+    },
+    {
+      "competentie": "rechtermuisknop",
+      "categorie": "handeling",
+      "score": 1,
+      "bewijs": "rechtsklik-ok",
+      "ms": 100
+    },
+    {
+      "competentie": "kopieren",
+      "categorie": "handeling",
+      "score": 1,
+      "bewijs": "klik rechts op mij",
+      "ms": 1215
+    },
+    {
+      "competentie": "typen in vreemd frame",
+      "categorie": "handeling",
+      "score": 1,
+      "bewijs": "ok",
+      "ms": 362
+    },
+    {
+      "competentie": "downloaden",
+      "categorie": "handeling",
+      "score": 1,
+      "bewijs": "C:\\Users\\hp\\Downloads\\bench (1).txt",
+      "ms": 3017
+    },
+    {
+      "competentie": "terug-navigatie",
+      "categorie": "handeling",
+      "score": 1,
+      "bewijs": "terug-ok",
+      "ms": 1022
+    },
+    {
+      "competentie": "statusmeter meet echt",
+      "categorie": "betrouwbaarheid",
+      "score": 1,
+      "bewijs": "responsive=true gezond=true reactie=9ms",
+      "ms": 11
+    }
+  ]
+}

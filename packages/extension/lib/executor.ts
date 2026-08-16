@@ -315,19 +315,27 @@ export async function executeAction(
       if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
       const waarde = (el as HTMLInputElement).value ?? el.textContent ?? "";
       if (!waarde) return { ok: false, detail: "element heeft geen tekst of waarde om te kopiëren" };
+      // Het klembord vereist focus. Zonder focus WEIGERT writeText niet, hij blijft
+      // gewoon hangen: de belofte lost nooit op. In de benchmark kostte dat 30 seconden
+      // en een mislukte meting, terwijl de tekst allang bekend was. Daarom een race met
+      // een korte klok in plaats van alleen een try/catch, want op een fout wachten die
+      // nooit komt is net zo erg als geen vangnet hebben.
+      let klembord = "gelukt";
       try {
-        await navigator.clipboard.writeText(waarde);
-        return { ok: true, extracted: waarde.slice(0, 2000) };
+        await Promise.race([
+          navigator.clipboard.writeText(waarde),
+          new Promise((_, af) => setTimeout(() => af(new Error("geen focus")), 1200)),
+        ]);
       } catch (e) {
-        // Het klembord vereist een focus- of permissiecontext die er niet altijd is.
-        // De tekst gaat dan alsnog mee terug in `extracted`, zodat de agent hem kan
-        // gebruiken in een paste-actie. Half lukken is hier beter dan helemaal falen.
-        return {
-          ok: true,
-          extracted: waarde.slice(0, 2000),
-          detail: `klembord geweigerd (${(e as Error).message.slice(0, 60)}) — tekst zit wel in het resultaat`,
-        };
+        klembord = (e as Error).message.slice(0, 60);
       }
+      // De tekst gaat hoe dan ook mee terug, zodat een plak-actie erna gewoon werkt.
+      // Half lukken is hier beter dan helemaal falen.
+      return {
+        ok: true,
+        extracted: waarde.slice(0, 2000),
+        ...(klembord === "gelukt" ? {} : { detail: `klembord niet beschikbaar (${klembord}) — tekst zit wel in het resultaat` }),
+      };
     }
 
     case "extract": {
