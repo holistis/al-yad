@@ -72,6 +72,34 @@ zodat een winkelbuild nooit stilletjes je werkversie vervangt.
 
 ---
 
+## Edge: het snelste kanaal, en gratis
+
+Geen vijf dollar, geen identiteitsverificatie vooraf, en keuring in vijf tot tien dagen in
+plaats van vier weken. Aanmelden op <https://partner.microsoft.com/dashboard/registration>.
+
+**Hetzelfde pakket werkt voor beide winkels.** Gecontroleerd op de vier Edge-eisen:
+
+| eis | stand |
+|---|---|
+| geen `update_url` in het manifest | in orde, staat er niet in |
+| geen "Chrome" in naam of beschrijving | in orde, nagekeken |
+| Edge-extensie-ID in `allowed_origins` van de native host | mechanisme klaar, ID volgt na publicatie |
+| eigen privacyverklaring met werkende URL | live, en browserneutraal gemaakt |
+
+Die laatste twee vermeldingen van "Chrome" zaten nog in de privacyverklaring ("je
+Chrome-profiel", "verwijder de extensie uit Chrome"). Nu "je browserprofiel" en "je
+browser". Dat is geen formaliteit: een Edge-gebruiker die leest dat het over Chrome gaat,
+denkt dat hij de verkeerde pagina heeft.
+
+**Waarom Edge eerst en niet als tweede keus.** Artikel 1.2.3 van hun ontwikkelaarsbeleid
+zegt letterlijk dat een extensie voor zijn kernfunctie afhankelijk mág zijn van andere
+software, mits je dat duidelijk vermeldt. Chrome heeft zo'n regel niet, en de vraag of een
+lokaal programma telt als "code van buitenaf" is door Google nooit beantwoord. Edge zit
+bovendien oververtegenwoordigd bij bedrijven, en dat is precies onze koper.
+
+Bij de beschrijving moet de afhankelijkheid van het lokale programma prominent staan. Dat
+is bij Edge een eis en bij Chrome de goedkoopste verzekering tegen afwijzing.
+
 ## Tekst per permissie, klaar om te plakken
 
 Dit gaat naar een menselijke beoordelaar. Geen opmaak, geen jargon.
@@ -148,10 +176,13 @@ Dit gaat naar een menselijke beoordelaar. Geen opmaak, geen jargon.
 - [x] Zip klaar: `packages/extension/.output-winkel/yad-winkel-v0.1.1.zip` (92,5 kB)
 - [x] Korte, waarheidsgetrouwe privacyverklaring: `packages/extension/public/legal/privacy-kort.html`
 - [x] Permissie-teksten hierboven
-- [ ] De extensie moet zonder het lokale programma iets zinnigs doen. Nu is hij dood zonder.
-      Dit is het verschil tussen doorkomen en afgewezen worden op "single purpose is launching
-      another app". Zie de open punten hieronder.
-- [ ] Privacyverklaring op een openbare URL zetten (nu alleen in de extensie zelf)
+- [x] Paginascan in het zijpaneel, werkt zonder het lokale programma. Nodig tegen de afwijsgrond
+      "single purpose is launching another app". De knop zelf is nog niet aangeklikt: Yad mag
+      geen extensiepagina's bedienen, dus dat is één klik voor de koning.
+- [x] **Privacyverklaring staat live:** <https://api.mergefix.com/legal/privacy.html>
+      Statisch geserveerd uit `/opt/yad-legal/` op de Hetzner, los van de API, zodat een
+      storing in de API de verklaring niet offline haalt. Van buiten getest: 200, 7879 bytes.
+      Dit is de URL die in het inzendformulier moet.
 
 **Door de koning, en alleen door hem:**
 
