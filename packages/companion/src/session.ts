@@ -480,6 +480,25 @@ export class BrainSession implements HandBridge {
           }
         }
       }
+      // Forceer navigatie naar de opgegeven start-URL vóór de agent begint te plannen.
+      // Zonder dit was startingUrl alleen een sleutel voor de sessie-lookup hierboven —
+      // de agent zag hem nooit als daadwerkelijke navigatie-opdracht en moest zelf uit de
+      // goal-tekst raden waar hij heen moest. In de praktijk verzon hij daarbij ooit een
+      // placeholder-domein in plaats van de echte, meegegeven bestemming te bezoeken.
+      try {
+        const navOk = await this.navigateTo(startingUrl);
+        stepLogger.append({
+          run: runId,
+          step: 0,
+          url: startingUrl,
+          action: { kind: "navigate", url: startingUrl },
+          ok: navOk,
+          ts: Date.now(),
+        });
+        if (!navOk) this.log(`geforceerde start-navigatie naar ${startingUrl} gaf ok:false`);
+      } catch (e) {
+        this.log(`geforceerde start-navigatie mislukt: ${(e as Error).message} (agent probeert zelf verder)`);
+      }
     }
 
     const activeRouter = routerOverride ?? this.router;
