@@ -53,8 +53,20 @@ function isRateLimited(key: string): boolean {
 }
 
 function auditLogPath(): string {
-  const here = dirname(fileURLToPath(import.meta.url));
-  return process.env["YAD_EXTERNAL_AUDIT_PATH"] ?? join(here, "..", "data", "external-audit.jsonl");
+  const explicit = process.env["YAD_EXTERNAL_AUDIT_PATH"];
+  if (explicit && explicit.length > 0) return explicit;
+  // Dev (repo): relatief aan deze module. import.meta.url is undefined in een CJS-bundel,
+  // dus afschermen en terugvallen op cwd/data i.p.v. crashen.
+  try {
+    const url = import.meta.url;
+    if (url) {
+      const here = dirname(fileURLToPath(url));
+      return join(here, "..", "data", "external-audit.jsonl");
+    }
+  } catch {
+    /* bundel zonder module-url */
+  }
+  return join(process.cwd(), "data", "external-audit.jsonl");
 }
 
 function auditLog(entry: Record<string, unknown>): void {
