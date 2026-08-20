@@ -84,7 +84,7 @@ writeFileSync(launcherPath, launcher, "utf8");
 //   YAD_EXTRA_EXT_IDS=abc...,def... pnpm setup-host
 // of vul WINKEL_IDS hieronder in, dan zit het in de uitgeleverde installatie.
 const WINKEL_IDS: string[] = [
-  // "…", // Chrome Web Store, invullen na publicatie
+  "dacfhekkemkiikecbjffmbdcohddodea", // Chrome Web Store (ingediend 2026-08-20)
   // "…", // Edge Add-ons, invullen na publicatie
 ];
 
