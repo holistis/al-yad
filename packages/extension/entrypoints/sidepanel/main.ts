@@ -86,6 +86,9 @@ const STRINGS = {
     welcomeEx3: "Verzamel de prijzen van de producten op deze pagina",
     welcomePrivacy: "Alles blijft op jouw computer. Er gaat niks naar buiten.",
     welcomeHint: "Typ hieronder wat ik moet doen, of klik een voorbeeld.",
+    bizTitle: "Voor je bedrijf?",
+    bizText: "YAD draait op je eigen computer. Wil je hem afgestemd op je team, of volledig op je eigen servers zodat je data binnen blijft?",
+    bizCta: "Neem contact op",
   },
   en: {
     tabTask: "Task", tabSaved: "Saved", tabSettings: "Settings", tabStats: "Stats",
@@ -143,6 +146,9 @@ const STRINGS = {
     welcomeEx3: "Collect the prices of the products on this page",
     welcomePrivacy: "Everything stays on your computer. Nothing goes out.",
     welcomeHint: "Type what I should do below, or click an example.",
+    bizTitle: "For your company?",
+    bizText: "YAD runs on your own computer. Want it tuned to your team, or fully on your own servers so your data stays in?",
+    bizCta: "Get in touch",
   },
 } as const;
 
@@ -366,7 +372,21 @@ function renderWelcome(): void {
   hint.className = "wc-hint";
   hint.textContent = t("welcomeHint");
 
-  wrap.append(card, hint);
+  const biz = document.createElement("div");
+  biz.className = "wc-biz";
+  const bizTitle = document.createElement("p");
+  bizTitle.className = "wc-biz-title";
+  bizTitle.textContent = t("bizTitle");
+  const bizText = document.createElement("p");
+  bizText.className = "wc-biz-text";
+  bizText.textContent = t("bizText");
+  const bizCta = document.createElement("a");
+  bizCta.className = "wc-biz-cta";
+  bizCta.href = "mailto:info@mergefix.com";
+  bizCta.textContent = t("bizCta");
+  biz.append(bizTitle, bizText, bizCta);
+
+  wrap.append(card, hint, biz);
   chat.append(wrap);
 }
 
