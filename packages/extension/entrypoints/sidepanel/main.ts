@@ -74,6 +74,18 @@ const STRINGS = {
     claudeBridgeHint: "Stuur de huidige pagina naar Claude Code. Claude leest hem direct via C:\\Code\\yad-claude-bridge.json.",
     claudeCaptureBtn: "🔗 Stuur naar Claude",
     claudeCapturingMsg: "Pagina sturen…",
+    welcomeTitle: "Hallo, ik ben Yad. Je eigen hand in de browser.",
+    welcomeWhat: "Je zegt in gewone taal wat je wilt, en ik klik en typ het voor je op elke website. In jouw eigen browser, waar je al bent ingelogd. Ik leer een klus één keer en kan hem daarna zo herhalen.",
+    welcomeCanTitle: "Wat je me kunt vragen",
+    welcomeCan1: "Iets opzoeken en netjes op een rij zetten",
+    welcomeCan2: "Saaie stappen herhalen die je steeds opnieuw doet",
+    welcomeCan3: "Lezen wat er op een pagina staat en het teruggeven",
+    welcomeTryTitle: "Probeer bijvoorbeeld",
+    welcomeEx1: "Zoek 5 vacatures en zet ze op een rij",
+    welcomeEx2: "Vat deze pagina kort voor me samen",
+    welcomeEx3: "Verzamel de prijzen van de producten op deze pagina",
+    welcomePrivacy: "Alles blijft op jouw computer. Er gaat niks naar buiten.",
+    welcomeHint: "Typ hieronder wat ik moet doen, of klik een voorbeeld.",
   },
   en: {
     tabTask: "Task", tabSaved: "Saved", tabSettings: "Settings", tabStats: "Stats",
@@ -119,6 +131,18 @@ const STRINGS = {
     claudeBridgeHint: "Send the current page to Claude Code. Claude reads it directly from C:\\Code\\yad-claude-bridge.json.",
     claudeCaptureBtn: "🔗 Send to Claude",
     claudeCapturingMsg: "Sending page…",
+    welcomeTitle: "Hi, I am Yad. Your own hand in the browser.",
+    welcomeWhat: "Tell me in plain words what you want, and I click and type it for you on any website. Inside your own browser, where you are already logged in. I learn a job once and can repeat it after that.",
+    welcomeCanTitle: "What you can ask me",
+    welcomeCan1: "Look something up and put it in a neat list",
+    welcomeCan2: "Repeat boring steps you do again and again",
+    welcomeCan3: "Read what is on a page and hand it back to you",
+    welcomeTryTitle: "Try for example",
+    welcomeEx1: "Find 5 job posts and list them",
+    welcomeEx2: "Give me a short summary of this page",
+    welcomeEx3: "Collect the prices of the products on this page",
+    welcomePrivacy: "Everything stays on your computer. Nothing goes out.",
+    welcomeHint: "Type what I should do below, or click an example.",
   },
 } as const;
 
@@ -269,7 +293,89 @@ let runSteps = 0;
 let lastSummary: string | undefined;
 let localPlannenShown = false; // voorkomt dubbele user-bubble bij button-click
 
+/**
+ * Welkom-blok in de lege chat: legt in gewone taal uit wat Yad doet, wat je kunt
+ * vragen, en geeft drie klikbare voorbeelden. Dit is het eerste wat een nieuwe
+ * gebruiker ziet, en het maakt in één oogopslag duidelijk waarvoor Yad is.
+ * Volledig via DOM-nodes opgebouwd (geen innerHTML) zodat er niets als HTML wordt geparsed.
+ */
+function renderWelcome(): void {
+  const chat = getChat();
+  if (document.getElementById("yad-welcome")) return;
+  if (chat.querySelector(".cb, .typing-bubble, .confirm-bubble")) return; // alleen bij lege chat
+
+  const wrap = document.createElement("div");
+  wrap.id = "yad-welcome";
+
+  const card = document.createElement("div");
+  card.className = "wc-card";
+
+  const title = document.createElement("p");
+  title.className = "wc-title";
+  title.textContent = t("welcomeTitle");
+
+  const what = document.createElement("p");
+  what.className = "wc-what";
+  what.textContent = t("welcomeWhat");
+
+  const canTitle = document.createElement("p");
+  canTitle.className = "wc-sub";
+  canTitle.textContent = t("welcomeCanTitle");
+
+  const canList = document.createElement("ul");
+  canList.className = "wc-can";
+  (["welcomeCan1", "welcomeCan2", "welcomeCan3"] as const).forEach((k) => {
+    const li = document.createElement("li");
+    li.textContent = t(k);
+    canList.append(li);
+  });
+
+  const tryTitle = document.createElement("p");
+  tryTitle.className = "wc-sub";
+  tryTitle.textContent = t("welcomeTryTitle");
+
+  const exWrap = document.createElement("div");
+  exWrap.className = "wc-ex";
+  (["welcomeEx1", "welcomeEx2", "welcomeEx3"] as const).forEach((k) => {
+    const exText = t(k);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "wc-ex-btn";
+    btn.textContent = exText;
+    btn.onclick = (): void => {
+      const goal = $<HTMLTextAreaElement>("#goal");
+      goal.value = exText;
+      goal.focus();
+      goal.dispatchEvent(new Event("input"));
+    };
+    exWrap.append(btn);
+  });
+
+  const foot = document.createElement("div");
+  foot.className = "wc-foot";
+  const lock = document.createElement("span");
+  lock.className = "wc-lock";
+  lock.textContent = "🔒";
+  const footText = document.createElement("span");
+  footText.textContent = t("welcomePrivacy");
+  foot.append(lock, footText);
+
+  card.append(title, what, canTitle, canList, tryTitle, exWrap, foot);
+
+  const hint = document.createElement("p");
+  hint.className = "wc-hint";
+  hint.textContent = t("welcomeHint");
+
+  wrap.append(card, hint);
+  chat.append(wrap);
+}
+
+function removeWelcome(): void {
+  document.getElementById("yad-welcome")?.remove();
+}
+
 function addLog(status: RunStatus, message: string, step?: number): void {
+  removeWelcome();
   if (step) runSteps = Math.max(runSteps, step);
   lastRunStatus = status;
 
@@ -591,6 +697,7 @@ function refreshLangState(): void {
   document.querySelectorAll<HTMLButtonElement>(".qlang-btn, .lang-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset["lang"] === currentLanguage));
   applyLang();
+  if (document.getElementById("yad-welcome")) { removeWelcome(); renderWelcome(); }
 }
 
 async function loadSettingsTab(): Promise<void> {
@@ -760,6 +867,7 @@ function startApp(): void {
     currentAutonomy = s.autonomy === "auto" ? "auto" : "confirm";
     refreshModeState();
     refreshLangState();
+    renderWelcome();
   });
 
   chrome.runtime.sendMessage({ type: "YAD_GET_STATUS" }, (resp?: { status: string }) => {
@@ -808,6 +916,7 @@ function startApp(): void {
     clearAttachments();
     $("#bewaar-form").classList.add("hidden");
     lastRunStatus = "";
+    renderWelcome();
   };
 
   // Bewaar form

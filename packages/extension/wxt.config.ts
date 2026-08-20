@@ -50,7 +50,7 @@ export default defineConfig({
   manifest: {
     name: winkel ? "Yad, browserwerk dat je computer niet verlaat" : "Yad (volledige versie)",
     description:
-      "Laat terugkerend browserwerk uitvoeren op je eigen computer. Je inloggegevens en je schermen gaan nergens heen.",
+      "Zeg in gewone taal wat moet gebeuren. Yad klikt en typt het voor je op elke site, in je eigen browser. Niets verlaat je computer.",
     permissions: winkel ? basisRechten : [...basisRechten, "cookies", "debugger"],
     host_permissions: ["<all_urls>"],
     icons: {

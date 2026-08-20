@@ -188,6 +188,30 @@
       #scan-uitslag .naam { color: #e5e7eb; word-break: break-word; }
       #scan-uitslag .leeg { color: #9ca3af; font-style: italic; }
 
+      /* ---- Welkom / onboarding (lege chat) ---- */
+      #yad-welcome { align-self: stretch; max-width: 100%; padding: 4px 2px 2px; }
+      .wc-card {
+        background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+        padding: 14px 15px; box-shadow: 0 1px 6px rgba(79,70,229,.06);
+      }
+      .wc-title { font-size: 15px; font-weight: 700; color: #111827; margin: 0 0 5px; }
+      .wc-what { font-size: 13px; line-height: 1.5; color: #374151; margin: 0 0 12px; }
+      .wc-sub { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .04em; margin: 0 0 6px; }
+      .wc-can { list-style: none; margin: 0 0 12px; padding: 0; }
+      .wc-can li { font-size: 13px; color: #374151; padding: 3px 0 3px 22px; position: relative; line-height: 1.4; }
+      .wc-can li::before { content: "✓"; position: absolute; left: 3px; color: #4f46e5; font-weight: 700; }
+      .wc-ex { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+      .wc-ex-btn {
+        text-align: left; font: inherit; font-size: 13px; color: #4338ca;
+        background: #eef2ff; border: 1px solid #e0e7ff; border-radius: 8px;
+        padding: 8px 11px; cursor: pointer; line-height: 1.35;
+      }
+      .wc-ex-btn:hover { background: #e0e7ff; border-color: #c7d2fe; }
+      .wc-ex-btn::before { content: "→ "; color: #6366f1; }
+      .wc-foot { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; color: #6b7280; line-height: 1.4; }
+      .wc-foot .wc-lock { flex-shrink: 0; }
+      .wc-hint { font-size: 12px; color: #9ca3af; margin: 8px 2px 0; text-align: center; }
+
       /* ---- Overige tabs ---- */
       .section-title {
         font-size: 12px; font-weight: 600; color: #6b7280;
