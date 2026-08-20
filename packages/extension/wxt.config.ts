@@ -48,9 +48,9 @@ export default defineConfig({
   // debugger en cookies zonder dat hij het doorheeft.
   ...(winkel ? { outDir: ".output-winkel" } : {}),
   manifest: {
-    name: winkel ? "Yad, browserwerk dat je computer niet verlaat" : "Yad (volledige versie)",
+    name: winkel ? "Yad, AI-browserhulp op je eigen computer" : "Yad (volledige versie)",
     description:
-      "Zeg in gewone taal wat moet gebeuren. Yad klikt en typt het voor je op elke site, in je eigen browser. Niets verlaat je computer.",
+      "Zeg wat moet gebeuren, Yad doet het op elke site in je eigen browser. Je wachtwoorden blijven bij jou, jij kiest de AI.",
     permissions: winkel ? basisRechten : [...basisRechten, "cookies", "debugger"],
     host_permissions: ["<all_urls>"],
     icons: {
