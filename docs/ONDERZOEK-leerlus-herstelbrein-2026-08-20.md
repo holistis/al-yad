@@ -96,12 +96,27 @@ Drie lagen, elk anders:
 naar main) overclaimt met "Niets verlaat je computer" → corrigeren naar precieze belofte, of de
 ping opt-IN maken.
 
-## 7. Open next-steps
+## 7. Reflectie-laag (GEBOUWD 2026-08-20)
 
-1. Reflectie-laag bouwen: klein model (qwen2.5:3b) OF off-peak batch → Ollama leest
-   yad-herstel.jsonl, drafts (a) betere/gegeneraliseerde hints, (b) code-verbetervoorstellen voor
-   review → schrijft naar bestand dat het dashboard toont.
-2. Frequentie-teller toevoegen aan de server-handler (hoe vaak elk `host|why` optreedt).
-3. Privacy-copy corrigeren vóór markt.
-4. Dashboard-auth overwegen bij echte gebruikersdata.
-5. Hint-signering + deny-lijst-toepassing op binnenkomende hints (veiligheidsgrens).
+- Bron: `/app/euler-liquidator/scripts/yad-herstel-reflectie.mjs`. Batch-job (loop 6).
+- Leest yad-herstel.jsonl. Berekent DETERMINISTISCHE signalen in JS (altijd, geen Ollama nodig):
+  (a) kruissite-patronen = zelfde `why+actie` op >=3 hosts = mogelijk YAD-CODE-probleem i.p.v.
+  site-eigenaardigheid; (b) onbewezen hints (bewezen=0). Vraagt daarna Ollama (qwen2.5:3b, env
+  `YAD_OLLAMA_MODEL`/`YAD_OLLAMA_URL`/`YAD_OLLAMA_TIMEOUT_MS`) om kwalitatieve verbetervoorstellen.
+  Schrijft `/app/euler-liquidator/data/yad-herstel-reflectie.json`.
+- Nette terugval: faalt/timeout Ollama, dan blijven de deterministische signalen staan (aiFout gezet).
+- Dashboard toont het in de sectie "Reflectie van je eigen AI".
+- **Cron:** `0 */6 * * *` (elke 6u) — pakt vanzelf een vrij Ollama-venster; log `/var/log/yad-reflectie.log`.
+- **BEKEND:** Ollama is overdag bezet door bug-intel-runner/race-engineer (32B). De AI-tekst vult
+  daarom pas in tijdens een vrij venster; de deterministische signalen zijn er altijd. Handmatig
+  forceren: `YAD_OLLAMA_TIMEOUT_MS=600000 node scripts/yad-herstel-reflectie.mjs` op een rustig moment,
+  of pauzeer even de ollama-bots.
+
+## 8. Nog open next-steps
+
+1. Frequentie-teller toevoegen aan de server-handler (hoe vaak elk `host|why` optreedt — nu alleen
+   bewezen-teller; `yadHerstelNoteer` in x402-server.mjs uitbreiden met een `gezien`-counter).
+2. Privacy-copy corrigeren vóór markt (zie §6).
+3. Dashboard-auth overwegen bij echte gebruikersdata (nu publiek op 3755).
+4. Hint-signering + deny-lijst-toepassing op binnenkomende hints (veiligheidsgrens).
+5. Code-verbetervoorstellen uit de reflectie → mens-gereviewde PR-flow (nooit blind auto-ship).
