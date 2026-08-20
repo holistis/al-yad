@@ -12,14 +12,21 @@ import process from "node:process";
  * Geeft het geladen pad terug, of null als er geen .env gevonden is.
  */
 export function loadEnvFile(explicitPath?: string): string | null {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    explicitPath,
-    process.env["YAD_ENV_FILE"],
-    resolve(here, "../../../.env"), // dist -> companion -> packages -> al-yad
-    resolve(here, "../../.env"), // val-back als build-structuur platter is
-    resolve(process.cwd(), ".env"),
-  ].filter((p): p is string => typeof p === "string" && p.length > 0);
+  const raw: (string | undefined)[] = [explicitPath, process.env["YAD_ENV_FILE"]];
+  // Dev (repo): .env relatief aan deze module. import.meta.url is undefined in een
+  // CJS-bundel, dus afschermen en die kandidaten overslaan i.p.v. crashen.
+  try {
+    const url = import.meta.url;
+    if (url) {
+      const here = dirname(fileURLToPath(url));
+      raw.push(resolve(here, "../../../.env")); // dist -> companion -> packages -> al-yad
+      raw.push(resolve(here, "../../.env")); // val-back als build-structuur platter is
+    }
+  } catch {
+    /* bundel zonder module-url */
+  }
+  raw.push(resolve(process.cwd(), ".env"));
+  const candidates = raw.filter((p): p is string => typeof p === "string" && p.length > 0);
 
   for (const path of candidates) {
     if (!existsSync(path)) continue;

@@ -30,8 +30,21 @@ export interface RecoveryEntry {
 }
 
 function defaultDataDir(): string {
-  const here = dirname(fileURLToPath(import.meta.url));
-  return join(here, "../../../../data");
+  // Standalone/bundel: een expliciete data-map wint (de launcher zet YAD_DATA_DIR).
+  const explicit = process.env["YAD_DATA_DIR"];
+  if (explicit && explicit.length > 0) return explicit;
+  // Dev (repo): relatief aan deze module. import.meta.url is leeg in een CJS-bundel,
+  // dus afschermen en terugvallen op cwd/data i.p.v. crashen.
+  try {
+    const url = import.meta.url;
+    if (url && url.length > 0) {
+      const here = dirname(fileURLToPath(url));
+      return join(here, "../../../../data");
+    }
+  } catch {
+    /* bundel zonder module-url */
+  }
+  return join(process.cwd(), "data");
 }
 
 export class RecoveryStore {
