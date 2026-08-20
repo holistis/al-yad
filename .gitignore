@@ -31,3 +31,7 @@ ollama_key.pub
 
 # Winkelbuild (aparte map zodat hij de werkversie niet overschrijft)
 .output-winkel/
+
+# Chrome Web Store API geheimen (nooit committen)
+webstore-secrets.json
+yad-winkel-upload.zip
