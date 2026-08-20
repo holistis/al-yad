@@ -55,6 +55,20 @@ function migrateLegacy(old: LegacySettings): YadSettings {
   return { providers: p, maxSteps: old.maxSteps ?? DEFAULT_SETTINGS.maxSteps, autonomy: DEFAULT_SETTINGS.autonomy, language: DEFAULT_SETTINGS.language };
 }
 
+/**
+ * Taal bij een nieuwe gebruiker: volg de taal van de browser. Nederlandse browser -> nl,
+ * al het andere -> en (Engels is de internationale standaard). Een eigen keuze van de
+ * gebruiker (opgeslagen) wint altijd; dit geldt alleen zolang er nog niets is opgeslagen.
+ */
+function detectBrowserLang(): "nl" | "en" {
+  try {
+    const ui = (chrome.i18n?.getUILanguage?.() ?? "").toLowerCase();
+    return ui.startsWith("nl") ? "nl" : "en";
+  } catch {
+    return "en";
+  }
+}
+
 export async function getSettings(): Promise<YadSettings> {
   const res = await chrome.storage.local.get(KEY_SETTINGS);
   const stored = res[KEY_SETTINGS] as unknown;
@@ -67,6 +81,7 @@ export async function getSettings(): Promise<YadSettings> {
   return {
     ...DEFAULT_SETTINGS,
     ...(typed ?? {}),
+    language: (typed?.language as "nl" | "en" | undefined) ?? detectBrowserLang(),
     providers: { ...DEFAULT_PROVIDER_CONFIGS, ...(typed?.providers ?? {}) },
   };
 }
