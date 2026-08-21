@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Yad, your own hand in the browser</title>
+<meta name="description" content="Yad is an AI browser agent that runs on your own computer. Say what you want, and it clicks and types in your own browser, with your own logins. You choose the AI. Your passwords stay with you.">
+<meta name="theme-color" content="#0B0A12">
+<meta property="og:title" content="Yad, your own hand in the browser">
+<meta property="og:description" content="An AI browser agent that works in your real browser, on your machine. You choose the AI. Your data stays with you.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%E2%9C%8B</text></svg>">
+<style>
+  /* ---------- fonts (self-hosted, subset, inline; no CDN) ---------- */
+  @font-face{font-family:'Bricolage';src:url(data:font/woff2;base64,__BRICOLAGE_B64__) format('woff2');font-weight:200 800;font-stretch:75% 100%;font-display:swap;font-style:normal}
+  @font-face{font-family:'GeistS';src:url(data:font/woff2;base64,__GEISTSANS_B64__) format('woff2');font-weight:100 900;font-display:swap;font-style:normal}
+  @font-face{font-family:'GeistM';src:url(data:font/woff2;base64,__GEISTMONO_B64__) format('woff2');font-weight:100 900;font-display:swap;font-style:normal}
+
+  /* ---------- tokens: dark-first, light mirror ---------- */
+  :root{
+    --bg:#0B0A12; --surf-1:#141221; --surf-2:#1C1830;
+    --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.14);
+    --text:rgba(255,255,255,.92); --text-dim:rgba(255,255,255,.60); --text-faint:rgba(255,255,255,.38);
+    --accent:#6d5cf0; --accent-2:#7c3aed; --accent-glow:#9333ea; --on-accent:#fff;
+    --focus:rgba(124,92,255,.6);
+    --grad:linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#9333ea 100%);
+    --card-inset:inset 0 1px 0 rgba(255,255,255,.06);
+    --card-shadow:0 8px 30px rgba(0,0,0,.45);
+    --mesh-a:rgba(79,70,229,.28); --mesh-b:rgba(124,58,237,.22); --mesh-c:rgba(147,51,234,.18);
+    --grain-blend:overlay; --grain-op:.05;
+    --step-0:clamp(1rem,.95rem + .3vw,1.125rem);
+    --step-1:clamp(1.15rem,1.05rem + .5vw,1.4rem);
+    --step-2:clamp(1.4rem,1.2rem + 1vw,1.9rem);
+    --step-3:clamp(2rem,1.4rem + 3vw,3.4rem);
+    --step-4:clamp(2.5rem,1.7rem + 4vw,4.5rem);
+    --step-6:clamp(3.1rem,2rem + 7.4vw,8.5rem);
+    --s2:8px; --s3:16px; --s4:24px; --s5:32px; --s6:48px; --s7:64px; --s8:96px;
+    color-scheme:dark;
+  }
+  @media (prefers-color-scheme: light){ :root:not([data-theme]){ --lightflag:1 } }
+  :root[data-theme="light"]{
+    --bg:#FAFAFF; --surf-1:#FFFFFF; --surf-2:#F5F4FB;
+    --border:rgba(17,15,30,.08); --border-strong:rgba(17,15,30,.14);
+    --text:rgba(17,15,30,.92); --text-dim:rgba(17,15,30,.58); --text-faint:rgba(17,15,30,.40);
+    --accent:#4338ca; --accent-2:#6d28d9; --accent-glow:#7c3aed; --on-accent:#fff;
+    --focus:rgba(79,70,229,.55);
+    --card-inset:inset 0 1px 0 rgba(255,255,255,.9);
+    --card-shadow:0 10px 30px -12px rgba(17,15,30,.12);
+    --mesh-a:rgba(79,70,229,.12); --mesh-b:rgba(124,58,237,.11); --mesh-c:rgba(147,51,234,.10);
+    --grain-blend:multiply; --grain-op:.05;
+    color-scheme:light;
+  }
+
+  /* ---------- reset + base ---------- */
+  *{box-sizing:border-box;margin:0}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'GeistS',system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:var(--step-0); line-height:1.55; letter-spacing:-.006em;
+    overflow-x:hidden; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    position:relative; min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none}
+  ::selection{background:color-mix(in srgb,var(--accent) 40%,transparent)}
+  :focus-visible{outline:2px solid var(--focus);outline-offset:3px;border-radius:6px}
+  .mono{font-family:'GeistM',ui-monospace,monospace;font-feature-settings:'tnum';letter-spacing:-.01em}
+  .container{width:min(1120px,92vw);margin-inline:auto}
+  h1,h2,h3{font-family:'Bricolage',system-ui,sans-serif;font-weight:600;text-wrap:balance;letter-spacing:-.025em;line-height:1.02}
+  .grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+
+  /* ---------- background layers ---------- */
+  .bg{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+  .mesh{position:absolute;inset:-20%;filter:blur(60px);opacity:1;
+    background:
+      radial-gradient(38% 44% at 18% 22%,var(--mesh-a),transparent 70%),
+      radial-gradient(34% 40% at 82% 18%,var(--mesh-b),transparent 68%),
+      radial-gradient(46% 50% at 68% 82%,var(--mesh-c),transparent 72%),
+      radial-gradient(40% 44% at 26% 88%,var(--mesh-a),transparent 70%);
+    animation:meshdrift 42s linear infinite alternate;
+  }
+  @keyframes meshdrift{to{transform:translate3d(0,-4%,0) scale(1.06)}}
+  canvas#aurora{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity 1.2s ease;mix-blend-mode:screen}
+  canvas#aurora.on{opacity:.55}
+  .grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:var(--grain-op);mix-blend-mode:var(--grain-blend);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .spot{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:0;transition:opacity .5s;
+    background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--accent) 22%,transparent),transparent 62%);
+    mix-blend-mode:soft-light}
+  @media (hover:hover) and (pointer:fine){ .spot.on{opacity:1} }
+
+  /* ---------- nav ---------- */
+  header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(14px);
+    background:color-mix(in srgb,var(--bg) 72%,transparent);border-bottom:1px solid var(--border)}
+  .nav-in{display:flex;align-items:center;gap:var(--s4);height:64px}
+  .wordmark{display:flex;align-items:center;gap:9px;font-family:'GeistM',monospace;font-weight:600;font-size:16px;letter-spacing:-.02em}
+  .wordmark .glyph{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--grad);color:#fff;font-size:14px;box-shadow:0 2px 10px -2px var(--accent-glow)}
+  .nav-links{display:flex;gap:var(--s4);margin-left:var(--s4);font-size:14.5px;color:var(--text-dim)}
+  .nav-links a{transition:color .2s}
+  .nav-links a:hover{color:var(--text)}
+  .nav-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;display:grid;place-items:center;transition:.2s}
+  .icon-btn:hover{color:var(--text);border-color:var(--border-strong)}
+  .btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:15px;padding:11px 20px;border-radius:11px;border:1px solid transparent;cursor:pointer;transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s,border-color .2s,background .2s;white-space:nowrap;will-change:transform}
+  .btn-primary{background:var(--grad);color:#fff;box-shadow:0 6px 24px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.25)}
+  .btn-primary:hover{box-shadow:0 10px 34px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.3)}
+  .btn-ghost{border-color:var(--border-strong);color:var(--text);background:color-mix(in srgb,var(--surf-1) 40%,transparent)}
+  .btn-ghost:hover{border-color:var(--accent)}
+  .btn-sm{padding:9px 16px;font-size:14px;border-radius:10px}
+  @media (max-width:820px){ .nav-links{display:none} }
+
+  /* ---------- sections ---------- */
+  section{padding-block:clamp(64px,10vw,120px);position:relative}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:'GeistM',monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);
+    border:1px solid var(--border);padding:6px 12px;border-radius:999px;background:color-mix(in srgb,var(--surf-1) 50%,transparent)}
+  .eyebrow .live{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+  .divider{height:1px;background:linear-gradient(90deg,transparent,var(--border-strong),transparent);border:0;margin:0}
+  .sec-head{max-width:46ch}
+  .sec-head h2{font-size:var(--step-3);margin-top:16px}
+  .sec-head p{color:var(--text-dim);margin-top:14px;font-size:var(--step-1)}
+
+  /* ---------- hero ---------- */
+  .hero{min-height:min(92vh,880px);display:flex;flex-direction:column;justify-content:center;padding-top:56px;gap:var(--s6)}
+  .hero-copy{max-width:20ch}
+  .hero h1{font-size:var(--step-6);font-weight:600;letter-spacing:-.04em;margin-top:22px}
+  .hero .breathe{display:inline-block;animation:breathe linear both;animation-timeline:view();animation-range:cover 0% cover 40%}
+  @keyframes breathe{to{opacity:1}}
+  .hero .lede{font-size:var(--step-1);color:var(--text-dim);max-width:52ch;margin-top:22px;line-height:1.5}
+  .hero .ctas{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:30px}
+  .hero .micro{font-family:'GeistM',monospace;font-size:12.5px;color:var(--text-faint);margin-top:16px}
+
+  /* product frame */
+  .frame{width:min(920px,100%);margin-inline:auto;border:1px solid var(--border-strong);border-radius:16px;overflow:hidden;
+    background:var(--surf-1);box-shadow:var(--card-inset),0 30px 80px -30px rgba(0,0,0,.7);position:relative}
+  .frame-bar{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--surf-2) 60%,var(--surf-1))}
+  .frame-bar .dots{display:flex;gap:6px}
+  .frame-bar .dots i{width:11px;height:11px;border-radius:50%;background:var(--border-strong);display:block}
+  .frame-bar .addr{margin-left:10px;flex:1;font-family:'GeistM',monospace;font-size:12px;color:var(--text-faint);
+    background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:5px 11px;text-align:center;max-width:280px}
+  .frame-bar .conn{font-family:'GeistM',monospace;font-size:11px;letter-spacing:.05em;color:var(--accent);text-transform:uppercase;display:flex;align-items:center;gap:6px}
+  .frame-bar .conn::before{content:"";width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80}
+  .frame-body{padding:20px;display:grid;grid-template-columns:1fr;gap:14px;min-height:260px}
+  .goal{background:color-mix(in srgb,var(--accent) 12%,var(--surf-1));border:1px solid color-mix(in srgb,var(--accent) 28%,var(--border));border-radius:12px;padding:13px 15px}
+  .goal .lab{font-family:'GeistM',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:6px}
+  .goal .typed{font-size:15px}
+  .goal .typed::after{content:"";display:inline-block;width:2px;height:1.05em;background:var(--accent);margin-left:2px;vertical-align:-2px;animation:caret 1s steps(1) infinite}
+  @keyframes caret{50%{opacity:0}}
+  .runsteps{list-style:none;display:flex;flex-direction:column;gap:11px;padding:0}
+  .runsteps li{display:flex;align-items:flex-start;gap:11px;opacity:0;transform:translateY(6px);animation:stepin .5s ease forwards}
+  .runsteps li:nth-child(1){animation-delay:1.6s}
+  .runsteps li:nth-child(2){animation-delay:2.3s}
+  .runsteps li:nth-child(3){animation-delay:3s}
+  @keyframes stepin{to{opacity:1;transform:none}}
+  .tick{flex:none;width:20px;height:20px;border-radius:50%;background:color-mix(in srgb,#22c55e 22%,transparent);border:1px solid #22c55e;color:#22c55e;display:grid;place-items:center;margin-top:1px}
+  .tick svg{width:11px;height:11px}
+  .runsteps .t{font-family:'GeistM',monospace;font-size:11px;color:var(--text-faint);display:block;margin-bottom:1px}
+  .runsteps .d{font-size:14.5px}
+  .pause{display:flex;align-items:flex-start;gap:11px;padding:12px 14px;border-radius:11px;opacity:0;animation:stepin .5s ease 3.7s forwards;
+    background:color-mix(in srgb,var(--accent-glow) 12%,var(--surf-1));border:1px solid color-mix(in srgb,var(--accent-glow) 32%,var(--border))}
+  .pause .pi{flex:none;width:20px;height:20px;border-radius:50%;background:var(--accent-glow);color:#fff;display:grid;place-items:center;font-size:11px;margin-top:1px}
+  .pause b{color:var(--accent-glow)}
+
+  /* ---------- trust strip ---------- */
+  .trust{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3)}
+  .trust .t-tile{border:1px solid var(--border);border-radius:14px;padding:22px;background:var(--surf-1);box-shadow:var(--card-inset)}
+  .trust .t-tile .ic{color:var(--accent);margin-bottom:12px;display:block}
+  .trust .t-tile h3{font-size:17px;font-family:'GeistS',sans-serif;font-weight:600;letter-spacing:-.01em}
+  .trust .t-tile p{color:var(--text-dim);font-size:14.5px;margin-top:6px}
+
+  /* ---------- chess rows ---------- */
+  .chess{display:grid;grid-template-columns:1fr 1fr;gap:var(--s7);align-items:center}
+  .chess.rev .c-media{order:-1}
+  .chess h2{font-size:var(--step-2)}
+  .chess p{color:var(--text-dim);margin-top:14px}
+  .c-media{border:1px solid var(--border);border-radius:16px;padding:22px;background:var(--surf-1);box-shadow:var(--card-inset),var(--card-shadow)}
+
+  /* privacy diagram */
+  .diagram{display:flex;flex-direction:column;gap:12px;font-size:14px}
+  .flowrow{display:flex;align-items:center;gap:12px}
+  .node{flex:1;border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--surf-2)}
+  .node .n-lab{font-family:'GeistM',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint)}
+  .node .n-val{margin-top:4px;font-size:14px}
+  .node.you{border-color:color-mix(in srgb,var(--accent) 40%,var(--border))}
+  .node.stay{border-color:color-mix(in srgb,#22c55e 40%,var(--border))}
+  .node.stay .n-lab{color:#22c55e}
+  .flowrow .arrow{font-family:'GeistM',monospace;color:var(--text-faint)}
+  .diag-note{font-size:12.5px;color:var(--text-faint);font-family:'GeistM',monospace}
+
+  /* memory diagram */
+  .layers{display:flex;flex-direction:column;gap:10px}
+  .layer{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--surf-2);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .layer .lv{font-family:'GeistM',monospace;font-size:11px;color:var(--accent)}
+  .layer .lt{font-size:13.5px;color:var(--text-dim)}
+
+  /* ---------- bento ---------- */
+  .bento{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(150px,auto);gap:var(--s3)}
+  .tile{position:relative;overflow:hidden;border:1px solid var(--border);border-radius:16px;padding:22px;background:var(--surf-1);box-shadow:var(--card-inset);
+    transition:transform .28s cubic-bezier(.2,.8,.2,1),border-color .28s,box-shadow .28s;display:flex;flex-direction:column;gap:8px}
+  .tile:hover{transform:translateY(-4px);border-color:color-mix(in srgb,var(--accent) 45%,var(--border));box-shadow:var(--card-inset),0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent),0 14px 40px -18px var(--accent-glow)}
+  .tile .ic{color:var(--accent)}
+  .tile h3{font-family:'GeistS',sans-serif;font-weight:600;font-size:17px;letter-spacing:-.01em}
+  .tile p{color:var(--text-dim);font-size:14.5px}
+  .tile.big{grid-column:span 2;grid-row:span 2}
+  .tile.wide{grid-column:span 2}
+  .tile .layer-reveal{position:absolute;left:0;right:0;bottom:0;padding:16px 22px;background:linear-gradient(0deg,var(--surf-2),color-mix(in srgb,var(--surf-2) 88%,transparent));
+    border-top:1px solid var(--border);transform:translateY(100%);transition:transform .35s cubic-bezier(.22,1,.36,1);font-family:'GeistM',monospace;font-size:12px;color:var(--text-dim)}
+  .tile:hover .layer-reveal{transform:translateY(0)}
+  .tile.big .demo-dots{margin-top:auto;display:flex;gap:5px;flex-wrap:wrap}
+  .tile.big .demo-dots i{width:8px;height:8px;border-radius:50%;background:color-mix(in srgb,var(--accent) 45%,var(--border));display:block}
+
+  /* ---------- steps ---------- */
+  .how{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s4)}
+  .stepc{position:relative;border:1px solid var(--border);border-radius:16px;padding:26px;background:var(--surf-1);box-shadow:var(--card-inset)}
+  .stepc .n{font-family:'GeistM',monospace;font-size:13px;color:var(--accent);letter-spacing:.08em}
+  .stepc h3{font-family:'GeistS',sans-serif;font-weight:600;font-size:18px;margin-top:10px}
+  .stepc p{color:var(--text-dim);font-size:14.5px;margin-top:6px}
+
+  /* ---------- code block ---------- */
+  .codewrap{border:1px solid var(--border-strong);border-radius:16px;overflow:hidden;background:#0a0912;box-shadow:var(--card-shadow)}
+  :root[data-theme="light"] .codewrap{background:#14121f}
+  .code-bar{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .code-bar .dots{display:flex;gap:6px}
+  .code-bar .dots i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.16)}
+  .code-bar .fn{font-family:'GeistM',monospace;font-size:12px;color:rgba(255,255,255,.5);margin-left:6px}
+  pre.code{margin:0;padding:20px 22px;overflow-x:auto;font-family:'GeistM',monospace;font-size:13.5px;line-height:1.7;color:rgba(255,255,255,.86)}
+  pre.code .k{color:#c4b5fd}.pre .s{color:#a5b4fc}
+  pre.code .s{color:#93c5fd}
+  pre.code .p{color:#a78bfa}
+  pre.code .c{color:rgba(255,255,255,.36)}
+
+  /* ---------- faq ---------- */
+  .faq{max-width:760px}
+  details{border:1px solid var(--border);border-radius:12px;background:var(--surf-1);margin-bottom:12px;overflow:hidden}
+  details[open]{border-color:var(--border-strong)}
+  summary{list-style:none;cursor:pointer;padding:18px 20px;font-weight:600;font-size:16px;display:flex;justify-content:space-between;align-items:center;gap:14px}
+  summary::-webkit-details-marker{display:none}
+  summary .chev{flex:none;color:var(--text-dim);transition:transform .25s}
+  details[open] summary .chev{transform:rotate(45deg)}
+  .faq-body{padding:0 20px 18px;color:var(--text-dim);font-size:15px;line-height:1.6}
+
+  /* ---------- final cta ---------- */
+  .finalcta{text-align:center;position:relative;padding-block:clamp(80px,12vw,150px)}
+  .finalcta::before{content:"";position:absolute;left:50%;top:50%;translate:-50% -50%;width:min(680px,90vw);height:340px;
+    background:radial-gradient(closest-side,color-mix(in srgb,var(--accent-glow) 26%,transparent),transparent);filter:blur(30px);z-index:-1;pointer-events:none}
+  .finalcta h2{font-size:var(--step-4);max-width:16ch;margin:0 auto}
+  .finalcta .ctas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:30px}
+  .finalcta .micro{font-family:'GeistM',monospace;font-size:12.5px;color:var(--text-faint);margin-top:18px}
+
+  /* ---------- footer ---------- */
+  footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-dim)}
+  .foot-in{display:flex;flex-wrap:wrap;gap:18px 30px;justify-content:space-between;align-items:baseline}
+  .foot-brand{font-family:'GeistM',monospace;color:var(--text)}
+  .foot-links{display:flex;flex-wrap:wrap;gap:22px;font-family:'GeistM',monospace;font-size:13px}
+  .foot-links a{color:var(--text-dim);transition:color .2s}
+  .foot-links a:hover{color:var(--accent)}
+  .foot-built{width:100%;font-size:13px;color:var(--text-faint);margin-top:6px}
+  .foot-built a{color:var(--accent)}
+
+  /* ---------- scroll reveals ---------- */
+  .reveal{animation:reveal linear both;animation-timeline:view();animation-range:entry 0% cover 26%}
+  @keyframes reveal{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+  @supports not (animation-timeline:view()){ .reveal{opacity:1;transform:none;animation:none} }
+
+  /* ---------- responsive ---------- */
+  @media (max-width:900px){
+    .chess{grid-template-columns:1fr;gap:var(--s5)}
+    .chess.rev .c-media{order:0}
+    .bento{grid-template-columns:repeat(2,1fr)}
+    .tile.big{grid-column:span 2;grid-row:auto}
+    .trust,.how{grid-template-columns:1fr}
+  }
+  @media (max-width:560px){
+    .bento{grid-template-columns:1fr}
+    .tile.wide,.tile.big{grid-column:auto}
+    .frame-bar .addr{max-width:150px}
+    .btn{font-size:14px;padding:11px 16px}
+  }
+
+  /* ---------- reduced motion ---------- */
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto}
+    .mesh{animation:none}
+    .runsteps li,.pause,.reveal,.hero .breathe{opacity:1 !important;transform:none !important}
+    .goal .typed::after{display:none}
+    canvas#aurora{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="bg" aria-hidden="true">
+  <div class="mesh"></div>
+  <canvas id="aurora"></canvas>
+</div>
+<div class="grain" aria-hidden="true"></div>
+<div class="spot" id="spot" aria-hidden="true"></div>
+
+<header class="nav">
+  <div class="container nav-in">
+    <a class="wordmark" href="#top"><span class="glyph">✋</span> yad</a>
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#how">How it works</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn" id="theme" aria-label="Switch theme" title="Switch theme">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+      </button>
+      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Add to Chrome</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <!-- HERO -->
+  <section class="hero container" id="hero">
+    <div class="hero-top">
+      <span class="eyebrow"><span class="live"></span> AI browser agent · runs on your machine</span>
+      <h1 class="hero-copy">Your own <span class="grad-text breathe">hand</span> in the browser.</h1>
+      <p class="lede">Yad does tasks on any website for you. You say what you want in plain words, and it clicks and types in your own browser, with your own logins. Your passwords stay with you, and you choose which AI does the thinking.</p>
+      <div class="ctas">
+        <a class="btn btn-primary" id="magnet" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.66 15l3.9-6.75A5 5 0 0 1 12 7h9.24A10 10 0 0 0 12 2Z" opacity=".9"/><circle cx="12" cy="12" r="3.2" fill="#fff"/></svg>
+          Add to Chrome
+        </a>
+        <a class="btn btn-ghost" href="#how">See how it works</a>
+      </div>
+      <p class="micro">Free and open source. Launching on the Chrome Web Store, in review now.</p>
+    </div>
+
+    <div class="frame reveal" aria-label="Example of a Yad run">
+      <div class="frame-bar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="addr mono">localhost:3747</span>
+        <span class="conn mono">Connected</span>
+      </div>
+      <div class="frame-body">
+        <div class="goal">
+          <span class="lab">Your task</span>
+          <span class="typed">Compare these 3 laptops and add the best one to my cart</span>
+        </div>
+        <ul class="runsteps">
+          <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span><span class="t mono">step 1 · read</span><span class="d">Found all three on the page</span></span></li>
+          <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span><span class="t mono">step 2 · compare</span><span class="d">Weighed price, memory and reviews</span></span></li>
+          <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span><span class="t mono">step 3 · act</span><span class="d">Added the best value one to your cart</span></span></li>
+        </ul>
+        <div class="pause">
+          <span class="pi">‖</span>
+          <span><b>Paused.</b> I never check out or pay without you.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- TRUST -->
+  <section class="container" style="padding-block:clamp(48px,7vw,80px)">
+    <div class="trust">
+      <div class="t-tile reveal">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span>
+        <h3>Runs on your own machine</h3>
+        <p>The thinking happens locally, next to the browser you already use.</p>
+      </div>
+      <div class="t-tile reveal">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.9-2.6c3-.3 6.2-1.5 6.2-6.7A5.2 5.2 0 0 0 19 4.8 4.9 4.9 0 0 0 18.9 1S17.7.6 15 2.5a13 13 0 0 0-7 0C5.3.6 4.1 1 4.1 1A4.9 4.9 0 0 0 4 4.8a5.2 5.2 0 0 0-1.4 3.6c0 5.2 3.2 6.4 6.2 6.7A3.4 3.4 0 0 0 8 17.7V22"/></svg></span>
+        <h3>Open source</h3>
+        <p>The code is public. You can read exactly what it does before you trust it.</p>
+      </div>
+      <div class="t-tile reveal">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+        <h3>No account, no sign up</h3>
+        <p>There is no login and no server storing your data. You just install and go.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRIVACY / PROBLEM FIRST -->
+  <section class="container" id="privacy">
+    <div class="chess">
+      <div class="reveal">
+        <span class="eyebrow">The honest part</span>
+        <h2>You are handing an AI your browser. Where does your password go?</h2>
+        <p>Most AI agents run in a cloud browser, on someone else's server, with a copy of your logins. Yad does not. It works in your real browser, on your machine. Your passwords and card numbers are masked before anything is sent, and you decide what leaves.</p>
+        <p>Pick a local model and the page content stays on your computer. Pick a cloud model and only what is needed to plan the next step goes out. Your call, every time.</p>
+      </div>
+      <div class="c-media reveal">
+        <div class="diagram">
+          <div class="flowrow">
+            <div class="node you"><span class="n-lab">You type</span><span class="n-val">"Reply to this email"</span></div>
+          </div>
+          <div class="flowrow"><span class="arrow mono">↓ masked first</span></div>
+          <div class="flowrow">
+            <div class="node stay"><span class="n-lab">Stays on your machine</span><span class="n-val">Passwords, card numbers, your files</span></div>
+          </div>
+          <div class="flowrow">
+            <div class="node"><span class="n-lab">Local model</span><span class="n-val">Nothing leaves at all</span></div>
+            <div class="node"><span class="n-lab">Cloud model</span><span class="n-val">Only the step to plan</span></div>
+          </div>
+          <p class="diag-note">// local-first. you decide what goes out.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BENTO FEATURES -->
+  <section class="container" id="features">
+    <div class="sec-head reveal">
+      <span class="eyebrow">What is under the hood</span>
+      <h2>Small, honest, and it learns.</h2>
+      <p>Not a demo toy. Yad remembers what works, notices when it is stuck, and finds another way.</p>
+    </div>
+    <div class="bento" style="margin-top:var(--s6)">
+      <div class="tile big reveal">
+        <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.5 2.5M16.5 16.5 19 19M19 5l-2.5 2.5M7.5 16.5 5 19"/></svg></span>
+        <h3>A recovery brain</h3>
+        <p>When a site trips it up, Yad learns the fix and reuses it next time. Proven fixes spread from one site to the next, in three layers, without you setting anything up.</p>
+        <div class="demo-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="layer-reveal">site-exact → same-signal → same-class · promoted automatically</div>
+      </div>
+      <div class="tile wide reveal">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/></svg></span>
+        <h3>Works on any site</h3>
+        <p>Your real, logged in browser. No fake cloud copy of your accounts.</p>
+        <div class="layer-reveal">acts in your session, so sites treat it like you</div>
+      </div>
+      <div class="tile reveal">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg></span>
+        <h3>Fewer AI calls</h3>
+        <p>It caches what already worked, so repeats are fast and cheap.</p>
+        <div class="layer-reveal">action-cache · 0 model calls on a hit</div>
+      </div>
+      <div class="tile reveal">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+        <h3>Notices when stuck</h3>
+        <p>Eight signals catch a loop or a dead end, then it tries another way.</p>
+        <div class="layer-reveal">repeat · state-loop · no-progress · goal-drift · +4</div>
+      </div>
+      <div class="tile reveal">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M16 3h5v5"/></svg></span>
+        <h3>You choose the AI</h3>
+        <p>Cloud for power, or a local model so nothing leaves your computer.</p>
+        <div class="layer-reveal">bring your own key, or run fully local</div>
+      </div>
+      <div class="tile reveal">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 5V3M16 5V3M4 10h16"/></svg></span>
+        <h3>It remembers</h3>
+        <p>Selectors and past runs are stored, on your device, so it gets better.</p>
+        <div class="layer-reveal">selector-store · run-history · all local</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="container" id="how">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Get started</span>
+      <h2>Running in three steps.</h2>
+    </div>
+    <div class="how" style="margin-top:var(--s6)">
+      <div class="stepc reveal"><span class="n mono">STEP 1</span><h3>Add the extension</h3><p>Install Yad from the Chrome Web Store. It is free.</p></div>
+      <div class="stepc reveal"><span class="n mono">STEP 2</span><h3>Run the companion</h3><p>Download the small app that does the thinking and open it once. It connects itself.</p></div>
+      <div class="stepc reveal"><span class="n mono">STEP 3</span><h3>Type a task</h3><p>Open the side panel, say what you want, and watch it work.</p></div>
+    </div>
+  </section>
+
+  <!-- MEMORY CHESS ROW -->
+  <section class="container">
+    <div class="chess rev">
+      <div class="c-media reveal">
+        <div class="layers">
+          <div class="layer"><span class="lt">Same site, same problem</span><span class="lv mono">tier 1</span></div>
+          <div class="layer"><span class="lt">Any site, same signal</span><span class="lv mono">tier 2</span></div>
+          <div class="layer"><span class="lt">Any site, same class</span><span class="lv mono">tier 3</span></div>
+          <p class="diag-note" style="margin-top:4px">// proven by 2+ sites → promoted on its own</p>
+        </div>
+      </div>
+      <div class="reveal">
+        <span class="eyebrow">The memory</span>
+        <h2>It gets better the more it is used.</h2>
+        <p>Every fix Yad finds is saved and matched back the next time the same kind of problem shows up. A trick learned on one site can rescue a run on a site it has never seen. All of it lives on your machine, in plain readable files.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CODE BLOCK -->
+  <section class="container">
+    <div class="sec-head reveal">
+      <span class="eyebrow">For the builders</span>
+      <h2>It is scriptable, too.</h2>
+      <p>The companion runs a small local API. Send it a goal, it does the run.</p>
+    </div>
+    <div class="codewrap reveal" style="margin-top:var(--s5)">
+      <div class="code-bar"><span class="dots"><i></i><i></i><i></i></span><span class="fn mono">POST localhost:3747/goal</span></div>
+<pre class="code mono"><span class="c">// tell Yad what to do, in your own scripts</span>
+<span class="k">POST</span> http://localhost:3747/goal
+{
+  <span class="p">"goal"</span>: <span class="s">"Find the cheapest flight to Lisbon on Friday"</span>,
+  <span class="p">"sync"</span>: <span class="k">true</span>,
+  <span class="p">"autonomy"</span>: <span class="s">"auto"</span>,
+  <span class="p">"maxSteps"</span>: <span class="k">15</span>
+}</pre>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="container" id="faq">
+    <div class="sec-head reveal" style="margin-bottom:var(--s6)">
+      <span class="eyebrow">Straight answers</span>
+      <h2>The questions people actually ask.</h2>
+    </div>
+    <div class="faq">
+      <details class="reveal"><summary>Does my data leave my computer? <span class="chev">+</span></summary><div class="faq-body">You choose. With a local model, nothing leaves. With a cloud model, the page text and your task go to that provider to plan the next step. Your passwords and card numbers are masked before anything is sent, either way.</div></details>
+      <details class="reveal"><summary>Do I need an account? <span class="chev">+</span></summary><div class="faq-body">No. Yad runs on your machine. There is no sign up, and no server of ours storing your data.</div></details>
+      <details class="reveal"><summary>Is it really free? <span class="chev">+</span></summary><div class="faq-body">Yes, and open source. You bring your own AI key, or run a local model for free. Nothing is hidden behind a paywall.</div></details>
+      <details class="reveal"><summary>What will it not do? <span class="chev">+</span></summary><div class="faq-body">It will not check out, pay, or place orders without you. It will not store your browsing history or your files, and it will not sell or share your data.</div></details>
+      <details class="reveal"><summary>How do I keep everything local? <span class="chev">+</span></summary><div class="faq-body">Turn on local mode and pick a local model. Then the page content stays on your machine and the cloud is never touched.</div></details>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <section class="finalcta container">
+    <h2>Put your <span class="grad-text">hand</span> back in the browser.</h2>
+    <div class="ctas">
+      <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Add to Chrome</a>
+      <a class="btn btn-ghost" href="https://wazir-x402.duckdns.org/yad-privacy">Read the privacy policy</a>
+    </div>
+    <p class="micro">Free. Open source. Your data stays with you.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="container foot-in">
+    <div class="foot-brand mono">yad ✋ your own hand in the browser</div>
+    <div class="foot-links">
+      <a href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Chrome Web Store</a>
+      <a href="https://wazir-x402.duckdns.org/yad-privacy">Privacy</a>
+      <a href="mailto:info@mergefix.com">Contact</a>
+    </div>
+    <p class="foot-built">Built by Abdellah Ouadoudi. Questions? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var root=document.documentElement;
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var fine=matchMedia("(hover:hover) and (pointer:fine)").matches;
+
+  /* theme toggle (respect stored, else keep dark default) */
+  try{
+    var saved=localStorage.getItem("yad-theme");
+    if(saved){root.setAttribute("data-theme",saved);}
+  }catch(e){}
+  var tbtn=document.getElementById("theme");
+  if(tbtn){tbtn.addEventListener("click",function(){
+    var cur=root.getAttribute("data-theme")==="light"?"dark":"light";
+    root.setAttribute("data-theme",cur);
+    try{localStorage.setItem("yad-theme",cur);}catch(e){}
+  });}
+
+  /* cursor spotlight (fine pointer only) */
+  if(fine && !reduce){
+    var spot=document.getElementById("spot");
+    var tx=innerWidth/2, ty=innerHeight/2, cx=tx, cy=ty, raf=0;
+    spot.classList.add("on");
+    addEventListener("pointermove",function(e){tx=e.clientX;ty=e.clientY;if(!raf)raf=requestAnimationFrame(loop);},{passive:true});
+    function loop(){cx+=(tx-cx)*.14;cy+=(ty-cy)*.14;spot.style.setProperty("--mx",cx+"px");spot.style.setProperty("--my",cy+"px");
+      if(Math.abs(tx-cx)>.5||Math.abs(ty-cy)>.5){raf=requestAnimationFrame(loop);}else{raf=0;}}
+    loop();
+  }
+
+  /* magnetic primary CTA */
+  if(fine && !reduce){
+    var mag=document.getElementById("magnet");
+    if(mag){
+      mag.addEventListener("pointermove",function(e){
+        var r=mag.getBoundingClientRect();
+        var dx=(e.clientX-(r.left+r.width/2))*.25, dy=(e.clientY-(r.top+r.height/2))*.35;
+        mag.style.translate=dx+"px "+dy+"px";
+      });
+      mag.addEventListener("pointerleave",function(){mag.style.translate="0 0";});
+    }
+  }
+
+  /* WebGL FBM aurora, heavily gated, degrades to static mesh */
+  (function(){
+    if(reduce) return;
+    var cores=navigator.hardwareConcurrency||2;
+    var mem=navigator.deviceMemory||4;
+    if(cores<=4 || mem<=4) return;
+    var cv=document.getElementById("aurora");
+    var gl=null;
+    try{gl=cv.getContext("webgl",{antialias:false,alpha:true,premultipliedAlpha:false,powerPreference:"low-power"});}catch(e){}
+    if(!gl) return;
+    var vs="attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
+    var fs=[
+"precision highp float;uniform vec2 R;uniform float T;",
+"float h(vec2 n){return fract(sin(dot(n,vec2(12.9898,78.233)))*43758.5453);}",
+"float no(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);",
+"float a=h(i),b=h(i+vec2(1,0)),c=h(i+vec2(0,1)),d=h(i+vec2(1,1));",
+"return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}",
+"float fbm(vec2 p){float s=0.,m=.5;for(int i=0;i<5;i++){s+=m*no(p);p*=2.03;m*=.5;}return s;}",
+"void main(){vec2 uv=gl_FragCoord.xy/R;vec2 p=uv*vec2(R.x/R.y,1.);",
+"float t=T*.03;",
+"float f=fbm(p*2.2+vec2(t,t*.6));",
+"f+=.5*fbm(p*4.0-vec2(t*.7,t));",
+"float band=smoothstep(.15,1.05,f+uv.y*.5);",
+"vec3 c1=vec3(.31,.275,.898);vec3 c2=vec3(.486,.227,.929);vec3 c3=vec3(.576,.2,.917);",
+"vec3 col=mix(c1,c2,smoothstep(.2,.7,f));col=mix(col,c3,smoothstep(.55,1.,f));",
+"float a=band*(.55+.45*sin(f*6.28+t*2.))*(1.-uv.y*.35);",
+"gl_FragColor=vec4(col*a,a);}"
+].join("");
+    function sh(t,s){var o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;}
+    var pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);
+    if(!gl.getProgramParameter(pr,gl.LINK_STATUS))return;
+    gl.useProgram(pr);
+    var buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+    var lp=gl.getAttribLocation(pr,"p");gl.enableVertexAttribArray(lp);gl.vertexAttribPointer(lp,2,gl.FLOAT,false,0,0);
+    var uR=gl.getUniformLocation(pr,"R"),uT=gl.getUniformLocation(pr,"T");
+    gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+    var scale=.6,dpr=Math.min(devicePixelRatio||1,1.5);
+    function size(){var w=Math.floor(innerWidth*dpr*scale),hh=Math.floor(innerHeight*dpr*scale);
+      if(cv.width!==w||cv.height!==hh){cv.width=w;cv.height=hh;gl.viewport(0,0,w,hh);}}
+    size();addEventListener("resize",size,{passive:true});
+    cv.classList.add("on");
+    var t0=0,running=true,rafid=0;
+    function frame(ts){ if(!running){return;} if(!t0)t0=ts; gl.uniform2f(uR,cv.width,cv.height); gl.uniform1f(uT,(ts-t0)/1000);
+      gl.drawArrays(gl.TRIANGLES,0,6); rafid=requestAnimationFrame(frame); }
+    rafid=requestAnimationFrame(frame);
+    /* pause when hero off-screen or tab hidden */
+    var hero=document.getElementById("hero");
+    if("IntersectionObserver" in window && hero){
+      new IntersectionObserver(function(en){
+        var vis=en[0].isIntersecting;
+        if(vis && !running){running=true;t0=0;rafid=requestAnimationFrame(frame);cv.classList.add("on");}
+        else if(!vis && running){running=false;cancelAnimationFrame(rafid);cv.classList.remove("on");}
+      },{threshold:.08}).observe(hero);
+    }
+    document.addEventListener("visibilitychange",function(){
+      if(document.hidden){running=false;cancelAnimationFrame(rafid);}
+      else if(!running){running=true;t0=0;rafid=requestAnimationFrame(frame);}
+    });
+  })();
+})();
+</script>
+</body>
+</html>
