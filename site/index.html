@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yad, your own hand in the browser</title>
+<meta name="description" content="Yad is an AI browser agent that runs on your own computer. Say what you want in plain words, and it clicks and types in your own browser, with your own logins. Your passwords stay with you, and you choose the AI.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9C%8B</text></svg>">
+<style>
+  :root {
+    --paper: #F4F3EE;
+    --card: #FBFAF6;
+    --ink: #17150F;
+    --muted: #6E6C62;
+    --line: #E3E0D6;
+    --pine: #1E5B47;
+    --pine-2: #2E7D5F;
+    --clay: #A85C34;
+    --shadow: 24px 24px 60px rgba(23,21,15,.06);
+    --sans: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", "Consolas", "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #111310;
+      --card: #181A15;
+      --ink: #ECEAE1;
+      --muted: #9A988C;
+      --line: #272A23;
+      --pine: #57B291;
+      --pine-2: #6CC6A5;
+      --clay: #D08A5C;
+      --shadow: 24px 24px 60px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #F4F3EE; --card: #FBFAF6; --ink: #17150F; --muted: #6E6C62; --line: #E3E0D6;
+    --pine: #1E5B47; --pine-2: #2E7D5F; --clay: #A85C34; --shadow: 24px 24px 60px rgba(23,21,15,.06);
+  }
+  :root[data-theme="dark"] {
+    --paper: #111310; --card: #181A15; --ink: #ECEAE1; --muted: #9A988C; --line: #272A23;
+    --pine: #57B291; --pine-2: #6CC6A5; --clay: #D08A5C; --shadow: 24px 24px 60px rgba(0,0,0,.28);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.6;
+    font-size: 17px;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  img { max-width: 100%; }
+
+  .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--pine);
+    margin: 0 0 14px;
+  }
+  h1, h2, h3 { text-wrap: balance; }
+
+  /* top bar */
+  header.bar {
+    position: sticky; top: 0; z-index: 20;
+    backdrop-filter: saturate(1.2) blur(8px);
+    background: color-mix(in srgb, var(--paper) 86%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar-in { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .brand { font-family: var(--mono); font-weight: 700; letter-spacing: .02em; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+  .brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pine-2); box-shadow: 0 0 0 4px color-mix(in srgb, var(--pine-2) 22%, transparent); }
+  .bar a.cta-sm {
+    font-family: var(--mono); font-size: 13px; text-decoration: none;
+    color: var(--paper); background: var(--pine); padding: 9px 16px; border-radius: 999px;
+    letter-spacing: .02em; white-space: nowrap;
+  }
+  .bar a.cta-sm:hover { background: var(--pine-2); }
+
+  /* hero */
+  .hero { padding: 76px 0 40px; }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; }
+  h1 { font-size: clamp(38px, 6vw, 62px); line-height: 1.02; letter-spacing: -.03em; font-weight: 800; margin: 0 0 22px; }
+  .lede { font-size: clamp(17px, 2.2vw, 20px); color: var(--muted); max-width: 40ch; margin: 0 0 30px; }
+  .ctas { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-weight: 600; font-size: 16px; text-decoration: none;
+    padding: 14px 24px; border-radius: 12px; border: 1px solid transparent;
+    transition: transform .12s ease, background .12s ease;
+  }
+  .btn-primary { background: var(--pine); color: var(--paper); }
+  .btn-primary:hover { background: var(--pine-2); transform: translateY(-1px); }
+  .btn-ghost { border-color: var(--line); color: var(--ink); background: transparent; }
+  .btn-ghost:hover { border-color: var(--pine); transform: translateY(-1px); }
+  .micro { font-family: var(--mono); font-size: 12.5px; color: var(--muted); margin: 16px 0 0; letter-spacing: .02em; }
+
+  /* demo panel */
+  .panel {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: var(--shadow); overflow: hidden; font-size: 15px;
+  }
+  .panel-head { display: flex; align-items: center; gap: 9px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+  .panel-head .p-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pine-2); }
+  .panel-head .p-name { font-family: var(--mono); font-weight: 700; font-size: 13px; }
+  .panel-head .p-conn { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--pine); letter-spacing: .06em; text-transform: uppercase; }
+  .panel-body { padding: 16px; }
+  .task {
+    background: color-mix(in srgb, var(--pine) 10%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--pine) 24%, var(--line));
+    color: var(--ink); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: 15px;
+  }
+  .task .task-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--pine); display: block; margin-bottom: 5px; }
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+  .steps li { display: flex; align-items: flex-start; gap: 11px; opacity: 0; transform: translateY(6px); animation: rise .5s ease forwards; }
+  .steps li:nth-child(1) { animation-delay: .15s; }
+  .steps li:nth-child(2) { animation-delay: .55s; }
+  .steps li:nth-child(3) { animation-delay: .95s; }
+  .steps li:nth-child(4) { animation-delay: 1.4s; }
+  .tick { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--pine); color: var(--paper); display: grid; place-items: center; font-size: 12px; margin-top: 1px; }
+  .steps .t-time { font-family: var(--mono); font-size: 11px; color: var(--muted); display: block; }
+  .pause { display: flex; align-items: flex-start; gap: 11px; margin-top: 15px; padding: 12px 14px; border-radius: 12px;
+    background: color-mix(in srgb, var(--clay) 12%, var(--card)); border: 1px solid color-mix(in srgb, var(--clay) 30%, var(--line)); }
+  .pause .p-i { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--clay); color: var(--paper); display: grid; place-items: center; font-size: 12px; margin-top: 1px; }
+  .pause b { color: var(--clay); }
+
+  /* sections */
+  section { padding: 58px 0; border-top: 1px solid var(--line); }
+  .sec-head { max-width: 42ch; margin: 0 0 40px; }
+  h2 { font-size: clamp(27px, 3.6vw, 38px); line-height: 1.08; letter-spacing: -.02em; font-weight: 800; margin: 0; }
+  .sec-head p { color: var(--muted); margin: 14px 0 0; }
+
+  .halves { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .half { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px; }
+  .half .num { font-family: var(--mono); font-size: 12px; color: var(--pine); letter-spacing: .1em; }
+  .half h3 { font-size: 21px; margin: 10px 0 8px; letter-spacing: -.01em; }
+  .half p { margin: 0; color: var(--muted); }
+  .halves-note { font-family: var(--mono); font-size: 13px; color: var(--muted); margin: 20px 0 0; text-align: center; }
+
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .card .ic { width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--pine) 14%, var(--card));
+    display: grid; place-items: center; color: var(--pine); margin-bottom: 4px; }
+  .card h3 { font-size: 18px; margin: 0; letter-spacing: -.01em; }
+  .card p { margin: 0; color: var(--muted); font-size: 15.5px; }
+
+  .dodont { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .col { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 26px; }
+  .col .col-h { font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; margin: 0 0 16px; }
+  .col.do .col-h { color: var(--pine); }
+  .col.dont .col-h { color: var(--clay); }
+  .col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+  .col li { display: flex; gap: 11px; align-items: flex-start; color: var(--ink); font-size: 15.5px; }
+  .col li .m { flex: none; font-family: var(--mono); margin-top: 1px; }
+  .col.do li .m { color: var(--pine); }
+  .col.dont li .m { color: var(--clay); }
+
+  .learn-note { font-size: 14.5px; color: var(--muted); margin: 22px auto 0; max-width: 62ch; text-align: center; }
+
+  .steps3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; counter-reset: s; }
+  .step3 { position: relative; padding: 26px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+  .step3 .n { font-family: var(--mono); font-weight: 700; color: var(--pine); font-size: 14px; letter-spacing: .08em; }
+  .step3 h3 { font-size: 18px; margin: 8px 0 6px; }
+  .step3 p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .band { text-align: center; padding: 72px 0; border-top: 1px solid var(--line); }
+  .band h2 { max-width: 20ch; margin: 0 auto 26px; }
+  .band .micro { text-align: center; }
+
+  footer { border-top: 1px solid var(--line); padding: 40px 0 56px; color: var(--muted); }
+  .foot-in { display: flex; flex-wrap: wrap; gap: 18px 30px; justify-content: space-between; align-items: baseline; }
+  .foot-brand { font-family: var(--mono); font-weight: 700; color: var(--ink); }
+  .foot-links { display: flex; flex-wrap: wrap; gap: 22px; font-family: var(--mono); font-size: 13.5px; }
+  .foot-links a { text-decoration: none; color: var(--muted); }
+  .foot-links a:hover { color: var(--pine); }
+  .foot-built { font-size: 13.5px; width: 100%; margin-top: 8px; }
+  .foot-built a { color: var(--pine); text-decoration: none; }
+
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .fade { opacity: 0; transform: translateY(10px); animation: rise .6s ease forwards; }
+  .fade.d1 { animation-delay: .05s; } .fade.d2 { animation-delay: .15s; } .fade.d3 { animation-delay: .25s; }
+
+  @media (max-width: 860px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+    .lede { max-width: none; }
+    .cards, .steps3 { grid-template-columns: 1fr; }
+    .halves, .dodont { grid-template-columns: 1fr; }
+    .hero { padding: 52px 0 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .steps li, .fade { animation: none !important; opacity: 1 !important; transform: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap bar-in">
+    <div class="brand"><span class="dot"></span> yad</div>
+    <a class="cta-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Get Yad</a>
+  </div>
+</header>
+
+<main>
+  <section class="hero" style="border-top:none">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow fade d1">AI browser agent · runs on your own computer</p>
+        <h1 class="fade d1">Your own hand in the browser.</h1>
+        <p class="lede fade d2">Yad does tasks on any website for you. You say what you want in plain words, and it clicks and types in your own browser, with your own logins. Your passwords stay with you, and you choose which AI does the thinking.</p>
+        <div class="ctas fade d3">
+          <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Get Yad on Chrome</a>
+          <a class="btn btn-ghost" href="#how">See how it works</a>
+        </div>
+        <p class="micro fade d3">Launching on the Chrome Web Store. In review now.</p>
+      </div>
+
+      <div class="panel fade d3" aria-label="Example of Yad working in the side panel">
+        <div class="panel-head">
+          <span class="p-dot"></span>
+          <span class="p-name">Yad</span>
+          <span class="p-conn">Connected</span>
+        </div>
+        <div class="panel-body">
+          <div class="task">
+            <span class="task-label">Your task</span>
+            Compare these 3 laptops and add the best one to my cart
+          </div>
+          <ul class="steps">
+            <li><span class="tick">✓</span><span><span class="t-time">step 1</span>Read the page, found all three</span></li>
+            <li><span class="tick">✓</span><span><span class="t-time">step 2</span>Compared price, memory and reviews</span></li>
+            <li><span class="tick">✓</span><span><span class="t-time">step 3</span>Added the best value one to your cart</span></li>
+          </ul>
+          <div class="pause">
+            <span class="p-i">⏸</span>
+            <span><b>Paused.</b> I never check out or pay without you.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">How it fits together</p>
+        <h2>Two small parts. Both yours. Both free.</h2>
+        <p>Yad splits on purpose, so the thinking stays on your machine and your data stays with you.</p>
+      </div>
+      <div class="halves">
+        <div class="half">
+          <span class="num">THE HAND</span>
+          <h3>The extension in Chrome</h3>
+          <p>A light add-on that can see the page and do the clicking and typing. It has no brain of its own, so on its own it can do nothing.</p>
+        </div>
+        <div class="half">
+          <span class="num">THE BRAIN</span>
+          <h3>A small app on your computer</h3>
+          <p>It takes your task, thinks with the AI you picked, and tells the Hand what to do. Because it runs on your machine, your passwords and your pages never have to leave it.</p>
+        </div>
+      </div>
+      <p class="halves-note">You install the extension, then run the Brain once. That is the whole setup.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Why Yad is different</p>
+        <h2>Built so your data stays your data.</h2>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <span class="ic" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </span>
+          <h3>Your logins stay yours</h3>
+          <p>Yad works in your real, already logged in browser. Your passwords and card numbers are hidden before anything is sent. We do not store your data, and we never sell it.</p>
+        </div>
+        <div class="card">
+          <span class="ic" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"></path></svg>
+          </span>
+          <h3>You choose the AI</h3>
+          <p>Pick a cloud model when you want the most power. Or pick a local model, and then nothing leaves your computer at all. Your call, per task.</p>
+        </div>
+        <div class="card">
+          <span class="ic" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"></path></svg>
+          </span>
+          <h3>Works on any site</h3>
+          <p>No fake cloud browser, no copy of your accounts on someone else's server. Yad acts in the same browser you already use, so sites treat it like you.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Honest about the limits</p>
+        <h2>What Yad does, and what it will not do.</h2>
+      </div>
+      <div class="dodont">
+        <div class="col do">
+          <p class="col-h">Yad does</p>
+          <ul>
+            <li><span class="m">→</span> Reads the page you are on, its text and links.</li>
+            <li><span class="m">→</span> Clicks, types, fills in forms, follows steps.</li>
+            <li><span class="m">→</span> Pauses and asks you before anything important.</li>
+            <li><span class="m">→</span> Learns to recover when a site trips it up.</li>
+          </ul>
+        </div>
+        <div class="col dont">
+          <p class="col-h">Yad will not</p>
+          <ul>
+            <li><span class="m">✕</span> Check out, pay, or place orders without you.</li>
+            <li><span class="m">✕</span> Store your browsing, your logins, or your files.</li>
+            <li><span class="m">✕</span> Send your passwords anywhere. They are masked first.</li>
+            <li><span class="m">✕</span> Sell or share your data. Not now, not ever.</li>
+          </ul>
+        </div>
+      </div>
+      <p class="learn-note">When Yad gets stuck on a site, it can send one tiny anonymous note so it gets better next time: the site's domain and the type of hiccup. No page content, no logins, no personal data. You can turn this off in the settings.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Get started</p>
+        <h2>Running in three steps.</h2>
+      </div>
+      <div class="steps3">
+        <div class="step3">
+          <span class="n">STEP 1</span>
+          <h3>Add the extension</h3>
+          <p>Install Yad from the Chrome Web Store. It is free.</p>
+        </div>
+        <div class="step3">
+          <span class="n">STEP 2</span>
+          <h3>Run the Brain</h3>
+          <p>Download the small companion app and open it once. It connects itself.</p>
+        </div>
+        <div class="step3">
+          <span class="n">STEP 3</span>
+          <h3>Type a task</h3>
+          <p>Open the side panel, say what you want in plain words, and watch it work.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <h2>Put your hand back in the browser.</h2>
+      <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Get Yad on Chrome</a>
+      <p class="micro">Free. Open source. Your data stays with you.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot-in">
+    <div class="foot-brand">yad ✋ your own hand in the browser</div>
+    <div class="foot-links">
+      <a href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Chrome Web Store</a>
+      <a href="https://wazir-x402.duckdns.org/yad-privacy">Privacy</a>
+      <a href="mailto:info@mergefix.com">Contact</a>
+    </div>
+    <p class="foot-built">Built by Abdellah Ouadoudi. Questions? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
