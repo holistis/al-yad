@@ -2,6 +2,13 @@
 
 Built by [Abdellah Ouadoudi](https://github.com/holistis)
 
+## Website / homepage / live URL
+
+- **The YAD website (live landing page): https://wazir-x402.duckdns.org/yad** — hosted on the project's own server. There is NO dedicated domain (yad.com / yad.nl / yad.app etc.) yet; this duckdns URL IS the official site. Do not conclude "YAD has no website".
+- **Chrome Web Store listing** (install page): https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea (submitted 2026-08-20, in review).
+- Landing page source lives in `site/index.html`; it deploys to the duckdns URL via a `/yad` route on the x402 server.
+
+
 **Yad** ("the hand" in Arabic) is a thin Chrome extension (the Hand) controlled by a locally hosted brain (the Companion). It works inside the user's real, logged-in browser session, learns a task once, and then repeats it deterministically at near-zero cost.
 
 > **Benchmark results** (gpt-4o-mini, July 2025):

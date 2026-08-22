@@ -2,6 +2,7 @@
   "name": "al-yad",
   "version": "0.1.0",
   "description": "Self-hostable, privacy-first AI browser automation agent — works inside your real logged-in Chrome session",
+  "homepage": "https://wazir-x402.duckdns.org/yad",
   "author": "AO Services",
   "license": "MIT",
   "private": false,
