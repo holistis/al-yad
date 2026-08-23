@@ -28,8 +28,22 @@ const INVISIBLE_RE = new RegExp(
 
 /** Grenzen die beide Handen identiek moeten respecteren. */
 export const SNAPSHOT_LIMITS = {
-  /** Maximaal aantal interactieve nodes per snapshot. */
-  MAX_NODES: 150,
+  /**
+   * Maximaal aantal interactieve nodes per snapshot.
+   * Was 150 tot 2026-08-23: op een pagina met een lange, altijd-in-de-DOM-aanwezige
+   * (niet-gevirtualiseerde) optielijst vroeg in de paginavolgorde — bijv. HackerOne's
+   * "kies je asset"-dropdown met 100+ knoppen vóór het eigenlijke rapportformulier —
+   * verslindt die lijst het hele budget en komen velden verderop (Title/Description/
+   * Impact) nooit meer in de snapshot terecht. isVisible() filtert dit niet weg omdat
+   * scroll-buiten-beeld-maar-technisch-zichtbaar elementen een geldige boundingRect
+   * en computed style hebben. Verhoogd naar 500 als directe, laag-risico oplossing.
+   * Nettere fix voor later: isVisible() ook laten controleren of een element binnen
+   * de zichtbare scroll-viewport van zijn dichtstbijzijnde scrollbare voorouder valt,
+   * niet alleen of het technisch renderbaar is — dat lost dit voor ELKE lange lijst
+   * op (zoekresultaten, infinite scroll) in plaats van alleen het node-budget te
+   * vergroten. Zie yad-react-input-en-tabfocus-gat-2026-08-23 (Claude-memory).
+   */
+  MAX_NODES: 500,
   /** Maximale naam/waarde-lengte per node in tekens. */
   NAME_LIMIT: 120,
   /** Maximale textDigest-lengte in tekens. */
