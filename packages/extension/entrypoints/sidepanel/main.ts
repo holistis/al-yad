@@ -89,6 +89,15 @@ const STRINGS = {
     bizTitle: "Voor je bedrijf?",
     bizText: "YAD draait op je eigen computer. Wil je hem afgestemd op je team, of volledig op je eigen servers zodat je data binnen blijft?",
     bizCta: "Neem contact op",
+    provKeyLabel: "API-sleutel",
+    provModelLabel: "Model (leeg = standaard)",
+    provModelPh: "bv.",
+    provPrimaryLabel: "Dit model als sterkste EERST gebruiken",
+    provSignup: "Aanmelden →",
+    provShow: "Toon", provHide: "Verberg",
+    provCompanionActive: "✓ actief",
+    provCompanionActiveTitle: "Actief in companion via .env, geen sleutel nodig in de UI",
+    provNoResults: "Geen aanbieder gevonden.",
   },
   en: {
     tabTask: "Task", tabSaved: "Saved", tabSettings: "Settings", tabStats: "Stats",
@@ -149,6 +158,15 @@ const STRINGS = {
     bizTitle: "For your company?",
     bizText: "YAD runs on your own computer. Want it tuned to your team, or fully on your own servers so your data stays in?",
     bizCta: "Get in touch",
+    provKeyLabel: "API key",
+    provModelLabel: "Model (empty = default)",
+    provModelPh: "e.g.",
+    provPrimaryLabel: "Use this model FIRST, as the strongest",
+    provSignup: "Sign up →",
+    provShow: "Show", provHide: "Hide",
+    provCompanionActive: "✓ active",
+    provCompanionActiveTitle: "Active in the companion via .env, no key needed in the UI",
+    provNoResults: "No provider found.",
   },
 } as const;
 
@@ -161,6 +179,8 @@ let currentSiteDomain = "";
 let companionActiveProviders: string[] = [];
 
 function t(k: TKey): string { return STRINGS[currentLanguage][k]; }
+/** Kiest de tekst in de huidige taal voor een tweetalig veld (bv. provider-catalogus). */
+function loc(v: { nl: string; en: string }): string { return v[currentLanguage]; }
 
 function applyLang(): void {
   document.documentElement.lang = currentLanguage;
@@ -741,6 +761,11 @@ function refreshLangState(): void {
     b.classList.toggle("active", b.dataset["lang"] === currentLanguage));
   applyLang();
   if (document.getElementById("yad-welcome")) { removeWelcome(); renderWelcome(); }
+  // Her-render de in-JS opgebouwde provider-catalogus in de nieuwe taal (die gaat niet via applyLang).
+  const sp = document.getElementById("tab-instellingen");
+  if (sp && !sp.classList.contains("hidden")) {
+    void getSettings().then((s) => renderProviderCatalog(s));
+  }
 }
 
 async function loadSettingsTab(): Promise<void> {
@@ -809,13 +834,13 @@ function renderProviderCatalog(settings: YadSettings): void {
 function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConfig, opts: { recommended?: boolean } = {}): HTMLElement {
   const card = document.createElement("div");
   card.className = `provider-card${config.enabled ? " active" : ""}`;
-  card.dataset["search"] = `${entry.name} ${entry.tagline} ${entry.id}`.toLowerCase();
+  card.dataset["search"] = `${loc(entry.name)} ${loc(entry.tagline)} ${entry.id}`.toLowerCase();
   const header = document.createElement("div"); header.className = "provider-header";
   const chk = document.createElement("input"); chk.type = "checkbox";
   chk.id = `prov-${entry.id}-enabled`; chk.checked = config.enabled;
   const nameLabel = document.createElement("label"); nameLabel.htmlFor = chk.id;
-  nameLabel.className = "provider-name"; nameLabel.textContent = entry.name;
-  const badge = document.createElement("span"); badge.className = `provider-badge ${entry.tier}`; badge.textContent = entry.badge;
+  nameLabel.className = "provider-name"; nameLabel.textContent = loc(entry.name);
+  const badge = document.createElement("span"); badge.className = `provider-badge ${entry.tier}`; badge.textContent = loc(entry.badge);
   header.append(chk, nameLabel, badge);
   if (opts.recommended) {
     const rec = document.createElement("span");
@@ -827,26 +852,26 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
   if (companionActiveProviders.includes(entry.id) && !config.enabled) {
     const companionBadge = document.createElement("span");
     companionBadge.className = "provider-badge companion";
-    companionBadge.title = "Actief in companion via .env — geen sleutel nodig in de UI";
-    companionBadge.textContent = "✓ actief";
+    companionBadge.title = t("provCompanionActiveTitle");
+    companionBadge.textContent = t("provCompanionActive");
     header.append(companionBadge);
   }
   const detail = document.createElement("div"); detail.className = "provider-detail";
-  const tagline = document.createElement("div"); tagline.className = "provider-tagline"; tagline.textContent = entry.tagline;
+  const tagline = document.createElement("div"); tagline.className = "provider-tagline"; tagline.textContent = loc(entry.tagline);
   const meta = document.createElement("div"); meta.className = "provider-meta";
   if (entry.freeLimit) {
-    const lim = document.createElement("span"); lim.className = "provider-limit"; lim.textContent = entry.freeLimit; meta.append(lim);
+    const lim = document.createElement("span"); lim.className = "provider-limit"; lim.textContent = loc(entry.freeLimit); meta.append(lim);
   }
   const stars = document.createElement("span"); stars.className = "provider-stars";
   stars.textContent = "★".repeat(entry.quality) + "☆".repeat(5 - entry.quality);
   const signupBtn = document.createElement("button"); signupBtn.type = "button";
-  signupBtn.className = "provider-signup"; signupBtn.textContent = "Aanmelden →";
+  signupBtn.className = "provider-signup"; signupBtn.textContent = t("provSignup");
   signupBtn.onclick = (): void => { window.open(entry.signupUrl, "_blank"); };
   meta.append(stars, signupBtn); detail.append(tagline, meta);
   const fields = document.createElement("div"); fields.className = "provider-fields";
   if (!config.enabled && !opts.recommended) fields.classList.add("hidden");
-  if (entry.requiresKey) fields.append(buildKeyField(`prov-${entry.id}-key`, "API-sleutel", config.key, entry.keyPlaceholder));
-  if (entry.supportsModel) fields.append(buildTextField(`prov-${entry.id}-model`, "Model (leeg = standaard)", config.model ?? "", `bv. ${entry.defaultModel}`));
+  if (entry.requiresKey) fields.append(buildKeyField(`prov-${entry.id}-key`, t("provKeyLabel"), config.key, loc(entry.keyPlaceholder)));
+  if (entry.supportsModel) fields.append(buildTextField(`prov-${entry.id}-model`, t("provModelLabel"), config.model ?? "", `${t("provModelPh")} ${entry.defaultModel}`));
   if (entry.supportsBaseUrl) {
     const defUrl = entry.defaultBaseUrl ?? "";
     fields.append(buildTextField(`prov-${entry.id}-baseUrl`, entry.id === "ollama" ? "Ollama URL" : "Base URL", config.baseUrl || defUrl, defUrl));
@@ -856,7 +881,7 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
     const pLbl = document.createElement("label"); pLbl.className = "field-check";
     const pChk = document.createElement("input"); pChk.type = "checkbox";
     pChk.id = `prov-${entry.id}-primary`; pChk.checked = config.primary ?? false;
-    pLbl.append(pChk, document.createTextNode(" Dit model als sterkste EERST gebruiken"));
+    pLbl.append(pChk, document.createTextNode(" " + t("provPrimaryLabel")));
     pDiv.append(pLbl); fields.append(pDiv);
   }
   chk.onchange = (): void => { card.classList.toggle("active", chk.checked); fields.classList.toggle("hidden", !chk.checked); };
@@ -881,8 +906,8 @@ function buildKeyField(id: string, label: string, value: string, placeholder: st
   const inp = document.createElement("input"); inp.type = "password"; inp.id = id;
   inp.value = value; inp.placeholder = placeholder; inp.autocomplete = "new-password";
   const show = document.createElement("button"); show.type = "button";
-  show.className = "secondary small toggle-show"; show.textContent = "Toon";
-  show.onclick = (): void => { inp.type = inp.type === "password" ? "text" : "password"; show.textContent = inp.type === "password" ? "Toon" : "Verberg"; };
+  show.className = "secondary small toggle-show"; show.textContent = t("provShow");
+  show.onclick = (): void => { inp.type = inp.type === "password" ? "text" : "password"; show.textContent = inp.type === "password" ? t("provShow") : t("provHide"); };
   row.append(inp, show); div.append(lbl, row); return div;
 }
 
@@ -1033,7 +1058,7 @@ function startApp(): void {
     const cat = $<HTMLElement>("#provider-catalog");
     let note = cat.querySelector<HTMLElement>(".no-results");
     if (visible === 0) {
-      if (!note) { note = document.createElement("p"); note.className = "no-results"; note.textContent = "Geen aanbieder gevonden."; cat.append(note); }
+      if (!note) { note = document.createElement("p"); note.className = "no-results"; note.textContent = t("provNoResults"); cat.append(note); }
     } else if (note) note.remove();
   });
 
