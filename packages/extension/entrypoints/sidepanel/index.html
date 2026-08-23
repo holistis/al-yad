@@ -480,6 +480,18 @@
             <p class="hint" data-i18n="providerHint">Vink een provider aan, plak je sleutel.</p>
           </div>
           <div class="settings-section">
+            <h3 data-i18n="spendTitle">Uitgaven en veiligheid</h3>
+            <div class="field">
+              <label><span data-i18n="spendCapLabel">Max AI-aanroepen per dag:</span> <strong id="cap-val">1000</strong></label>
+              <input type="range" id="s-daily-cap" min="50" max="5000" step="50" value="1000" />
+              <div class="hint" data-i18n="spendCapHint">Een veiligheidsplafond zodat Yad nooit ongelimiteerd je sleutel kan blijven gebruiken.</div>
+            </div>
+            <div class="field">
+              <button type="button" id="kill-toggle" style="width:100%;font:inherit;font-size:13px;padding:8px;border:none;border-radius:6px;background:#dc2626;color:#fff;cursor:pointer">Stop Yad nu</button>
+              <div class="hint" data-i18n="killHint">Blokkeert direct elke AI-aanroep tot je hem weer aanzet.</div>
+            </div>
+          </div>
+          <div class="settings-section">
             <h3 data-i18n="settingsBehavior">Gedrag</h3>
             <div class="field">
               <label><span data-i18n="maxStepsLabel">Max stappen per taak:</span> <strong id="steps-val">15</strong></label>
