@@ -130,6 +130,21 @@
   .hero .lede{font-size:var(--step-1);color:var(--text-dim);max-width:52ch;margin-top:22px;line-height:1.5}
   .hero .ctas{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:30px}
   .hero .micro{font-family:'GeistM',monospace;font-size:12.5px;color:var(--text-faint);margin-top:16px}
+  /* Hero setup panel: two ordered parts read as ONE task, not two rival buttons */
+  .hero .setup{margin-top:30px;max-width:36rem;border:1px solid color-mix(in srgb,var(--accent) 24%,var(--border));background:color-mix(in srgb,var(--accent) 6%,var(--surf-1));border-radius:16px;padding:var(--s4)}
+  .setup-head{font-weight:600;font-size:14.5px;color:var(--text);margin-bottom:var(--s4)}
+  .setup-track{list-style:none;margin:0 0 var(--s4);padding:0;display:flex;flex-direction:column;gap:var(--s2)}
+  .step{display:grid;grid-template-columns:auto 1fr;gap:var(--s3);align-items:start}
+  .step-badge{width:34px;height:34px;border-radius:50%;background:var(--grad);color:var(--on-accent);display:grid;place-items:center;font-family:'GeistM',monospace;font-weight:600;font-size:15px;box-shadow:0 4px 14px -6px var(--accent-glow)}
+  .step-body{display:flex;flex-direction:column}
+  .step-title{display:block;font-weight:600;font-size:15.5px;color:var(--text)}
+  .step-note{color:var(--text-dim);font-size:14px;line-height:1.5;margin:4px 0 12px;max-width:46ch}
+  .step-body .btn{align-self:flex-start}
+  .step-then{margin:var(--s2) 0 var(--s2) 16px;padding-left:var(--s4);border-left:2px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+  .step-then span{font-family:'GeistM',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--text-dim)}
+  .btn-tonal{background:color-mix(in srgb,var(--accent) 20%,transparent);border:1px solid color-mix(in srgb,var(--accent) 50%,var(--border));color:var(--text);box-shadow:var(--card-inset)}
+  .btn-tonal:hover{background:color-mix(in srgb,var(--accent) 28%,transparent);border-color:var(--accent)}
+  @media (max-width:560px){.hero .setup{max-width:none}}
 
   /* product frame */
   .frame{width:min(920px,100%);margin-inline:auto;border:1px solid var(--border-strong);border-radius:16px;overflow:hidden;
@@ -322,14 +337,32 @@
       <span class="eyebrow"><span class="live"></span> AI browser agent · runs on your machine</span>
       <h1 class="hero-copy">Your own <span class="grad-text breathe">hand</span> in the browser.</h1>
       <p class="lede">Yad does tasks on any website for you. You say what you want in plain words, and it clicks and types in your own browser, with your own logins. Your passwords stay with you, and you choose which AI does the thinking.</p>
-      <div class="ctas">
-        <a class="btn btn-primary" id="magnet" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.66 15l3.9-6.75A5 5 0 0 1 12 7h9.24A10 10 0 0 0 12 2Z" opacity=".9"/><circle cx="12" cy="12" r="3.2" fill="#fff"/></svg>
-          Add to Chrome
-        </a>
-        <a class="btn btn-ghost" href="#how">See how it works</a>
+      <div class="setup">
+        <p class="setup-head">Set it up once. Windows only for now. You need both parts, in this order.</p>
+        <ol class="setup-track">
+          <li class="step">
+            <span class="step-badge">1</span>
+            <div class="step-body">
+              <span class="step-title">The hand</span>
+              <p class="step-note">The Chrome extension you watch clicking and typing inside your browser.</p>
+              <a class="btn btn-primary" id="magnet" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.66 15l3.9-6.75A5 5 0 0 1 12 7h9.24A10 10 0 0 0 12 2Z" opacity=".9"/><circle cx="12" cy="12" r="3.2" fill="#fff"/></svg>
+                Add to Chrome
+              </a>
+            </div>
+          </li>
+          <li class="step-then" aria-hidden="true"><span>then</span></li>
+          <li class="step">
+            <span class="step-badge">2</span>
+            <div class="step-body">
+              <span class="step-title">The brain</span>
+              <p class="step-note">A small free app (the companion) on your own computer. It runs the AI you choose, doing the thinking Chrome will not let the extension do on its own, so your logins and passwords never leave your machine.</p>
+              <a class="btn btn-tonal" href="/yad-setup.exe">Install the companion (Windows)</a>
+            </div>
+          </li>
+        </ol>
+        <p class="micro">Both parts are free, open source, and run only on your own computer. <a href="#how" style="color:inherit;text-decoration:underline">See how it works</a></p>
       </div>
-      <p class="micro">Free and open source. Launching on the Chrome Web Store, in review now.</p>
     </div>
 
     <div class="frame reveal" aria-label="Example of a Yad run">
