@@ -98,6 +98,34 @@ const STRINGS = {
     provCompanionActive: "✓ actief",
     provCompanionActiveTitle: "Actief in companion via .env, geen sleutel nodig in de UI",
     provNoResults: "Geen aanbieder gevonden.",
+    scanBtn: "Bekijk wat Yad op deze pagina ziet",
+    qbConfirm: "Bevestig", qbAuto: "Auto",
+    attachBtn: "📎 Upload bijlage",
+    attachBtnTitle: "Bijlage uploaden (afbeelding, .txt, .rtf)",
+    startTitle: "Taak starten",
+    attachUnreadable: "niet leesbaar. Exporteer je CV als .txt (Word, Opslaan als, Tekst).",
+    confirmFallback: "Bevestig deze actie",
+    statsTotal: "totaal", statsAborted: "of afgebroken", statsPerRun: "per run",
+    scanLooking: "Bezig met kijken…",
+    scanOnlyWebpage: "Dit werkt alleen op een gewone webpagina. Ga eerst naar een site.",
+    scanNoElements: "Geen bedienbare elementen gevonden. Dat gebeurt op pagina's die alles in een afgeschermd kader laden.",
+    scanNoLabel: "(zonder opschrift)",
+    scanRecognized: "elementen herkend.",
+    scanRecognizedFirst60: "elementen herkend, de eerste 60 staan hieronder.",
+    scanReadError: "Kon de pagina niet lezen: ",
+    bridgeSent: "Pagina verstuurd",
+    unknownError: "Onbekende fout",
+    sessionFallbackName: "Sessie",
+    sessionCaptured: "account vastgelegd",
+    cvContextPrefix: "CONTEXT, mijn CV",
+    cvDefaultGoal: "Zoek vacatures die bij dit CV passen op jobs.be, Indeed.be of LinkedIn. Geef de top 5 met functietitel, bedrijf en link.",
+    gateTitle: "Voor je begint",
+    gateDocTerms: "Algemene Voorwaarden",
+    gateDocPrivacy: "Privacyverklaring",
+    gateDocAup: "Gebruiksbeleid",
+    gateAccept: "Akkoord en starten",
+    gateConcept: "Dit is een concept.",
+    removeTitle: "Verwijder", closeTitle: "Sluiten",
   },
   en: {
     tabTask: "Task", tabSaved: "Saved", tabSettings: "Settings", tabStats: "Stats",
@@ -167,6 +195,34 @@ const STRINGS = {
     provCompanionActive: "✓ active",
     provCompanionActiveTitle: "Active in the companion via .env, no key needed in the UI",
     provNoResults: "No provider found.",
+    scanBtn: "See what Yad detects on this page",
+    qbConfirm: "Confirm", qbAuto: "Auto",
+    attachBtn: "📎 Upload attachment",
+    attachBtnTitle: "Upload attachment (image, .txt, .rtf)",
+    startTitle: "Start task",
+    attachUnreadable: "not readable. Export your CV as .txt (Word, Save as, Text).",
+    confirmFallback: "Confirm this action",
+    statsTotal: "total", statsAborted: "or aborted", statsPerRun: "per run",
+    scanLooking: "Looking…",
+    scanOnlyWebpage: "This only works on a normal web page. Go to a site first.",
+    scanNoElements: "No usable elements found. This happens on pages that load everything inside a shielded frame.",
+    scanNoLabel: "(no label)",
+    scanRecognized: "elements recognized.",
+    scanRecognizedFirst60: "elements recognized, the first 60 are shown below.",
+    scanReadError: "Could not read the page: ",
+    bridgeSent: "Page sent",
+    unknownError: "Unknown error",
+    sessionFallbackName: "Session",
+    sessionCaptured: "account captured",
+    cvContextPrefix: "CONTEXT, my CV",
+    cvDefaultGoal: "Find jobs that match this CV on Indeed, LinkedIn or a local job board. Give the top 5 with job title, company and link.",
+    gateTitle: "Before you begin",
+    gateDocTerms: "Terms and Conditions",
+    gateDocPrivacy: "Privacy Statement",
+    gateDocAup: "Acceptable Use Policy",
+    gateAccept: "Agree and start",
+    gateConcept: "This is a draft.",
+    removeTitle: "Remove", closeTitle: "Close",
   },
 } as const;
 
@@ -191,6 +247,10 @@ function applyLang(): void {
   document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("[data-i18n-ph]").forEach((el) => {
     const k = el.dataset["i18nPh"] as TKey | undefined;
     if (k && k in STRINGS[currentLanguage]) el.placeholder = t(k);
+  });
+  document.querySelectorAll<HTMLElement>("[data-i18n-title]").forEach((el) => {
+    const k = el.dataset["i18nTitle"] as TKey | undefined;
+    if (k && k in STRINGS[currentLanguage]) el.title = t(k);
   });
   const domLbl = document.getElementById("site-domain-label");
   if (domLbl) {
@@ -236,10 +296,47 @@ function linkify(container: HTMLElement, text: string): void {
 
 // ---- Gate ----
 
-function showGate(): void {
+/**
+ * Leest de opgeslagen taalkeuze uit chrome.storage (yad:settings.language) VOORDAT de
+ * poort getoond wordt. De poort verschijnt namelijk vóór de gewone taalknoppen, dus we
+ * kunnen hier niet op currentLanguage vertrouwen. Zonder opgeslagen keuze: Nederlands,
+ * want de Nederlandse versie is juridisch bindend.
+ */
+async function readSavedLang(): Promise<Lang> {
+  try {
+    const res = await chrome.storage.local.get("yad:settings");
+    const s = res["yad:settings"] as { language?: string } | undefined;
+    return s?.language === "en" ? "en" : "nl";
+  } catch {
+    return "nl";
+  }
+}
+
+async function showGate(): Promise<void> {
+  currentLanguage = await readSavedLang();
   $("#gate").classList.remove("hidden");
   $("#app").classList.add("hidden");
-  (document.getElementById("gate-summary") as HTMLElement).textContent = ACCEPT_SUMMARY;
+  // Statische poort-teksten (titel, doc-links, knop, concept-regel) in de gekozen taal.
+  applyLang();
+  const docLabels: Record<string, TKey> = {
+    "algemene-voorwaarden": "gateDocTerms",
+    "privacyverklaring": "gateDocPrivacy",
+    "gebruiksbeleid": "gateDocAup",
+  };
+  document.querySelectorAll<HTMLAnchorElement>("#gate a[data-doc]").forEach((a) => {
+    const key = docLabels[a.dataset["doc"] ?? ""];
+    if (key) a.textContent = t(key);
+  });
+  (document.getElementById("gate-summary") as HTMLElement).textContent = loc(ACCEPT_SUMMARY);
+  // Vertaal-melding: alleen in het Engels, en zonder de Nederlandse poort aan te raken.
+  document.getElementById("gate-notice")?.remove();
+  if (currentLanguage === "en") {
+    const notice = document.createElement("p");
+    notice.id = "gate-notice";
+    notice.style.cssText = "font-size:12px;color:#6b7280;font-style:italic;margin:8px 0 0";
+    notice.textContent = "This is a translation for your convenience. The Dutch version is the legally binding one.";
+    (document.getElementById("gate-summary") as HTMLElement).after(notice);
+  }
   const container = document.getElementById("gate-items") as HTMLElement;
   container.innerHTML = "";
   const boxes: HTMLInputElement[] = [];
@@ -251,7 +348,7 @@ function showGate(): void {
     box.id = `chk-${item.id}`;
     box.style.marginTop = "3px";
     const span = document.createElement("span");
-    span.textContent = item.text;
+    span.textContent = loc(item.text);
     wrap.append(box, span);
     container.append(wrap);
     boxes.push(box);
@@ -570,7 +667,7 @@ function renderDocChip(): void {
   const nm = document.createElement("span");
   nm.textContent = pendingDocName.length > 18 ? pendingDocName.slice(0, 16) + "…" : pendingDocName;
   const rm = document.createElement("button");
-  rm.type = "button"; rm.className = "attach-remove"; rm.title = "Verwijder"; rm.textContent = "✕";
+  rm.type = "button"; rm.className = "attach-remove"; rm.title = t("removeTitle"); rm.textContent = "✕";
   rm.onclick = (): void => { pendingDocText = null; pendingDocName = ""; renderDocChip(); };
   chip.append(icon, nm, rm);
   c.prepend(chip);
@@ -586,7 +683,7 @@ function showAttachError(msg: string): void {
   const txt = document.createElement("span");
   txt.textContent = msg;
   const rm = document.createElement("button");
-  rm.type = "button"; rm.className = "attach-remove"; rm.title = "Sluiten"; rm.textContent = "✕";
+  rm.type = "button"; rm.className = "attach-remove"; rm.title = t("closeTitle"); rm.textContent = "✕";
   rm.onclick = (): void => { el.remove(); };
   el.append(txt, rm);
   c.prepend(el);
@@ -596,7 +693,7 @@ function showAttachError(msg: string): void {
 function addDocAttachment(file: File): void {
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!["txt", "rtf"].includes(ext)) {
-    showAttachError(`❌ ${file.name.slice(0, 22)} — niet leesbaar. Exporteer je CV als .txt via Word → Opslaan als → Tekst.`);
+    showAttachError(`❌ ${file.name.slice(0, 22)}: ${t("attachUnreadable")}`);
     return;
   }
   const reader = new FileReader();
@@ -626,7 +723,7 @@ function renderAttachPreviews(): void {
     const nm = document.createElement("span");
     nm.textContent = a.name.length > 18 ? a.name.slice(0, 16) + "…" : a.name;
     const rm = document.createElement("button");
-    rm.type = "button"; rm.className = "attach-remove"; rm.title = "Verwijder"; rm.textContent = "✕";
+    rm.type = "button"; rm.className = "attach-remove"; rm.title = t("removeTitle"); rm.textContent = "✕";
     const idx = i;
     rm.onclick = (): void => {
       URL.revokeObjectURL(pendingAttachments[idx]?.previewUrl ?? "");
@@ -646,7 +743,7 @@ function addImageAttachment(file: File): void {
     pendingAttachments.push({
       mimeType: file.type || "image/png",
       data: dataUrl.slice(comma + 1),
-      name: file.name || "afbeelding.png",
+      name: file.name || "image.png",
       previewUrl: URL.createObjectURL(file),
     });
     renderAttachPreviews();
@@ -730,10 +827,10 @@ async function renderStats(): Promise<void> {
     return card;
   };
   grid.append(
-    mkCard(t("statsRuns"), String(total), "totaal"),
+    mkCard(t("statsRuns"), String(total), t("statsTotal")),
     mkCard(t("statsSucceeded"), `${successRate}%`, `${succeeded} / ${total}`),
-    mkCard(t("statsAvgSteps"), String(avgSteps), "per run"),
-    mkCard(t("statsFailed"), String(total - succeeded), "of afgebroken"),
+    mkCard(t("statsAvgSteps"), String(avgSteps), t("statsPerRun")),
+    mkCard(t("statsFailed"), String(total - succeeded), t("statsAborted")),
   );
   c.append(grid);
   const bw = document.createElement("div"); bw.className = "stat-bar-wrap";
@@ -946,8 +1043,8 @@ function startBtnClick(): void {
   let goal = goalEl.value.trim();
   // Voeg CV-context toe als er een document is bijgevoegd
   if (pendingDocText) {
-    const defaultGoal = goal || "Zoek vacatures die bij dit CV passen op jobs.be, Indeed.be of LinkedIn. Geef de top 5 met functietitel, bedrijf en link.";
-    goal = `CONTEXT — Mijn CV (${pendingDocName}):\n\n${pendingDocText}\n\n---\n\n${defaultGoal}`;
+    const defaultGoal = goal || t("cvDefaultGoal");
+    goal = `${t("cvContextPrefix")} (${pendingDocName}):\n\n${pendingDocText}\n\n---\n\n${defaultGoal}`;
   }
   if (!goal) return;
   lastGoal = goal;
@@ -1177,7 +1274,7 @@ function startApp(): void {
       }
     }
     else if (msg?.type === "YAD_CONFIRM_REQUEST" && msg.id)
-      showConfirm(msg.id, msg.action, msg.reason ?? "Bevestig deze actie");
+      showConfirm(msg.id, msg.action, msg.reason ?? t("confirmFallback"));
     else if (msg?.type === "YAD_CONFIRM_EXPIRED")
       hideConfirm();
     else if (msg?.type === "YAD_COMPANION_CONFIG" && Array.isArray(msg.activeProviders)) {
@@ -1199,10 +1296,10 @@ function startApp(): void {
       if (btn) btn.disabled = false;
       if (el) {
         if (msg.ok) {
-          el.textContent = `✓ Pagina verstuurd → ${msg.path ?? "yad-claude-bridge.json"}`;
+          el.textContent = `✓ ${t("bridgeSent")}: ${msg.path ?? "yad-claude-bridge.json"}`;
           el.className = "ok";
         } else {
-          el.textContent = `✗ ${msg.detail ?? "Onbekende fout"}`;
+          el.textContent = `✗ ${msg.detail ?? t("unknownError")}`;
           el.className = "err";
         }
       }
@@ -1215,10 +1312,10 @@ function startApp(): void {
       if (b) b.disabled = false;
       if (captMsgEl) {
         if (msg.ok) {
-          captMsgEl.textContent = `✓ ${msg.brand ?? "Sessie"} account vastgelegd → ${msg.authType ?? ""}`;
+          captMsgEl.textContent = `✓ ${msg.brand ?? t("sessionFallbackName")} ${t("sessionCaptured")}: ${msg.authType ?? ""}`;
           captMsgEl.className = "ok";
         } else {
-          captMsgEl.textContent = `✗ ${msg.detail ?? "Onbekende fout"}`;
+          captMsgEl.textContent = `✗ ${msg.detail ?? t("unknownError")}`;
           captMsgEl.className = "err";
         }
       }
@@ -1247,12 +1344,15 @@ async function scanPagina(): Promise<void> {
   const uit = $<HTMLElement>("#scan-uitslag");
   uit.classList.remove("hidden");
   knop.disabled = true;
-  uit.textContent = "Bezig met kijken…";
+  uit.textContent = t("scanLooking");
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id || !/^https?:/i.test(tab.url ?? "")) {
-      uit.innerHTML = `<p class="leeg">Dit werkt alleen op een gewone webpagina. Ga eerst naar een site.</p>`;
+      const p = document.createElement("p");
+      p.className = "leeg";
+      p.textContent = t("scanOnlyWebpage");
+      uit.replaceChildren(p);
       return;
     }
 
@@ -1268,7 +1368,10 @@ async function scanPagina(): Promise<void> {
 
     const nodes = snap?.nodes ?? [];
     if (nodes.length === 0) {
-      uit.innerHTML = `<p class="leeg">Geen bedienbare elementen gevonden. Dat gebeurt op pagina's die alles in een afgeschermd kader laden.</p>`;
+      const p = document.createElement("p");
+      p.className = "leeg";
+      p.textContent = t("scanNoElements");
+      uit.replaceChildren(p);
       return;
     }
 
@@ -1280,7 +1383,7 @@ async function scanPagina(): Promise<void> {
         rol.textContent = n.role ?? "?";
         const naam = document.createElement("span");
         naam.className = "naam";
-        naam.textContent = n.name && n.name.trim() ? n.name : "(zonder opschrift)";
+        naam.textContent = n.name && n.name.trim() ? n.name : t("scanNoLabel");
         const rij = document.createElement("div");
         rij.className = "rij";
         rij.append(rol, naam);
@@ -1291,14 +1394,17 @@ async function scanPagina(): Promise<void> {
     kop.className = "kop";
     kop.textContent =
       nodes.length > 60
-        ? `${nodes.length} elementen herkend, de eerste 60 staan hieronder.`
-        : `${nodes.length} elementen herkend.`;
+        ? `${nodes.length} ${t("scanRecognizedFirst60")}`
+        : `${nodes.length} ${t("scanRecognized")}`;
 
     // Met append en textContent in plaats van innerHTML: een pagina mag zelf bepalen wat
     // er in een knoplabel staat, en dat is niets om ongefilterd in ons paneel te zetten.
     uit.replaceChildren(kop, ...rijen);
   } catch (e) {
-    uit.innerHTML = `<p class="leeg">Kon de pagina niet lezen: ${String(e).slice(0, 160)}</p>`;
+    const p = document.createElement("p");
+    p.className = "leeg";
+    p.textContent = `${t("scanReadError")}${String(e).slice(0, 160)}`;
+    uit.replaceChildren(p);
   } finally {
     knop.disabled = false;
   }
@@ -1309,7 +1415,7 @@ async function scanPagina(): Promise<void> {
 async function init(): Promise<void> {
   $<HTMLButtonElement>("#scan-btn").addEventListener("click", () => void scanPagina());
   if (await isAccepted()) startApp();
-  else showGate();
+  else await showGate();
 }
 
 void init();
