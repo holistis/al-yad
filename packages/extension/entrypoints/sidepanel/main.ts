@@ -907,6 +907,14 @@ function renderProviderCatalog(settings: YadSettings): void {
     : "Kies één AI-brein. Aanbevolen: Groq, gratis en klaar in zo'n twee minuten. Klik Aanmelden, plak de sleutel, dan hieronder Opslaan.";
   c.append(intro);
 
+  // Sleutel-veiligheid + coaching, precies waar de gebruiker zijn sleutel plakt.
+  const safety = document.createElement("p");
+  safety.style.cssText = "font-size:11.5px;color:#3f6212;background:#f7fee7;border:1px solid #d9f99d;border-radius:6px;padding:8px 10px;margin:0 0 10px;line-height:1.45";
+  safety.textContent = en
+    ? "Your key stays on your computer and only goes to the AI provider you pick. Tip: create a separate key just for Yad and put a spending cap on it, so you stay in full control."
+    : "Je sleutel blijft op je computer en gaat alleen naar de AI-provider die jij kiest. Tip: maak een aparte sleutel speciaal voor Yad met een uitgavenlimiet, dan houd je volledig de controle.";
+  c.append(safety);
+
   const first = PROVIDER_CATALOG[0];
   if (first) {
     const cfg = settings.providers[first.id] ?? { enabled: false, key: "" };
@@ -1211,6 +1219,19 @@ function startApp(): void {
   $<HTMLFormElement>("#settings-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const settings = collectSettings();
+    // Eigen/custom endpoint: waarschuw voor je de sleutel naar een zelf-ingevoerde URL stuurt (voetangel).
+    for (const id of ["custom", "paid"]) {
+      const p = settings.providers[id];
+      if (p?.enabled && p.key && p.baseUrl) {
+        let host = p.baseUrl;
+        try { host = new URL(p.baseUrl).host; } catch { /* toon ruwe waarde als URL onparseerbaar is */ }
+        const en = currentLanguage === "en";
+        const ok = window.confirm(en
+          ? `You are about to send your API key to ${host}. Only continue if you trust this address. Is that correct?`
+          : `Je staat op het punt je API-sleutel naar ${host} te sturen. Ga alleen door als je dit adres vertrouwt. Klopt dat?`);
+        if (!ok) return;
+      }
+    }
     await saveSettings(settings);
     void chrome.runtime.sendMessage({ type: "YAD_UPDATE_CONFIG" });
     const msg = $<HTMLElement>("#save-msg");
