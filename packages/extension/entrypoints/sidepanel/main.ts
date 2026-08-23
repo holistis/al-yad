@@ -98,6 +98,12 @@ const STRINGS = {
     provCompanionActive: "✓ actief",
     provCompanionActiveTitle: "Actief in companion via .env, geen sleutel nodig in de UI",
     provNoResults: "Geen aanbieder gevonden.",
+    spendTitle: "Uitgaven en veiligheid",
+    spendCapLabel: "Max AI-aanroepen per dag:",
+    spendCapHint: "Een veiligheidsplafond zodat Yad nooit ongelimiteerd je sleutel kan blijven gebruiken.",
+    killStart: "Stop Yad nu",
+    killStop: "Yad is gestopt. Weer inschakelen",
+    killHint: "Blokkeert direct elke AI-aanroep tot je hem weer aanzet.",
     scanBtn: "Bekijk wat Yad op deze pagina ziet",
     qbConfirm: "Bevestig", qbAuto: "Auto",
     attachBtn: "📎 Upload bijlage",
@@ -195,6 +201,12 @@ const STRINGS = {
     provCompanionActive: "✓ active",
     provCompanionActiveTitle: "Active in the companion via .env, no key needed in the UI",
     provNoResults: "No provider found.",
+    spendTitle: "Spending and safety",
+    spendCapLabel: "Max AI calls per day:",
+    spendCapHint: "A safety ceiling so Yad can never keep using your key without limit.",
+    killStart: "Stop Yad now",
+    killStop: "Yad is stopped. Resume",
+    killHint: "Instantly blocks every AI call until you turn it back on.",
     scanBtn: "See what Yad detects on this page",
     qbConfirm: "Confirm", qbAuto: "Auto",
     attachBtn: "📎 Upload attachment",
@@ -231,12 +243,20 @@ type TKey = keyof typeof STRINGS.nl;
 
 let currentLanguage: Lang = "nl";
 let currentAutonomy: "confirm" | "auto" = "confirm";
+let currentKilled = false;
 let currentSiteDomain = "";
 let companionActiveProviders: string[] = [];
 
 function t(k: TKey): string { return STRINGS[currentLanguage][k]; }
 /** Kiest de tekst in de huidige taal voor een tweetalig veld (bv. provider-catalogus). */
 function loc(v: { nl: string; en: string }): string { return v[currentLanguage]; }
+/** Toont de noodstop-knop in de juiste stand: rood = stoppen, groen = weer inschakelen. */
+function renderKillBtn(): void {
+  const btn = document.getElementById("kill-toggle");
+  if (!btn) return;
+  btn.textContent = currentKilled ? t("killStop") : t("killStart");
+  (btn as HTMLElement).style.background = currentKilled ? "#16a34a" : "#dc2626";
+}
 
 function applyLang(): void {
   document.documentElement.lang = currentLanguage;
@@ -860,6 +880,7 @@ function refreshLangState(): void {
   document.querySelectorAll<HTMLButtonElement>(".qlang-btn, .lang-btn").forEach((b) =>
     b.classList.toggle("active", b.dataset["lang"] === currentLanguage));
   applyLang();
+  renderKillBtn();
   if (document.getElementById("yad-welcome")) { removeWelcome(); renderWelcome(); }
   // Her-render de in-JS opgebouwde provider-catalogus in de nieuwe taal (die gaat niet via applyLang).
   const sp = document.getElementById("tab-instellingen");
@@ -875,6 +896,11 @@ async function loadSettingsTab(): Promise<void> {
   renderProviderCatalog(settings);
   $<HTMLInputElement>("#s-steps").value = String(settings.maxSteps);
   $<HTMLElement>("#steps-val").textContent = String(settings.maxSteps);
+  const cap = settings.maxRequestsPerDay ?? 1000;
+  $<HTMLInputElement>("#s-daily-cap").value = String(cap);
+  $<HTMLElement>("#cap-val").textContent = String(cap);
+  currentKilled = settings.killed ?? false;
+  renderKillBtn();
   currentAutonomy = settings.autonomy === "auto" ? "auto" : "confirm";
   currentLanguage = settings.language === "en" ? "en" : "nl";
   refreshModeState();
@@ -1044,7 +1070,7 @@ function collectSettings(): YadSettings {
     if (primaryEl) config.primary = primaryEl.checked;
     providers[entry.id] = config;
   }
-  return { providers, maxSteps: parseInt($<HTMLInputElement>("#s-steps").value, 10) || 15, autonomy: currentAutonomy, language: currentLanguage };
+  return { providers, maxSteps: parseInt($<HTMLInputElement>("#s-steps").value, 10) || 15, autonomy: currentAutonomy, language: currentLanguage, maxRequestsPerDay: parseInt($<HTMLInputElement>("#s-daily-cap").value, 10) || 1000, killed: currentKilled };
 }
 
 // ---- Start button ----
@@ -1149,6 +1175,20 @@ function startApp(): void {
   // Max steps slider
   $<HTMLInputElement>("#s-steps").addEventListener("input", () => {
     $<HTMLElement>("#steps-val").textContent = $<HTMLInputElement>("#s-steps").value;
+  });
+
+  // Dag-limiet-schuif
+  $<HTMLInputElement>("#s-daily-cap").addEventListener("input", () => {
+    $<HTMLElement>("#cap-val").textContent = $<HTMLInputElement>("#s-daily-cap").value;
+  });
+
+  // Noodstop: direct opslaan + naar de companion sturen (niet wachten op Opslaan).
+  document.getElementById("kill-toggle")?.addEventListener("click", () => {
+    currentKilled = !currentKilled;
+    renderKillBtn();
+    void saveSettings(collectSettings()).then(() => {
+      void chrome.runtime.sendMessage({ type: "YAD_UPDATE_CONFIG" });
+    });
   });
 
   // Provider search

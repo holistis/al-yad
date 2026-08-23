@@ -810,6 +810,8 @@ async function sendConfigUpdate(): Promise<void> {
       maxSteps: settings.maxSteps,
       autonomy: settings.autonomy,
       language: settings.language,
+      maxRequestsPerDay: settings.maxRequestsPerDay,
+      killed: settings.killed,
     }),
   );
 }

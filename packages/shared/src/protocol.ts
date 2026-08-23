@@ -63,7 +63,7 @@ export interface HandPayloads {
   /** breek de lopende run af (bv. de run-tab is gesloten) */
   ABORT_RUN: { reason: string };
   /** live configuratie-update vanuit de instellingen (sleutels, gedrag) */
-  UPDATE_CONFIG: { env: Record<string, string>; maxSteps?: number; autonomy?: "confirm" | "auto"; language?: "nl" | "en" };
+  UPDATE_CONFIG: { env: Record<string, string>; maxSteps?: number; autonomy?: "confirm" | "auto"; language?: "nl" | "en"; maxRequestsPerDay?: number; killed?: boolean };
   /** vastgelegde sessie van de actieve tab (cookies + localStorage) voor de REDACTED-adapter */
   SESSION_CAPTURE: {
     url: string;

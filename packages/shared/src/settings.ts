@@ -22,6 +22,10 @@ export interface YadSettings {
   autonomy: Autonomy;
   /** Taal van Yad's antwoorden: "nl" (standaard) of "en". */
   language: Language;
+  /** Uitgaven-poort: max AI-aanroepen per dag (dag-limiet). */
+  maxRequestsPerDay?: number;
+  /** Noodstop: als true blokkeert de companion elke AI-aanroep tot dit weer uit staat. */
+  killed?: boolean;
 }
 
 export const DEFAULT_PROVIDER_CONFIGS: Record<string, ProviderUserConfig> = {
@@ -46,6 +50,8 @@ export const DEFAULT_SETTINGS: YadSettings = {
   maxSteps: 15,
   autonomy: "confirm",
   language: "nl",
+  maxRequestsPerDay: 1000,
+  killed: false,
 };
 
 /** Catalogus-id → naam waaronder de provider in de companion-pool leeft. */
