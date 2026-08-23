@@ -407,12 +407,14 @@ export class BrainSession implements HandBridge {
         // intact blijft: de UI is additief bovenop .env. Een in de UI uitgeschakelde
         // provider die óók in .env staat, blijft dus tot een herstart actief — dat is
         // bewust (we wissen nooit de .env-sleutels van de gebruiker live weg).
-        for (const [k, v] of Object.entries(p.env)) {
+        // Defensief: een misvormde payload zonder env mag de companion niet laten crashen.
+        const env = p.env && typeof p.env === "object" ? p.env : {};
+        for (const [k, v] of Object.entries(env)) {
           if (v) process.env[k] = v;
         }
         // Sleutels versleuteld bewaren (DPAPI), zodat ze de volgende sessie overleven
         // en de companion ze heeft zonder dat de extensie ze opnieuw hoeft te sturen.
-        this.keyVault?.store(p.env);
+        this.keyVault?.store(env);
         if (p.maxSteps && p.maxSteps > 0) this.defaultMaxSteps = p.maxSteps;
         if (p.autonomy === "confirm" || p.autonomy === "auto") this.autonomy = p.autonomy;
         if (p.language === "nl" || p.language === "en") this.language = p.language;

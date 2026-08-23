@@ -31,7 +31,8 @@ function main(): void {
   const vaulted = keyVault.load();
   let vaultCount = 0;
   for (const [k, v] of Object.entries(vaulted)) {
-    if (v) {
+    // .env / echte omgeving wint: de kluis vult alleen sleutels die nog niet gezet zijn.
+    if (v && !process.env[k]) {
       process.env[k] = v;
       vaultCount++;
     }

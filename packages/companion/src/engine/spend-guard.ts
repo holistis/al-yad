@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { LlmError } from "./errors.js";
 
@@ -27,7 +27,10 @@ const DEFAULT_MAX_PER_DAY = 1000;
 const RECENT_KEEP = 50;
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  // Lokale kalenderdag (niet UTC), zodat "per dag" en "wacht tot morgen" bij lokale middernacht kloppen.
+  const d = new Date();
+  const p = (n: number): string => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 /**
@@ -62,8 +65,18 @@ export class SpendGuard {
         ledger?: SpendLedger;
         recent?: SpendCall[];
         maxRequestsPerDay?: number;
+        killed?: boolean;
       };
-      if (typeof raw.maxRequestsPerDay === "number") this.maxRequestsPerDay = raw.maxRequestsPerDay;
+      // Valideer de bewaarde limiet (een 0/negatief/NaN zou anders alle aanroepen blokkeren).
+      if (
+        typeof raw.maxRequestsPerDay === "number" &&
+        Number.isFinite(raw.maxRequestsPerDay) &&
+        raw.maxRequestsPerDay > 0
+      ) {
+        this.maxRequestsPerDay = Math.floor(raw.maxRequestsPerDay);
+      }
+      // Noodstop overleeft een herstart (fail-closed): niet meer afhankelijk van de extensie.
+      if (typeof raw.killed === "boolean") this.killed = raw.killed;
       if (Array.isArray(raw.recent)) this.recent = raw.recent.slice(-RECENT_KEEP);
       if (raw.ledger && raw.ledger.date === todayStr()) return raw.ledger;
     } catch {
@@ -76,10 +89,18 @@ export class SpendGuard {
     if (!this.file || !this.dataDir) return;
     try {
       mkdirSync(this.dataDir, { recursive: true });
+      // Atomisch schrijven (tmp + rename) zodat een onderbroken schrijf de ledger niet corrupt maakt.
+      const tmp = this.file + ".tmp";
       writeFileSync(
-        this.file,
-        JSON.stringify({ ledger: this.ledger, recent: this.recent, maxRequestsPerDay: this.maxRequestsPerDay }),
+        tmp,
+        JSON.stringify({
+          killed: this.killed,
+          ledger: this.ledger,
+          recent: this.recent,
+          maxRequestsPerDay: this.maxRequestsPerDay,
+        }),
       );
+      renameSync(tmp, this.file);
     } catch (e) {
       this.log(`spend-ledger opslaan faalde: ${(e as Error).message}`);
     }
@@ -110,6 +131,8 @@ export class SpendGuard {
 
   /** Boekt een geslaagde aanroep (telt mee voor de dag-limiet). */
   record(provider: string, usage?: { promptTokens?: number; completionTokens?: number }): void {
+    // De gratis lokale Ollama-bodem telt niet mee: de dag-limiet beschermt de betaalde sleutel.
+    if (/ollama/i.test(provider)) return;
     this.rollIfNewDay();
     const pt = usage?.promptTokens ?? 0;
     const ct = usage?.completionTokens ?? 0;
