@@ -5,6 +5,7 @@ import { BrainSession } from "./session.js";
 import { buildPool, buildExternalOllamaPool } from "./engine/pool.js";
 import { LlmRouter } from "./engine/router.js";
 import { SpendGuard } from "./engine/spend-guard.js";
+import { KeyVault } from "./key-vault.js";
 import { loadEnvFile } from "./env.js";
 import { startHttpApi } from "./http-api.js";
 import type { CompanionInfo } from "./handshake.js";
@@ -23,6 +24,19 @@ function main(): void {
   // Laad de repo-.env (Chrome geeft de host zijn eigen environment, niet de onze).
   const envPath = loadEnvFile();
   log(envPath ? `.env geladen: ${envPath}` : "geen .env gevonden (alleen Ollama-bodem)");
+
+  // Sleutel-kluis: laad versleutelde sleutels van vorige sessies in process.env (VOOR buildPool),
+  // zodat de companion ze heeft zonder dat de extensie ze opnieuw hoeft te sturen.
+  const keyVault = new KeyVault({ dataDir: process.env["YAD_DATA_DIR"], log: (m) => log(`[kluis] ${m}`) });
+  const vaulted = keyVault.load();
+  let vaultCount = 0;
+  for (const [k, v] of Object.entries(vaulted)) {
+    if (v) {
+      process.env[k] = v;
+      vaultCount++;
+    }
+  }
+  if (vaultCount) log(`kluis: ${vaultCount} sleutels geladen (versleuteld opgeslagen)`);
 
   const info: CompanionInfo = {
     companionVersion: COMPANION_VERSION,
@@ -51,7 +65,7 @@ function main(): void {
 
   let host!: NativeHost;
   const send = (msg: BrainMessage): void => host.send(msg);
-  const session = new BrainSession(send, router, info, log, spendGuard);
+  const session = new BrainSession(send, router, info, log, spendGuard, keyVault);
 
   host = new NativeHost(
     stdin,

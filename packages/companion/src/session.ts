@@ -22,6 +22,7 @@ import { StepLogger } from "./history/step-log.js";
 import { LlmRouter } from "./engine/router.js";
 import { buildPool } from "./engine/pool.js";
 import type { SpendGuard } from "./engine/spend-guard.js";
+import type { KeyVault } from "./key-vault.js";
 import { createHandshakeHandler, type CompanionInfo } from "./handshake.js";
 import { saveREDACTEDSession, type REDACTEDSessionResult } from "./adapters/REDACTED.js";
 import { CacheStore } from "./memory/cache-store.js";
@@ -125,6 +126,7 @@ export class BrainSession implements HandBridge {
     info: CompanionInfo,
     private readonly log: (m: string) => void = () => {},
     private readonly guard?: SpendGuard,
+    private readonly keyVault?: KeyVault,
   ) {
     this.router = router;
     this.handshake = createHandshakeHandler(info, send, log);
@@ -408,6 +410,9 @@ export class BrainSession implements HandBridge {
         for (const [k, v] of Object.entries(p.env)) {
           if (v) process.env[k] = v;
         }
+        // Sleutels versleuteld bewaren (DPAPI), zodat ze de volgende sessie overleven
+        // en de companion ze heeft zonder dat de extensie ze opnieuw hoeft te sturen.
+        this.keyVault?.store(p.env);
         if (p.maxSteps && p.maxSteps > 0) this.defaultMaxSteps = p.maxSteps;
         if (p.autonomy === "confirm" || p.autonomy === "auto") this.autonomy = p.autonomy;
         if (p.language === "nl" || p.language === "en") this.language = p.language;
