@@ -358,7 +358,7 @@ async function showGate(): Promise<void> {
   boxes.forEach((b) => b.addEventListener("change", refresh));
   refresh();
   acceptBtn.onclick = async (): Promise<void> => { await recordAcceptance(); startApp(); };
-  document.querySelectorAll<HTMLAnchorElement>(".docs a").forEach((a) => {
+  document.querySelectorAll<HTMLAnchorElement>("#gate a[data-doc]").forEach((a) => {
     a.addEventListener("click", (e) => {
       e.preventDefault();
       const doc = a.dataset["doc"];
