@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Statement Yad</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; line-height: 1.6; color: #1a1a1a; }
+      h1, h2 { line-height: 1.25; }
+      h2 { margin-top: 2em; }
+      table { border-collapse: collapse; margin: 1em 0; width: 100%; }
+      td, th { border: 1px solid #d1d5db; padding: 6px 10px; text-align: left; vertical-align: top; }
+      .open { background: #fffbeb; border-left: 4px solid #d97706; padding: .6em 1em; margin: 1.5em 0; }
+      footer { margin-top: 3em; color: #555; font-size: .92em; }
+    </style>
+  </head>
+  <body>
+
+<div style="border: 2px solid #d97706; background: #fffbeb; padding: 12px 16px; margin: 0 0 24px 0; border-radius: 6px;">
+  <p style="margin: 0 0 8px 0;"><strong>This is an English translation provided for your convenience. The Dutch version is the legally binding one.</strong></p>
+  <p style="margin: 0;"><a href="privacy-kort.html">Read the Dutch version</a></p>
+</div>
+
+<h1>Privacy Statement Yad</h1>
+
+<p>Yad is a little helper that carries out recurring work in your browser for you. This page
+explains what happens with your data. It is short, because little happens, and we would rather
+write down what actually is than a long text about things we do not do.</p>
+
+<p>This statement describes the browser extension and the program that runs alongside it on your
+computer. It does not cover the server mode, in which Yad runs on a server of your own; in that
+case you determine yourself what happens with the data.</p>
+
+<h2>The short version</h2>
+
+<p>The work happens on your computer. The extension itself makes no connection whatsoever to the
+internet. What does go out, goes out via the program on your computer, and that is precisely
+the list below. There is nothing more.</p>
+
+<h2>What goes out, and where to</h2>
+
+<table>
+  <tr><th>Where to</th><th>What exactly</th><th>When</th></tr>
+  <tr>
+    <td><strong>The language model that you choose</strong><br />
+      For example Google, Groq, Cerebras, OpenRouter, Together or Mistral. Or a model that
+      runs on your own computer, in which case nothing goes out.</td>
+    <td>The address of the page you are on, the title, a list of at most 120 buttons
+      and fields with their labels, the first 1500 characters of text of the page, your task,
+      and the last six actions. If Yad gets stuck, also a screenshot of the visible part
+      of that tab.<br /><br />
+      What does not go along: the content of password fields, PIN codes, one-time codes and
+      credit card numbers. These are replaced by the word "ingevuld" (meaning "filled in")
+      before anything is sent.</td>
+    <td>At every reasoning step, as long as you use a model in the cloud. If you choose a model on
+      your own computer, this never happens.</td>
+  </tr>
+  <tr>
+    <td><strong>Our recovery memory</strong><br />
+      wazir-x402.duckdns.org</td>
+    <td>Three things: the hostname of the site (so "portaal.leverancier.nl", without the path and
+      without what comes after it), the type of malfunction, and the type of action that went
+      wrong. No page content, no filled-in fields, no full web addresses.</td>
+    <td>Only if Yad gets stuck somewhere. That way he learns that site for everyone. Can be turned
+      off with the setting YAD_HERSTELBREIN=uit.</td>
+  </tr>
+  <tr>
+    <td><strong>Our version check</strong><br />
+      wazir-x402.duckdns.org</td>
+    <td>Nothing about you. A small file is fetched with the latest version number, and
+      that is compared on your computer. As with every internet request, our server does
+      see your IP address and the time.</td>
+    <td>Only when you click on check yourself. Can be turned off with YAD_UPDATE_CHECK=uit.</td>
+  </tr>
+</table>
+
+<p>That is the complete list. There is no visitor counter in Yad, no behaviour tracking, no
+error reporting to us, and no party whatsoever looking over your shoulder. That is not just a
+promise: you can check it, because the source code is open.</p>
+
+<h2>If you want nothing at all to go out</h2>
+
+<p>Set the setting YAD_LOKAAL to 1. Then Yad uses only a language model that runs on your own
+computer, and every provider in the cloud is excluded. Not put at the back but excluded, because
+a fallback would mean that the promise breaks the moment the local model briefly fails,
+and then you would not notice it. If it does not succeed locally, the task stops with an error
+message.</p>
+
+<p>In this mode Yad also refuses to start if the local model in reality runs on another
+computer. That sounds strict, but otherwise "nothing goes out" would be something that
+could accidentally become untrue.</p>
+
+<p>Honest about the price of this: local is slower. Count on about fifteen seconds per
+reasoning step versus less than a second with a model in the cloud. For work that runs at night
+or during lunch you will not notice that. If you are sitting there waiting for it, you will.</p>
+
+<h2>What stays on your computer</h2>
+
+<p>These things stay with you and go nowhere:</p>
+
+<ul>
+  <li>Your settings, including the keys of the language models that you use. These are stored
+    in the extension's storage, in plain text. Anyone who can access your logged-in browser
+    profile can therefore access them.</li>
+  <li>Your saved tasks and the history of earlier commands.</li>
+  <li>A temporary memory of successful actions per site, so that the same work goes faster the
+    next time. That is cleaned up after seven days.</li>
+  <li>A log file of the steps, with the visited addresses and the fetched text.</li>
+</ul>
+
+<p>If you want to throw this away, delete the folder with data of the program and the extension
+from your browser. Then everything is gone.</p>
+
+<h2>Why we are allowed to do this</h2>
+
+<p>For carrying out the task that you give, the legal basis is the agreement with you:
+without this processing Yad cannot do the work. For the recovery memory the legal basis is
+our legitimate interest in making the product work on sites where it goes wrong, and
+that is also why it is limited to three pieces of data that are not traceable to you. You can
+turn it off.</p>
+
+<h2>Your rights</h2>
+
+<p>You may request which data we hold about you, have it corrected or erased, and
+object. In practice that is brief: apart from the three streams named above we have
+nothing of yours, and the recovery memory contains no data that is traceable to you.
+You can also always lodge a complaint with the Dutch Data Protection Authority (Autoriteit Persoonsgegevens).</p>
+
+<h2>Children</h2>
+
+<p>Yad is intended for business use and not for children under sixteen.</p>
+
+<h2>If something goes wrong</h2>
+
+<p>If we discover a data breach, we report it within 48 hours to whoever it affects and, where
+that is required, to the Dutch Data Protection Authority (Autoriteit Persoonsgegevens). That is stricter than the 72 hours that the law
+prescribes, because we believe that you simply ought to know quickly.</p>
+
+<h2>Changes</h2>
+
+<p>If something changes about what is stated above, we adapt this page and raise
+the version number at the bottom. If it concerns a real change in what goes out, then
+we also report that in the program itself, because a silent change on a web page is not a
+notification.</p>
+
+<h2>Who we are and how to reach us</h2>
+
+<p>Holistisch Adviseur<br />
+Bramantestraat 27<br />
+5624 AH Eindhoven<br />
+The Netherlands</p>
+
+<p>Chamber of Commerce (Kamer van Koophandel) 86816632</p>
+
+<p>For questions about your data, for viewing or having it erased, and for reporting
+a security problem: <a href="mailto:info@mergefix.com">info@mergefix.com</a>.
+If you report something about security, put "security" in the subject, then it comes to the top.</p>
+
+<footer>
+  <p>Version 1.0. Last updated on 16 August 2026.</p>
+  <p>This statement was drawn up on the basis of a line-by-line inventory of the
+  source code, not on the basis of what the product ought to do. It has not been reviewed by a lawyer.
+  For the business arrangements with customers, with a data processing agreement and
+  liability, a more extensive document is ready that does have to go past a lawyer.</p>
+</footer>
+
+  </body>
+</html>
