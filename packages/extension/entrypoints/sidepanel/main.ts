@@ -269,6 +269,29 @@ function renderConn(status: "verbonden" | "verbinden" | "verbroken"): void {
   const lbl = { verbonden: "connConnected", verbinden: "connConnecting", verbroken: "connDisconnected" } as const;
   $<HTMLElement>("#conn-label").textContent = t(lbl[status]);
   $<HTMLButtonElement>("#start").disabled = status !== "verbonden";
+
+  // Brein-ontbreekt-banner: alleen tonen als er echt geen companion is (verbroken),
+  // met een directe downloadknop. Zo weet de gebruiker meteen wat te doen.
+  const missing = document.getElementById("companion-missing");
+  if (missing) {
+    const show = status === "verbroken";
+    missing.classList.toggle("hidden", !show);
+    if (show) {
+      const en = currentLanguage === "en";
+      const txt = document.getElementById("cm-text");
+      const btn = document.getElementById("cm-btn");
+      if (txt) {
+        txt.textContent = en
+          ? "The companion is not running yet. Yad needs a small free helper app on your computer to think. Install it once, then reopen Yad."
+          : "De companion draait nog niet. Yad heeft een klein gratis hulpprogramma op je computer nodig om na te denken. Installeer het één keer en open Yad opnieuw.";
+      }
+      if (btn) {
+        btn.textContent = en
+          ? "Download the companion (Windows)"
+          : "Download de companion (Windows)";
+      }
+    }
+  }
 }
 
 // ---- Chat messages ----
