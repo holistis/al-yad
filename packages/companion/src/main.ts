@@ -51,7 +51,7 @@ function main(): void {
 
   let host!: NativeHost;
   const send = (msg: BrainMessage): void => host.send(msg);
-  const session = new BrainSession(send, router, info, log);
+  const session = new BrainSession(send, router, info, log, spendGuard);
 
   host = new NativeHost(
     stdin,

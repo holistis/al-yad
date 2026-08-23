@@ -21,6 +21,7 @@ import { generateRecoveryHint } from "./agent/recovery.js";
 import { StepLogger } from "./history/step-log.js";
 import { LlmRouter } from "./engine/router.js";
 import { buildPool } from "./engine/pool.js";
+import type { SpendGuard } from "./engine/spend-guard.js";
 import { createHandshakeHandler, type CompanionInfo } from "./handshake.js";
 import { saveREDACTEDSession, type REDACTEDSessionResult } from "./adapters/REDACTED.js";
 import { CacheStore } from "./memory/cache-store.js";
@@ -123,6 +124,7 @@ export class BrainSession implements HandBridge {
     router: LlmRouter,
     info: CompanionInfo,
     private readonly log: (m: string) => void = () => {},
+    private readonly guard?: SpendGuard,
   ) {
     this.router = router;
     this.handshake = createHandshakeHandler(info, send, log);
@@ -395,6 +397,8 @@ export class BrainSession implements HandBridge {
           maxSteps?: number;
           autonomy?: "confirm" | "auto";
           language?: "nl" | "en";
+          maxRequestsPerDay?: number;
+          killed?: boolean;
         };
         // Schrijf UI-sleutels over process.env (compatibel met loadEnvFile die ook
         // process.env gebruikt). Lege waarden worden genegeerd zodat de .env-bodem
@@ -407,8 +411,12 @@ export class BrainSession implements HandBridge {
         if (p.maxSteps && p.maxSteps > 0) this.defaultMaxSteps = p.maxSteps;
         if (p.autonomy === "confirm" || p.autonomy === "auto") this.autonomy = p.autonomy;
         if (p.language === "nl" || p.language === "en") this.language = p.language;
+        // Uitgaven-poort bijwerken (dag-limiet + noodstop vanuit de UI).
+        if (typeof p.maxRequestsPerDay === "number") this.guard?.setMaxRequestsPerDay(p.maxRequestsPerDay);
+        if (typeof p.killed === "boolean") this.guard?.setKilled(p.killed);
         const newPool = buildPool();
-        this.router = new LlmRouter(newPool, { log: (m) => this.log(`[motor] ${m}`) });
+        // Guard behouden: zonder dit valt de poort weg bij elke config-update.
+        this.router = new LlmRouter(newPool, { log: (m) => this.log(`[motor] ${m}`), guard: this.guard });
         this.log(`config bijgewerkt: ${newPool.map((pr) => pr.name).join(",")} (${newPool.length} providers)`);
         // Stuur actieve providers terug zodat de UI ze kan tonen (geen sleutelwaarden, alleen namen).
         this.send(brainMessage("COMPANION_CONFIG", { activeProviders: newPool.map((pr) => pr.name) }));
