@@ -722,6 +722,8 @@ function refreshLangState(): void {
 
 async function loadSettingsTab(): Promise<void> {
   const settings = await getSettings();
+  // Taal eerst zetten: renderProviderCatalog gebruikt currentLanguage voor de uitleg-tekst.
+  currentLanguage = settings.language === "en" ? "en" : "nl";
   renderProviderCatalog(settings);
   $<HTMLInputElement>("#s-steps").value = String(settings.maxSteps);
   $<HTMLElement>("#steps-val").textContent = String(settings.maxSteps);
@@ -750,13 +752,38 @@ async function refreshTierButtons(): Promise<void> {
 
 function renderProviderCatalog(settings: YadSettings): void {
   const c = $("#provider-catalog"); c.innerHTML = "";
-  for (const entry of PROVIDER_CATALOG) {
-    const config = settings.providers[entry.id] ?? { enabled: false, key: "" };
-    c.append(buildProviderCard(entry, config));
+  const en = currentLanguage === "en";
+
+  // Simpele modus: één korte uitleg + het aanbevolen brein bovenaan open, de rest inklapbaar.
+  const intro = document.createElement("p");
+  intro.className = "simple-intro";
+  intro.textContent = en
+    ? "Pick one AI brain. Recommended: Groq, free and ready in about two minutes. Click Sign up, paste the key, then Save below."
+    : "Kies één AI-brein. Aanbevolen: Groq, gratis en klaar in zo'n twee minuten. Klik Aanmelden, plak de sleutel, dan hieronder Opslaan.";
+  c.append(intro);
+
+  const first = PROVIDER_CATALOG[0];
+  if (first) {
+    const cfg = settings.providers[first.id] ?? { enabled: false, key: "" };
+    c.append(buildProviderCard(first, cfg, { recommended: true }));
+  }
+
+  const rest = PROVIDER_CATALOG.slice(1);
+  if (rest.length) {
+    const details = document.createElement("details");
+    details.className = "advanced-providers";
+    const summary = document.createElement("summary");
+    summary.textContent = en ? "More options (advanced)" : "Meer opties (gevorderd)";
+    details.append(summary);
+    for (const entry of rest) {
+      const config = settings.providers[entry.id] ?? { enabled: false, key: "" };
+      details.append(buildProviderCard(entry, config));
+    }
+    c.append(details);
   }
 }
 
-function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConfig): HTMLElement {
+function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConfig, opts: { recommended?: boolean } = {}): HTMLElement {
   const card = document.createElement("div");
   card.className = `provider-card${config.enabled ? " active" : ""}`;
   card.dataset["search"] = `${entry.name} ${entry.tagline} ${entry.id}`.toLowerCase();
@@ -767,6 +794,12 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
   nameLabel.className = "provider-name"; nameLabel.textContent = entry.name;
   const badge = document.createElement("span"); badge.className = `provider-badge ${entry.tier}`; badge.textContent = entry.badge;
   header.append(chk, nameLabel, badge);
+  if (opts.recommended) {
+    const rec = document.createElement("span");
+    rec.className = "provider-badge recommended";
+    rec.textContent = currentLanguage === "en" ? "RECOMMENDED" : "AANBEVOLEN";
+    header.append(rec);
+  }
   // Toon "✓ via companion" als de companion deze provider actief heeft vanuit zijn .env maar de gebruiker er geen sleutel voor heeft ingesteld
   if (companionActiveProviders.includes(entry.id) && !config.enabled) {
     const companionBadge = document.createElement("span");
@@ -788,12 +821,12 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
   signupBtn.onclick = (): void => { window.open(entry.signupUrl, "_blank"); };
   meta.append(stars, signupBtn); detail.append(tagline, meta);
   const fields = document.createElement("div"); fields.className = "provider-fields";
-  if (!config.enabled) fields.classList.add("hidden");
+  if (!config.enabled && !opts.recommended) fields.classList.add("hidden");
   if (entry.requiresKey) fields.append(buildKeyField(`prov-${entry.id}-key`, "API-sleutel", config.key, entry.keyPlaceholder));
   if (entry.supportsModel) fields.append(buildTextField(`prov-${entry.id}-model`, "Model (leeg = standaard)", config.model ?? "", `bv. ${entry.defaultModel}`));
   if (entry.supportsBaseUrl) {
     const defUrl = entry.defaultBaseUrl ?? "";
-    fields.append(buildTextField(`prov-${entry.id}-baseUrl`, entry.id === "ollama" ? "Ollama URL" : "Base URL", config.baseUrl ?? defUrl, defUrl));
+    fields.append(buildTextField(`prov-${entry.id}-baseUrl`, entry.id === "ollama" ? "Ollama URL" : "Base URL", config.baseUrl || defUrl, defUrl));
   }
   if (entry.supportsPrimary) {
     const pDiv = document.createElement("div"); pDiv.className = "field";
@@ -804,6 +837,16 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
     pDiv.append(pLbl); fields.append(pDiv);
   }
   chk.onchange = (): void => { card.classList.toggle("active", chk.checked); fields.classList.toggle("hidden", !chk.checked); };
+  // Aanbevolen kaart: zodra iemand een sleutel plakt, zet de provider vanzelf aan.
+  // Dicht de stille val waarbij een geplakte sleutel genegeerd werd omdat het vinkje uit stond.
+  if (opts.recommended) {
+    const keyInput = fields.querySelector<HTMLInputElement>("input[type=password]");
+    keyInput?.addEventListener("input", () => {
+      const on = keyInput.value.trim().length > 0;
+      chk.checked = on;
+      card.classList.toggle("active", on);
+    });
+  }
   card.append(header, detail, fields);
   return card;
 }
@@ -955,6 +998,9 @@ function startApp(): void {
   // Provider search
   $<HTMLInputElement>("#provider-search").addEventListener("input", (e) => {
     const q = (e.target as HTMLInputElement).value.toLowerCase().trim();
+    // Bij zoeken de "meer opties"-inklap openen, anders blijven treffers erin verborgen.
+    const adv = document.querySelector<HTMLDetailsElement>("details.advanced-providers");
+    if (adv) adv.open = q !== "";
     let visible = 0;
     document.querySelectorAll<HTMLElement>(".provider-card").forEach((c) => {
       const match = q === "" || (c.dataset["search"] ?? "").includes(q);
