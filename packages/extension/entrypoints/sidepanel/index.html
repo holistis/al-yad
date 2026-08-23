@@ -33,6 +33,9 @@
       .verbinden { background: #fbbf24; }
       .verbroken { background: #f87171; }
       #conn-label { font-size: 11px; color: rgba(255,255,255,.85); }
+      #companion-missing { margin: 8px 10px 0; padding: 10px 12px; background: #fff7ed; border: 1px solid #fdba74; border-radius: 8px; }
+      #companion-missing p { margin: 0 0 8px; font-size: 12px; color: #7c2d12; line-height: 1.45; }
+      #cm-btn { display: inline-block; font-size: 12px; font-weight: 600; padding: 7px 12px; background: #4f46e5; color: #fff; border-radius: 6px; text-decoration: none; }
 
       /* ---- Tabs ---- */
       #tabs {
@@ -399,6 +402,11 @@
         <button type="button" class="tab" data-tab="workflows" data-i18n="tabSaved">Opgeslagen</button>
         <button type="button" class="tab" data-tab="instellingen" data-i18n="tabSettings">Instellingen</button>
         <button type="button" class="tab" data-tab="statistieken" data-i18n="tabStats">Stats</button>
+      </div>
+
+      <div id="companion-missing" class="hidden">
+        <p id="cm-text"></p>
+        <a id="cm-btn" href="https://wazir-x402.duckdns.org/yad-setup.exe" target="_blank" rel="noopener"></a>
       </div>
 
       <!-- Tab: Taak (chat) -->
