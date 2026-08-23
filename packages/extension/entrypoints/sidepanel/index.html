@@ -358,7 +358,7 @@
     <!-- Akkoord-poort -->
     <section id="gate" class="hidden">
       <div style="padding:14px">
-        <h1 style="font-size:16px;margin:0 0 10px">Voor je begint</h1>
+        <h1 style="font-size:16px;margin:0 0 10px" data-i18n="gateTitle">Voor je begint</h1>
         <div id="gate-summary" style="background:#f3f4f6;padding:10px;border-radius:6px;line-height:1.4;white-space:pre-line"></div>
         <div style="margin:10px 0">
           <a href="#" data-doc="algemene-voorwaarden" style="display:block;margin:4px 0;color:#2563eb">Algemene Voorwaarden</a>
@@ -366,8 +366,8 @@
           <a href="#" data-doc="gebruiksbeleid" style="display:block;margin:4px 0;color:#2563eb">Gebruiksbeleid</a>
         </div>
         <div id="gate-items"></div>
-        <button id="accept" type="button" disabled style="font:inherit;font-size:13px;padding:8px 14px;border:none;border-radius:6px;background:#111827;color:#fff;cursor:pointer;width:100%;margin-top:10px">Akkoord en starten</button>
-        <p style="color:#9ca3af;font-size:12px;margin-top:10px">Dit is een concept.</p>
+        <button id="accept" type="button" disabled style="font:inherit;font-size:13px;padding:8px 14px;border:none;border-radius:6px;background:#111827;color:#fff;cursor:pointer;width:100%;margin-top:10px" data-i18n="gateAccept">Akkoord en starten</button>
+        <p style="color:#9ca3af;font-size:12px;margin-top:10px" data-i18n="gateConcept">Dit is een concept.</p>
       </div>
     </section>
 
@@ -413,8 +413,8 @@
       <div id="tab-taak" class="tab-panel">
         <div id="chat-topbar">
           <div class="qb-group">
-            <button type="button" class="qb-btn qmode-btn" data-mode="confirm">🛡️ <span class="qb-label">Bevestig</span></button>
-            <button type="button" class="qb-btn qmode-btn" data-mode="auto">⚡ <span class="qb-label">Auto</span></button>
+            <button type="button" class="qb-btn qmode-btn" data-mode="confirm">🛡️ <span class="qb-label" data-i18n="qbConfirm">Bevestig</span></button>
+            <button type="button" class="qb-btn qmode-btn" data-mode="auto">⚡ <span class="qb-label" data-i18n="qbAuto">Auto</span></button>
           </div>
           <div class="qb-divider"></div>
           <div class="qb-group">
@@ -438,10 +438,10 @@
         <div id="chat-input-wrap">
           <div id="attach-previews"></div>
           <div id="chat-input-row">
-            <button type="button" id="attach-btn" title="Bijlage uploaden (afbeelding, .txt, .rtf)">📎 Upload bijlage</button>
+            <button type="button" id="attach-btn" title="Bijlage uploaden (afbeelding, .txt, .rtf)" data-i18n="attachBtn" data-i18n-title="attachBtnTitle">📎 Upload bijlage</button>
             <input type="file" id="attach-input" accept="image/*,.txt,.rtf,.pdf,.doc,.docx" />
             <textarea id="goal" rows="1" placeholder="Wat moet ik doen?" data-i18n-ph="placeholder"></textarea>
-            <button id="start" type="button" disabled title="Taak starten">
+            <button id="start" type="button" disabled title="Taak starten" data-i18n-title="startTitle">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2L14 8L3 14V2Z" fill="currentColor"/></svg>
             </button>
           </div>
@@ -508,7 +508,7 @@
               <div class="hint" data-i18n="langHint">Kies de taal waarin Yad zijn antwoorden schrijft.</div>
             </div>
             <div id="site-override-section">
-              <p id="site-domain-label">Huidig domein: onbekend</p>
+              <p id="site-domain-label"></p>
               <div class="tier-options">
                 <button type="button" class="tier-btn" data-tier="stealth" data-i18n="tierCautious">Voorzichtig</button>
                 <button type="button" class="tier-btn" data-tier="normal" data-i18n="tierNormal">Normaal</button>

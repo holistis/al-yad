@@ -40,6 +40,49 @@ const confirmPending = new Set<string>();
 const confirmTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /**
+ * Taal voor de meldingen die de gebruiker in het side-panel ziet (run-status en
+ * capture-resultaten). Deze module is een service worker zonder eigen currentLanguage,
+ * dus we cachen de opgeslagen taalkeuze en verversen hem telkens als we de instellingen
+ * al aan het lezen zijn (sendConfigUpdate) of vlak voordat we een melding opbouwen.
+ * Model-gerichte details (SNAPSHOT/ACT/CDP) blijven bewust onvertaald.
+ */
+let uiLang: "nl" | "en" = "nl";
+async function refreshUiLang(): Promise<"nl" | "en"> {
+  try {
+    const s = await getSettings();
+    uiLang = s.language === "en" ? "en" : "nl";
+  } catch {
+    /* instellingen onleesbaar → vorige taal aanhouden */
+  }
+  return uiLang;
+}
+
+const RUN_MSG = {
+  nl: {
+    tabClosed: "De tab is gesloten; de taak is gestopt.",
+    alreadyRunning: "Er loopt al een taak.",
+    consentRequired: "Akkoord vereist: ga eerst akkoord met de voorwaarden voordat je een taak start.",
+    noTabOpen: "Kon geen tab openen om de taak uit te voeren. Probeer het opnieuw.",
+    notConnected: "Niet verbonden met de companion.",
+    noWebTab: "Geen actieve web-tab gevonden.",
+    noWebTabSession: "Geen actieve web-tab gevonden. Open een REDACTED-site en probeer opnieuw.",
+  },
+  en: {
+    tabClosed: "The tab was closed, so the task has stopped.",
+    alreadyRunning: "A task is already running.",
+    consentRequired: "Consent required: please accept the terms before you start a task.",
+    noTabOpen: "Could not open a tab to run the task. Please try again.",
+    notConnected: "Not connected to the companion.",
+    noWebTab: "No active web tab found.",
+    noWebTabSession: "No active web tab found. Open an REDACTED site and try again.",
+  },
+} as const;
+
+function rt(k: keyof typeof RUN_MSG.nl): string {
+  return RUN_MSG[uiLang][k];
+}
+
+/**
  * Downloads bijhouden.
  *
  * Zonder dit kon YAD wél op een downloadlink klikken, maar daarna niet weten of er iets
@@ -229,7 +272,7 @@ export function startNativePort(): void {
     if (lastWebTabId === tabId) lastWebTabId = null;
     if (runInProgress && tabId === runTabId) {
       if (port) port.postMessage(handMessage("ABORT_RUN", { reason: "run-tab gesloten" }));
-      toSidepanel({ type: "YAD_RUN_UPDATE", status: "gestopt", message: "De tab is gesloten; de taak is gestopt." });
+      toSidepanel({ type: "YAD_RUN_UPDATE", status: "gestopt", message: rt("tabClosed") });
       endRun();
     }
   });
@@ -266,7 +309,7 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
   if (!goal.trim() || !port) return;
 
   if (runInProgress) {
-    toSidepanel({ type: "YAD_RUN_UPDATE", status: "geweigerd", message: "Er loopt al een taak." });
+    toSidepanel({ type: "YAD_RUN_UPDATE", status: "geweigerd", message: rt("alreadyRunning") });
     return;
   }
   // Claim de run SYNCHROON, vóór elke await: anders kunnen twee snel na elkaar
@@ -279,7 +322,7 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
     toSidepanel({
       type: "YAD_RUN_UPDATE",
       status: "geweigerd",
-      message: "Akkoord vereist: ga eerst akkoord met de voorwaarden voordat je een taak start.",
+      message: rt("consentRequired"),
     });
     return;
   }
@@ -290,7 +333,7 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
     toSidepanel({
       type: "YAD_RUN_UPDATE",
       status: "geweigerd",
-      message: "Kon geen tab openen om de taak uit te voeren. Probeer het opnieuw.",
+      message: rt("noTabOpen"),
     });
     return;
   }
@@ -759,6 +802,7 @@ function onMessage(raw: unknown): void {
 async function sendConfigUpdate(): Promise<void> {
   if (!port) return;
   const settings = await getSettings();
+  uiLang = settings.language === "en" ? "en" : "nl";
   const env = settingsToEnv(settings);
   port.postMessage(
     handMessage("UPDATE_CONFIG", {
@@ -771,8 +815,9 @@ async function sendConfigUpdate(): Promise<void> {
 }
 
 async function handleCaptureForClaude(): Promise<void> {
+  await refreshUiLang();
   if (!port) {
-    toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ok: false, detail: "Niet verbonden met de companion." });
+    toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ok: false, detail: rt("notConnected") });
     return;
   }
   toSidepanel({ type: "YAD_CLAUDE_BRIDGE_CAPTURING" });
@@ -793,7 +838,7 @@ async function handleCaptureForClaude(): Promise<void> {
       tab = tabs[0];
     }
     if (!tab || typeof tab.id !== "number") {
-      toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ok: false, detail: "Geen actieve web-tab gevonden." });
+      toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ok: false, detail: rt("noWebTab") });
       return;
     }
     const results = await chrome.scripting.executeScript({
@@ -823,15 +868,16 @@ async function handleCaptureForClaude(): Promise<void> {
 }
 
 async function handleCaptureSession(label: "A" | "B"): Promise<void> {
+  await refreshUiLang();
   if (!port) {
-    toSidepanel({ type: "YAD_SESSION_RESULT", ok: false, detail: "Niet verbonden met de companion." });
+    toSidepanel({ type: "YAD_SESSION_RESULT", ok: false, detail: rt("notConnected") });
     return;
   }
   toSidepanel({ type: "YAD_SESSION_CAPTURING", label });
   try {
     const tab = await getActiveWebTab();
     if (!tab || typeof tab.id !== "number") {
-      toSidepanel({ type: "YAD_SESSION_RESULT", ok: false, detail: "Geen actieve web-tab gevonden. Open een REDACTED-site en probeer opnieuw." });
+      toSidepanel({ type: "YAD_SESSION_RESULT", ok: false, detail: rt("noWebTabSession") });
       return;
     }
     const captured = await captureSession(tab.id);
