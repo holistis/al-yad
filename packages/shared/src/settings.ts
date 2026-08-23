@@ -37,7 +37,7 @@ export const DEFAULT_PROVIDER_CONFIGS: Record<string, ProviderUserConfig> = {
   mistral: { enabled: false, key: "" },
   hyperbolic: { enabled: false, key: "" },
   paid: { enabled: false, key: "", baseUrl: "https://openrouter.ai/api/v1", primary: false },
-  custom: { enabled: false, key: "", baseUrl: "" },
+  custom: { enabled: false, key: "", baseUrl: "https://api.openai.com/v1" },
   ollama: { enabled: true, key: "", baseUrl: "http://localhost:11434/v1", model: "qwen2.5:7b-instruct" },
 };
 

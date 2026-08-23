@@ -59,7 +59,10 @@ function main(): void {
   );
 
   // Start lokale HTTP trigger-API zodat Claude Code autonoom commando's kan sturen.
-  startHttpApi(session, log, externalRouter);
+  // In de losse consument-.exe staat YAD_NO_HTTP aan: dan geen poort openen (voorkomt conflict).
+  if (!process.env["YAD_NO_HTTP"]) {
+    startHttpApi(session, log, externalRouter);
+  }
 
   stdin.on("end", () => {
     log("stdin gesloten door Chrome, companion sluit af");
