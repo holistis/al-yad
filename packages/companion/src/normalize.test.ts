@@ -68,8 +68,8 @@ describe("SNAPSHOT_LIMITS", () => {
     expect(SNAPSHOT_LIMITS.NAME_LIMIT).toBe(120);
   });
 
-  it("MAX_NODES is 150", () => {
-    expect(SNAPSHOT_LIMITS.MAX_NODES).toBe(150);
+  it("MAX_NODES is 500", () => {
+    expect(SNAPSHOT_LIMITS.MAX_NODES).toBe(500);
   });
 
   it("truncatie-invariant: normalizeText(s).slice(0, DIGEST_LIMIT) heeft max DIGEST_LIMIT tekens", () => {
