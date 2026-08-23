@@ -362,7 +362,10 @@ async function showGate(): Promise<void> {
     a.addEventListener("click", (e) => {
       e.preventDefault();
       const doc = a.dataset["doc"];
-      if (doc) window.open(chrome.runtime.getURL(`legal/${doc}.html`), "_blank");
+      if (!doc) return;
+      // In het Engels de vertaalde versie openen (Nederlands blijft juridisch leidend).
+      const file = currentLanguage === "en" ? `legal/${doc}-en.html` : `legal/${doc}.html`;
+      window.open(chrome.runtime.getURL(file), "_blank");
     });
   });
 }
