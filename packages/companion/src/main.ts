@@ -4,6 +4,7 @@ import { NativeHost } from "./native-host.js";
 import { BrainSession } from "./session.js";
 import { buildPool, buildExternalOllamaPool } from "./engine/pool.js";
 import { LlmRouter } from "./engine/router.js";
+import { SpendGuard } from "./engine/spend-guard.js";
 import { loadEnvFile } from "./env.js";
 import { startHttpApi } from "./http-api.js";
 import type { CompanionInfo } from "./handshake.js";
@@ -32,7 +33,13 @@ function main(): void {
   const pool = buildPool();
   // Log welke providers brandstof hebben (zonder sleutels te tonen) — Exposure-check.
   log(`motor-pool: ${pool.map((p) => `${p.name}(t${p.tier})`).join(", ")}`);
-  const router = new LlmRouter(pool, { log: (m) => log(`[motor] ${m}`) });
+  // Uitgaven-poort: dag-limiet + noodstop, alleen op de eigen-sleutel-pool (niet op de
+  // lokale gratis Ollama-bodem). Beschermt de gebruiker tegen stil doordraaien.
+  const spendGuard = new SpendGuard({
+    dataDir: process.env["YAD_DATA_DIR"],
+    log: (m) => log(`[spend] ${m}`),
+  });
+  const router = new LlmRouter(pool, { log: (m) => log(`[motor] ${m}`), guard: spendGuard });
 
   // Aparte Ollama-only router voor extern/klant-verkeer (YAD_EXTERNAL_MODE) — nooit
   // de eigen gratis/betaalde sleutels van de koning. Leeg als Ollama niet geconfigureerd is.

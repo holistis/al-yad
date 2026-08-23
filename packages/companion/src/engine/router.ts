@@ -1,6 +1,7 @@
 import type { ChatRequest, ChatResponse, LlmProvider } from "./types.js";
 import { LlmError } from "./errors.js";
 import { CircuitBreaker } from "./circuit-breaker.js";
+import type { SpendGuard } from "./spend-guard.js";
 
 export interface RouterOptions {
   breaker?: CircuitBreaker;
@@ -9,6 +10,8 @@ export interface RouterOptions {
   /** injecteerbaar voor tests (geen echte wachttijd) */
   sleep?: (ms: number) => Promise<void>;
   log?: (msg: string) => void;
+  /** uitgaven-poort: dag-limiet + noodstop over alle AI-aanroepen */
+  guard?: SpendGuard;
 }
 
 export interface RouteResult extends ChatResponse {
@@ -30,6 +33,7 @@ export class LlmRouter {
   private readonly retries: number;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly log: (msg: string) => void;
+  private readonly guard?: SpendGuard;
 
   constructor(providers: LlmProvider[], opts: RouterOptions = {}) {
     // sorteer op tier (laag eerst), stabiel
@@ -38,6 +42,7 @@ export class LlmRouter {
     this.retries = opts.retriesPerProvider ?? 1;
     this.sleep = opts.sleep ?? defaultSleep;
     this.log = opts.log ?? (() => {});
+    this.guard = opts.guard;
   }
 
   get size(): number {
@@ -45,6 +50,8 @@ export class LlmRouter {
   }
 
   async chat(req: ChatRequest, signal?: AbortSignal): Promise<RouteResult> {
+    // Uitgaven-poort: noodstop + dag-limiet, vóór er ook maar één provider wordt aangeroepen.
+    this.guard?.checkBefore();
     const attempts: string[] = [];
     const errors: string[] = [];
 
@@ -59,6 +66,7 @@ export class LlmRouter {
         try {
           const res = await p.chat(req, signal);
           this.breaker.recordSuccess(p.name);
+          this.guard?.record(p.name, res.usage);
           return { ...res, attempts };
         } catch (err) {
           const e = err instanceof LlmError ? err : new LlmError(String(err), { retryable: false });
