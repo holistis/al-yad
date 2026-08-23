@@ -63,7 +63,12 @@ export class NativeHost {
         this.onError(err instanceof Error ? err : new Error(String(err)));
         continue;
       }
-      this.onMessage(parsed);
+      // Een fout in één handler mag de hele companion niet omleggen.
+      try {
+        this.onMessage(parsed);
+      } catch (err) {
+        this.onError(err instanceof Error ? err : new Error(String(err)));
+      }
     }
   }
 

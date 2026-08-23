@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import process from "node:process";
@@ -44,11 +44,22 @@ export class KeyVault {
   }
 
   private ps(script: string, input: string): string {
-    return execFileSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", script], {
+    // Absoluut pad naar de echte PowerShell, NOOIT via PATH/CWD. Anders zou een in de
+    // werkmap geplante powershell.exe de sleutels (die via stdin gaan) kunnen opvangen.
+    const psExe = join(
+      process.env["SystemRoot"] ?? "C:\\Windows",
+      "System32",
+      "WindowsPowerShell",
+      "v1.0",
+      "powershell.exe",
+    );
+    return execFileSync(psExe, ["-NoProfile", "-NonInteractive", "-Command", script], {
       input,
       encoding: "utf8",
       windowsHide: true,
       maxBuffer: 4 * 1024 * 1024,
+      timeout: 10000,
+      killSignal: "SIGKILL",
     });
   }
 
@@ -58,7 +69,10 @@ export class KeyVault {
     try {
       const b64 = this.ps(ENCRYPT_PS, JSON.stringify(keys));
       mkdirSync(this.dataDir, { recursive: true });
-      writeFileSync(this.file, b64, "utf8");
+      // Atomisch schrijven zodat een onderbroken schrijf de kluis niet corrupt maakt.
+      const tmp = this.file + ".tmp";
+      writeFileSync(tmp, b64, "utf8");
+      renameSync(tmp, this.file);
       this.log(`${Object.keys(keys).length} waarden versleuteld opgeslagen`);
     } catch (e) {
       this.log(`kluis opslaan faalde: ${(e as Error).message}`);
