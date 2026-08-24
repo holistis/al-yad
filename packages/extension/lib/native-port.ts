@@ -65,7 +65,7 @@ const RUN_MSG = {
     noTabOpen: "Kon geen tab openen om de taak uit te voeren. Probeer het opnieuw.",
     notConnected: "Niet verbonden met de companion.",
     noWebTab: "Geen actieve web-tab gevonden.",
-    noWebTabSession: "Geen actieve web-tab gevonden. Open een REDACTED-site en probeer opnieuw.",
+    noWebTabSession: "Geen actieve web-tab gevonden. Open de site en probeer opnieuw.",
   },
   en: {
     tabClosed: "The tab was closed, so the task has stopped.",
@@ -74,7 +74,7 @@ const RUN_MSG = {
     noTabOpen: "Could not open a tab to run the task. Please try again.",
     notConnected: "Not connected to the companion.",
     noWebTab: "No active web tab found.",
-    noWebTabSession: "No active web tab found. Open an REDACTED site and try again.",
+    noWebTabSession: "No active web tab found. Open the site and try again.",
   },
 } as const;
 
