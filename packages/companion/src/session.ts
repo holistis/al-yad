@@ -24,9 +24,7 @@ import { buildPool } from "./engine/pool.js";
 import type { SpendGuard } from "./engine/spend-guard.js";
 import type { KeyVault } from "./key-vault.js";
 import { createHandshakeHandler, type CompanionInfo } from "./handshake.js";
-import { saveREDACTEDSession, type REDACTEDSessionResult } from "./adapters/REDACTED.js";
 import { CacheStore } from "./memory/cache-store.js";
-import { REDACTEDSessionReader } from "./key/session-reader.js";
 import { RunHistoryStore, type RunHistoryEntry } from "./history/run-history.js";
 import { RecoveryStore } from "./memory/recovery-store.js";
 import { SelectorStore } from "./memory/selector-store.js";
@@ -115,7 +113,6 @@ export class BrainSession implements HandBridge {
   // router is niet readonly: UPDATE_CONFIG kan de pool vervangen
   private router: LlmRouter;
   private readonly cacheStore = new CacheStore();
-  private readonly sessionReader = new REDACTEDSessionReader();
   private readonly runHistory = new RunHistoryStore();
   private readonly recoveryStore = new RecoveryStore();
   private readonly selectorStore = new SelectorStore();
@@ -345,31 +342,6 @@ export class BrainSession implements HandBridge {
     });
   }
 
-  captureAndSaveSession(label: "A" | "B"): Promise<{ ok: boolean; brand?: string; path?: string; detail?: string }> {
-    const msg = brainMessage("REQUEST_SESSION_CAPTURE", { label });
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(msg.id);
-        reject(new Error("Session capture time-out na 20s — is er een actieve web-tab?"));
-      }, 20_000);
-      this.pending.set(msg.id, {
-        resolve: (p) => {
-          const d = p as { ok: boolean; label: "A" | "B"; url?: string; cookieHeader?: string; localStorage?: Record<string, string>; detail?: string };
-          if (!d.ok) { resolve({ ok: false, detail: d.detail }); return; }
-          const result = saveREDACTEDSession({
-            url: d.url ?? "",
-            cookieHeader: d.cookieHeader ?? "",
-            localStorage: d.localStorage ?? {},
-            label: d.label,
-          });
-          resolve(result);
-        },
-        reject,
-        timer,
-      });
-      this.send(msg);
-    });
-  }
 
   handle(raw: unknown): void {
     if (!isEnvelope(raw)) {
@@ -449,22 +421,6 @@ export class BrainSession implements HandBridge {
         );
         return;
       }
-      case "SESSION_CAPTURE": {
-        const p = raw.payload as {
-          url: string;
-          cookieHeader: string;
-          localStorage: Record<string, string>;
-          label: "A" | "B";
-        };
-        const result = saveREDACTEDSession(p);
-        this.send(brainMessage("SESSION_RESULT", result));
-        this.log(
-          result.ok
-            ? `sessie opgeslagen: ${result.brand} account-${p.label} → ${result.path}`
-            : `sessie-fout: ${result.detail}`,
-        );
-        return;
-      }
       case "PAGE_CAPTURE": {
         const p = raw.payload as {
           url: string;
@@ -502,7 +458,6 @@ export class BrainSession implements HandBridge {
       case "INJECT_LOCALSTORAGE_RESULT":
       case "NAVIGATE_RESULT":
       case "SCREENSHOT_RESULT":
-      case "SESSION_CAPTURE_DATA":
       case "CDP_RESULT":
       case "ADOPT_TAB_RESULT": {
         const cid = raw.correlationId;
@@ -538,33 +493,7 @@ export class BrainSession implements HandBridge {
     const runId = Math.random().toString(36).slice(2, 10);
     const stepLogger = new StepLogger(stepLogPath);
 
-    // Sessie-hergebruik: injecteer opgeslagen cookies + localStorage vóór de loop
-    // zodat de agent meteen authenticated is op de site zonder handmatige inlog.
     if (startingUrl) {
-      const session = this.sessionReader.findForUrl(startingUrl);
-      if (session) {
-        if (session.cookies.length > 0) {
-          try {
-            const r = await this.request<{ ok: boolean; count: number }>("INJECT_COOKIES", {
-              url: startingUrl,
-              cookies: session.cookies,
-            }, 5_000);
-            this.log(`cookies geïnjecteerd: ${session.brand} — ${r.count} cookies`);
-          } catch (e) {
-            this.log(`cookie-injectie mislukt: ${(e as Error).message} (doorgaan zonder)`);
-          }
-        }
-        if (session.localStorageItems && Object.keys(session.localStorageItems).length > 0) {
-          try {
-            const r = await this.request<{ ok: boolean; count: number }>("INJECT_LOCALSTORAGE", {
-              items: session.localStorageItems,
-            }, 5_000);
-            this.log(`localStorage geïnjecteerd: ${session.brand} — ${r.count} sleutels`);
-          } catch (e) {
-            this.log(`localStorage-injectie mislukt: ${(e as Error).message} (doorgaan zonder)`);
-          }
-        }
-      }
       // Forceer navigatie naar de opgegeven start-URL vóór de agent begint te plannen.
       // Zonder dit was startingUrl alleen een sleutel voor de sessie-lookup hierboven —
       // de agent zag hem nooit als daadwerkelijke navigatie-opdracht en moest zelf uit de

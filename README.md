@@ -127,7 +127,6 @@ Full result files are in `data/benchmark-results-*.json`.
 - `packages/companion` — the Brain: native-messaging host, agent-loop, engine (LLM-router), memory (action-cache, recovery-store), key (session/vault), gate (guardrails).
 - `packages/extension` — the Hand: MV3 extension (WXT), keeps native-messaging port open, executes actions.
 - `packages/dashboard` — the Control: multi-tenant control + billing (later phase).
-- `packages/adapters/REDACTED-session` — bridge to the existing `REDACTED` project.
 
 ## Status
 

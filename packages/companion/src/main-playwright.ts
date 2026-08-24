@@ -3,7 +3,7 @@
  *
  * GEBRUIK:
  *   node dist/main-playwright.js --assignment assignment.json [--headless] [--session session-A.json]
- *   node dist/main-playwright.js --goal "tekst" --domains "www.REDACTED.nl,api.REDACTED.nl" [--session ...]
+ *   node dist/main-playwright.js --goal "tekst" --domains "example.com,api.example.com" [--session ...]
  *
  * VEILIGHEID:
  *   1. validateAssignment() weigert ongeldige of te brede toewijzingen.
@@ -27,9 +27,28 @@ import { RunHistoryStore } from "./history/run-history.js";
 import { PlaywrightHand } from "./playwright-hand.js";
 import { ScopeGuard } from "./gate/scope-guard.js";
 import { validateAssignment, type Assignment } from "./gate/assignment.js";
-import { REDACTEDSessionReader } from "./key/session-reader.js";
 
 const log = (m: string): void => console.log(`[yad-pw] ${m}`);
+
+interface ParsedCookie {
+  name: string;
+  value: string;
+}
+
+/** Zet een cookie-header-string om naar naam/waarde-paren. */
+function parseCookieHeader(header: string): ParsedCookie[] {
+  return header
+    .split(";")
+    .map((pair) => pair.trim())
+    .filter(Boolean)
+    .flatMap((pair): ParsedCookie[] => {
+      const eq = pair.indexOf("=");
+      if (eq < 0) return [];
+      const name = pair.slice(0, eq).trim();
+      if (!name) return [];
+      return [{ name, value: pair.slice(eq + 1).trim() }];
+    });
+}
 
 function parseArgs(): {
   assignmentFile?: string;
@@ -120,7 +139,6 @@ async function main(): Promise<void> {
           cookieHeader?: string;
         };
         if (sess.cookieHeader) {
-          const { parseCookieHeader } = await import("./key/session-reader.js");
           const parsed = parseCookieHeader(sess.cookieHeader);
           const domain = assignment.targetDomains[0] ?? "";
           cookies = parsed.map((c) => ({ ...c, domain }));
@@ -128,17 +146,6 @@ async function main(): Promise<void> {
         }
       } catch (e) {
         log(`Sessie-laadfout: ${(e as Error).message} (doorgaan zonder sessie)`);
-      }
-    }
-  } else {
-    // Probeer automatisch via REDACTEDSessionReader (GHANIMA_PATH vereist).
-    const reader = new REDACTEDSessionReader();
-    const firstDomain = assignment.targetDomains[0];
-    if (firstDomain) {
-      const session = reader.findForUrl(`https://${firstDomain}/`);
-      if (session?.cookies.length) {
-        cookies = session.cookies.map((c) => ({ ...c, domain: firstDomain }));
-        log(`Auto-sessie geladen voor ${session.brand}: ${cookies.length} cookies`);
       }
     }
   }

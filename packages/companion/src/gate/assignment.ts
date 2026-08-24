@@ -14,11 +14,11 @@
  */
 
 export interface Assignment {
-  /** Uniek ID, bv. "REDACTED-idor-2026-06-29-A" */
+  /** Uniek ID, bv. "example-idor-2026-06-29-A" */
   id: string;
   /** Omschrijving voor de Koning (menselijk leesbaar) */
   description: string;
-  /** Domeinen waarop de agent MAG navigeren, bv. ["api.REDACTED.nl", "www.REDACTED.nl"] */
+  /** Domeinen waarop de agent MAG navigeren, bv. ["api.example.com", "www.example.com"] */
   targetDomains: string[];
   /** Maximaal toegestane navigatie-acties (harde cap tegen eindeloze loops) */
   maxActions: number;

@@ -358,6 +358,33 @@
         "successCount": 11,
         "lastSeen": "2026-08-09",
         "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "0 forks",
+        "urlPathPattern": "holistis/al-yad",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "star holistis/al-yad",
+        "urlPathPattern": "holistis/al-yad",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "add this repository to a list",
+        "urlPathPattern": "/",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
       }
     ],
     "www.google.com": [
@@ -2143,8 +2170,8 @@
         "nameSubstring": "use another account",
         "urlPathPattern": "v3/signin/accountchooser",
         "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-21",
+        "successCount": 2,
+        "lastSeen": "2026-08-24",
         "schemaVersion": 1
       },
       {
@@ -2172,6 +2199,33 @@
         "actionKind": "click",
         "successCount": 1,
         "lastSeen": "2026-08-02",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "use another account",
+        "urlPathPattern": "v3/signin/identifier",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "email or phone",
+        "urlPathPattern": "v3/signin/identifier",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "next",
+        "urlPathPattern": "v3/signin/identifier",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
         "schemaVersion": 1
       }
     ],
@@ -2850,8 +2904,8 @@
         "nameSubstring": "search",
         "urlPathPattern": "researcher/programs/overview",
         "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-20",
+        "successCount": 2,
+        "lastSeen": "2026-08-22",
         "schemaVersion": 1
       },
       {
@@ -2888,6 +2942,78 @@
         "actionKind": "click",
         "successCount": 1,
         "lastSeen": "2026-07-20",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "filter",
+        "urlPathPattern": "researcher/programs/overview",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "rivian bug bounty",
+        "urlPathPattern": "researcher/programs/overview",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "detail",
+        "urlPathPattern": "researcher/programs/rivian",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "programs",
+        "urlPathPattern": "researcher/programs/rivian",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "filter text",
+        "urlPathPattern": "researcher/programs/rivian",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "inbox",
+        "urlPathPattern": "researcher/settings/personal",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "your profile",
+        "urlPathPattern": "researcher/dashboard",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "report illegal content",
+        "urlPathPattern": "researcher/submissions/create",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-24",
         "schemaVersion": 1
       }
     ],
@@ -3470,8 +3596,8 @@
         "nameSubstring": "code",
         "urlPathPattern": "verification",
         "actionKind": "type",
-        "successCount": 3,
-        "lastSeen": "2026-07-21",
+        "successCount": 21,
+        "lastSeen": "2026-08-24",
         "schemaVersion": 1
       },
       {
@@ -3479,8 +3605,8 @@
         "nameSubstring": "code überprüfen",
         "urlPathPattern": "verification",
         "actionKind": "click",
-        "successCount": 4,
-        "lastSeen": "2026-07-21",
+        "successCount": 6,
+        "lastSeen": "2026-08-24",
         "schemaVersion": 1
       },
       {
@@ -4794,6 +4920,24 @@
         "successCount": 1,
         "lastSeen": "2026-07-22",
         "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "open bevestiging",
+        "urlPathPattern": "/",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "knop in schaduw",
+        "urlPathPattern": "/",
+        "actionKind": "click",
+        "successCount": 7,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
       }
     ],
     "bugs.immunefi.com": [
@@ -4858,260 +5002,6 @@
         "actionKind": "click",
         "successCount": 1,
         "lastSeen": "2026-07-28",
-        "schemaVersion": 1
-      }
-    ],
-    "www.REDACTED.nl": [
-      {
-        "role": "textbox",
-        "nameSubstring": "e-mailadres",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 4,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "herhaal e-mailadres",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 4,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "wachtwoord",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 4,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "herhaal je wachtwoord",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 3,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "radio",
-        "nameSubstring": "maak je digitale kaart aan met jouw krui",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "indienen",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "inloggen",
-        "urlPathPattern": "/",
-        "actionKind": "click",
-        "successCount": 3,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "e-mailadres",
-        "urlPathPattern": "/",
-        "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "wachtwoord",
-        "urlPathPattern": "/",
-        "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "inloggen",
-        "urlPathPattern": "login",
-        "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "e-mailadres",
-        "urlPathPattern": "login",
-        "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "wachtwoord",
-        "urlPathPattern": "login",
-        "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "link",
-        "nameSubstring": "privacybeleid - openen in een nieuw tabb",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "radio",
-        "nameSubstring": "ik wil verder zonder kaart",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "ga naar stap 2",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 4,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "voornaam",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 2,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "tussenvoegsel",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 3,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "hoe mogen we je noemen?",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 4,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "achternaam",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 2,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "nummerinvoer, vul de dag van je geboorte",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "nummerinvoer, vul de maand van je geboor",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "nummerinvoer, vul het jaar van je geboor",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 2,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "telefoonnummer",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "postcode",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "huisnummer",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "straat",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "woonplaats",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "close this option",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
         "schemaVersion": 1
       }
     ],
@@ -5844,15 +5734,6 @@
       },
       {
         "role": "button",
-        "nameSubstring": "REDACTED",
-        "urlPathPattern": "project/service",
-        "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-07-28",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
         "nameSubstring": "deployment successful",
         "urlPathPattern": "project/service",
         "actionKind": "click",
@@ -5894,6 +5775,24 @@
         "actionKind": "click",
         "successCount": 5,
         "lastSeen": "2026-07-28",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "view project",
+        "urlPathPattern": "dashboard",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-21",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "view project",
+        "urlPathPattern": "project",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-21",
         "schemaVersion": 1
       }
     ],
@@ -6290,6 +6189,768 @@
         "actionKind": "click",
         "successCount": 1,
         "lastSeen": "2026-08-10",
+        "schemaVersion": 1
+      }
+    ],
+    "mergefix.com": [
+      {
+        "role": "button",
+        "nameSubstring": "path a: i have a github repoi'll fork it",
+        "urlPathPattern": "migrate",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-21",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "lovable",
+        "urlPathPattern": "migrate",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-21",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "pay €299 & start migration",
+        "urlPathPattern": "migrate",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-21",
+        "schemaVersion": 1
+      }
+    ],
+    "search.google.com": [
+      {
+        "role": "button",
+        "nameSubstring": "publicadd a website",
+        "urlPathPattern": "search-console/welcome",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-21",
+        "schemaVersion": 1
+      }
+    ],
+    "rivian.com": [
+      {
+        "role": "button",
+        "nameSubstring": "europe",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "nederlandnederlands",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "blijf in contact",
+        "urlPathPattern": "nl-nl",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "reject all",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "email",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "click",
+        "successCount": 9,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "first name",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "click",
+        "successCount": 9,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "last name",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "click",
+        "successCount": 8,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "country",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "click",
+        "successCount": 13,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "product interest",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "submit",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "phone number",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "zip or postal code",
+        "urlPathPattern": "connect/tell-us-more",
+        "actionKind": "type",
+        "successCount": 3,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "email*",
+        "urlPathPattern": "nl-nl/auth/forgot",
+        "actionKind": "click",
+        "successCount": 6,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "submit",
+        "urlPathPattern": "nl-nl/auth/forgot",
+        "actionKind": "click",
+        "successCount": 6,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "try again",
+        "urlPathPattern": "nl-nl/auth/forgot",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-22",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "email*",
+        "urlPathPattern": "nl-nl/auth/login",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "sign in",
+        "urlPathPattern": "nl-nl/auth/login",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "password*",
+        "urlPathPattern": "nl-nl/auth/login",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      }
+    ],
+    "hackerone.com": [
+      {
+        "role": "treeitem",
+        "nameSubstring": "program guidelines",
+        "urlPathPattern": "dyson",
+        "actionKind": "click",
+        "successCount": 5,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "learn more",
+        "urlPathPattern": "dyson",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "log in",
+        "urlPathPattern": "dyson",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "search assets",
+        "urlPathPattern": "dyson/reports/new",
+        "actionKind": "click",
+        "successCount": 12,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "www.dyson.nlcriticaleligible for bounty",
+        "urlPathPattern": "dyson/reports/new",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "search weaknessess",
+        "urlPathPattern": "dyson/reports/new",
+        "actionKind": "click",
+        "successCount": 9,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "type confusion(cwe-843)",
+        "urlPathPattern": "dyson/reports/new",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "improper access control - generic(cwe-28",
+        "urlPathPattern": "dyson/reports/new",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "title*",
+        "urlPathPattern": "dyson/reports/new",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      }
+    ],
+    "www.dyson.nl": [
+      {
+        "role": "link",
+        "nameSubstring": "registreren/inloggen",
+        "urlPathPattern": "registreer",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "meld je aan",
+        "urlPathPattern": "your-dyson",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "e-mailadres*",
+        "urlPathPattern": "registreer",
+        "actionKind": "click",
+        "successCount": 8,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "doorgaan",
+        "urlPathPattern": "registreer",
+        "actionKind": "click",
+        "successCount": 9,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "mijn gegevens",
+        "urlPathPattern": "your-dyson/your-dyson-overview",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "mijn account",
+        "urlPathPattern": "your-dyson/your-profile/account-details",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "marketing- en communicatievoorkeuren",
+        "urlPathPattern": "your-dyson/your-dyson-overview",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "stofzuigers",
+        "urlPathPattern": "your-dyson/your-profile/keep-in-touch",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "serial1",
+        "urlPathPattern": "registreer",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "serial2",
+        "urlPathPattern": "registreer",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "serial3",
+        "urlPathPattern": "registreer",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "dd",
+        "urlPathPattern": "registreer",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "mm",
+        "urlPathPattern": "registreer",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "jjjj",
+        "urlPathPattern": "registreer",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "registreer dit product",
+        "urlPathPattern": "registreer",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "nieuw product registreren",
+        "urlPathPattern": "your-dyson/your-dyson-overview",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "serial1",
+        "urlPathPattern": "your-dyson/add-a-machine",
+        "actionKind": "click",
+        "successCount": 22,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "serial2",
+        "urlPathPattern": "your-dyson/add-a-machine",
+        "actionKind": "type",
+        "successCount": 14,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "serial3",
+        "urlPathPattern": "your-dyson/add-a-machine",
+        "actionKind": "type",
+        "successCount": 12,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "dd",
+        "urlPathPattern": "your-dyson/add-a-machine",
+        "actionKind": "click",
+        "successCount": 17,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "mm",
+        "urlPathPattern": "your-dyson/add-a-machine",
+        "actionKind": "type",
+        "successCount": 13,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "jjjj",
+        "urlPathPattern": "your-dyson/add-a-machine",
+        "actionKind": "type",
+        "successCount": 10,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "registreer dit product",
+        "urlPathPattern": "your-dyson/add-a-machine",
+        "actionKind": "click",
+        "successCount": 7,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "uitloggen",
+        "urlPathPattern": "your-dyson/your-dyson-overview",
+        "actionKind": "click",
+        "successCount": 12,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "e-mailadres**",
+        "urlPathPattern": "your-dyson",
+        "actionKind": "click",
+        "successCount": 28,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "wachtwoord**",
+        "urlPathPattern": "your-dyson",
+        "actionKind": "click",
+        "successCount": 26,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "aanmelden",
+        "urlPathPattern": "your-dyson",
+        "actionKind": "click",
+        "successCount": 14,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "mydyson™",
+        "urlPathPattern": "your-dyson/your-dyson-overview",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "mijn account",
+        "urlPathPattern": "your-dyson",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "registreren/inloggen",
+        "urlPathPattern": "nl",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "producten bekijken",
+        "urlPathPattern": "your-dyson/your-dyson-overview",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "mydyson™",
+        "urlPathPattern": "your-dyson/your-technology",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "luchtbehandeling",
+        "urlPathPattern": "your-dyson/your-technology",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "account",
+        "urlPathPattern": "nl",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "klik of druk enter om menu te openen",
+        "urlPathPattern": "your-dyson",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      }
+    ],
+    "example.com": [
+      {
+        "role": "link",
+        "nameSubstring": "learn more",
+        "urlPathPattern": "login",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-23",
+        "schemaVersion": 1
+      }
+    ],
+    "userprofile-ui.kinepolis.com": [
+      {
+        "role": "button",
+        "nameSubstring": "opslaan",
+        "urlPathPattern": "userprofile/profile",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      }
+    ],
+    "identityserver.landmarkcinemas.com": [
+      {
+        "role": "checkbox",
+        "nameSubstring": "comedy",
+        "urlPathPattern": "account/registerwithoutusername",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "username",
+        "urlPathPattern": "account/login",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "password",
+        "urlPathPattern": "account/login",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "log in",
+        "urlPathPattern": "account/login",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      }
+    ],
+    "extras.landmarkcinemas.com": [
+      {
+        "role": "button",
+        "nameSubstring": "yes, i accept",
+        "urlPathPattern": "free-product-confirmation",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "radio",
+        "nameSubstring": "yes",
+        "urlPathPattern": "free-product-confirmation",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "barcode number",
+        "urlPathPattern": "free-product-confirmation",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "register",
+        "urlPathPattern": "free-product-confirmation",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      }
+    ],
+    "signin.auth.welt.de": [
+      {
+        "role": "textbox",
+        "nameSubstring": "vorname *",
+        "urlPathPattern": "account-completion",
+        "actionKind": "type",
+        "successCount": 9,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "nachname *",
+        "urlPathPattern": "account-completion",
+        "actionKind": "type",
+        "successCount": 5,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "konto vervollständigen",
+        "urlPathPattern": "account-completion",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      }
+    ],
+    "www.welt.de": [
+      {
+        "role": "button",
+        "nameSubstring": "suche",
+        "urlPathPattern": "/",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "einstellungen für barrierefreiheit",
+        "urlPathPattern": "/",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      }
+    ],
+    "login.venly.io": [
+      {
+        "role": "link",
+        "nameSubstring": "sign in with google",
+        "urlPathPattern": "auth/realms/arkane",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
         "schemaVersion": 1
       }
     ]

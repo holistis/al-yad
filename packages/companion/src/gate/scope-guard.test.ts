@@ -8,13 +8,13 @@ const ASSIGNMENT: Assignment = {
   id: "test-scope",
   description: "Test scope guard",
   goal: "Test IDOR",
-  targetDomains: ["www.REDACTED.nl", "api.REDACTED.nl"],
+  targetDomains: ["www.example.com", "api.example.com"],
   maxActions: 5,
   signedBy: "king",
   createdAt: Date.now(),
 };
 
-const SNAP: Snapshot = { url: "https://www.REDACTED.nl/", title: "REDACTED", nodes: [], textDigest: "" };
+const SNAP: Snapshot = { url: "https://www.example.com/", title: "Example", nodes: [], textDigest: "" };
 
 class StubHand implements HandBridge {
   acts: Action[] = [];
@@ -31,7 +31,7 @@ describe("ScopeGuard", () => {
   it("laat een navigate naar een toegestaan domein door", async () => {
     const hand = new StubHand();
     const guard = new ScopeGuard(hand, ASSIGNMENT, () => {});
-    const result = await guard.act({ kind: "navigate", url: "https://www.REDACTED.nl/account" });
+    const result = await guard.act({ kind: "navigate", url: "https://www.example.com/account" });
     expect(result.ok).toBe(true);
     expect(guard.violated).toBe(false);
     expect(hand.acts).toHaveLength(1);
@@ -40,7 +40,7 @@ describe("ScopeGuard", () => {
   it("blokkeert een navigate naar een niet-toegestaan domein", async () => {
     const hand = new StubHand();
     const guard = new ScopeGuard(hand, ASSIGNMENT, () => {});
-    const result = await guard.act({ kind: "navigate", url: "https://www.amazon.nl/producten" });
+    const result = await guard.act({ kind: "navigate", url: "https://www.other-site.nl/producten" });
     expect(result.ok).toBe(false);
     expect(result.detail).toContain("SCOPE_VIOLATION");
     expect(guard.violated).toBe(true);
@@ -50,7 +50,7 @@ describe("ScopeGuard", () => {
   it("blokkeert een navigate naar een verboden pad (/checkout)", async () => {
     const hand = new StubHand();
     const guard = new ScopeGuard(hand, ASSIGNMENT, () => {});
-    const result = await guard.act({ kind: "navigate", url: "https://www.REDACTED.nl/checkout" });
+    const result = await guard.act({ kind: "navigate", url: "https://www.example.com/checkout" });
     expect(result.ok).toBe(false);
     expect(guard.violated).toBe(true);
   });
@@ -87,7 +87,7 @@ describe("ScopeGuard", () => {
     const hand = new StubHand();
     const guard = new ScopeGuard(hand, ASSIGNMENT, () => {});
     const snap = await guard.requestSnapshot();
-    expect(snap.url).toBe("https://www.REDACTED.nl/");
+    expect(snap.url).toBe("https://www.example.com/");
     const conf = await guard.requestConfirm({ kind: "wait", ms: 0 }, "test");
     expect(conf).toBe(true);
   });
