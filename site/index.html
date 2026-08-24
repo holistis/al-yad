@@ -414,6 +414,7 @@
         <h2>You are handing an AI your browser. Where does your password go?</h2>
         <p>Most AI agents run in a cloud browser, on someone else's server, with a copy of your logins. Yad does not. It works in your real browser, on your machine. Your passwords and card numbers are masked before anything is sent, and you decide what leaves.</p>
         <p>Pick a local model and the page content stays on your computer. Pick a cloud model and only what is needed to plan the next step goes out. Your call, every time.</p>
+        <p>Your key gets the same treatment. The first time you paste it in, it goes once to the small companion app on your own computer, which locks it immediately with Windows' own built-in encryption, tied to your Windows account, and the extension never shows the raw key again. Every AI call also counts against a daily limit you set, and a one-click Stop button blocks all further calls at once. Both settings survive a restart, and if either one is ever missing or corrupted, Yad defaults to blocking AI calls rather than allowing them.</p>
       </div>
       <div class="c-media reveal">
         <div class="diagram">
@@ -478,6 +479,12 @@
         <h3>It remembers</h3>
         <p>Selectors and past runs are stored, on your device, so it gets better.</p>
         <div class="layer-reveal">selector-store · run-history · all local</div>
+      </div>
+      <div class="tile wide reveal">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+        <h3>Locked, capped, and stoppable</h3>
+        <p>Your AI key is encrypted the moment you paste it, locked with Windows' own built-in encryption and tied to your Windows account, and the extension never shows it again. A daily spending cap and a one-click Stop button keep any task, automatic or not, from running past the limit you set.</p>
+        <div class="layer-reveal">dpapi-encrypted key · daily cap · one-click stop</div>
       </div>
     </div>
   </section>
