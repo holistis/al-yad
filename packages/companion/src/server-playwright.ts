@@ -39,6 +39,7 @@ import { CacheStore } from "./memory/cache-store.js";
 import { RunHistoryStore } from "./history/run-history.js";
 import { PlaywrightHand } from "./playwright-hand.js";
 import { checkExternalGate } from "./external-gate.js";
+import { randomBytes } from "node:crypto";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -324,6 +325,34 @@ function ycWriteConfig(cfg: Record<string, unknown>) {
   writeFileSync(YC_CONFIG_PATH, JSON.stringify(cfg, null, 2), "utf8");
 }
 
+/**
+ * VEILIGHEIDSFIX (2026-08-24): de /yc/*-schrijf-routes stonden zonder enige authenticatie
+ * open op 0.0.0.0, publiek bevestigd bereikbaar. Iedereen op het internet kon willekeurige
+ * cookies naar linkedin-session.json schrijven (sessie-kaping) of een scan/CRM-login
+ * triggeren. Dit dicht dat gat zonder checkExternalGate te hergebruiken (die vereist
+ * YAD_EXTERNAL_MODE + een X-API-Key die het dashboard nooit stuurde): een eigen, per-server
+ * gegenereerde sleutel, ingebed in de dashboard-HTML (zelfde patroon als de bestaande
+ * apiKey-inbedding voor GET /), en verplicht op elke schrijf-actie via X-Yc-Key.
+ */
+const YC_SECRET_PATH = "/opt/al-yad/recruiter/.yc-dashboard-key";
+function ycSecret(): string {
+  try {
+    const existing = readFileSync(YC_SECRET_PATH, "utf8").trim();
+    if (existing) return existing;
+  } catch { /* nog niet gegenereerd */ }
+  const fresh = randomBytes(24).toString("hex");
+  try {
+    if (!existsSync("/opt/al-yad/recruiter")) mkdirSync("/opt/al-yad/recruiter", { recursive: true });
+    writeFileSync(YC_SECRET_PATH, fresh, "utf8");
+  } catch { /* schrijven mislukt: sleutel leeft dan alleen in-memory voor dit proces */ }
+  return fresh;
+}
+function ycAuthorized(req: IncomingMessage): boolean {
+  const provided = req.headers["x-yc-key"];
+  const key = Array.isArray(provided) ? provided[0] : provided;
+  return !!key && key === ycSecret();
+}
+
 function checkRecentContact(datumMatches: string[] | null): { recentContact: boolean; contactDatum: string | null } {
   if (!datumMatches) return { recentContact: false, contactDatum: null };
   for (const d of datumMatches) {
@@ -378,7 +407,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
   if (url.startsWith("/yc")) {
     if (url === "/yc" && method === "GET") {
       try {
-        const html = readFileSync(YC_DASHBOARD_PATH, "utf8");
+        let html = readFileSync(YC_DASHBOARD_PATH, "utf8");
+        // Sleutel inbedden zodat de pagina's eigen fetch-calls hem kunnen meesturen.
+        html = html.replace("<head>", `<head>\n<script>window.__YC_KEY__=${JSON.stringify(ycSecret())};</script>`);
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(html);
       } catch {
@@ -397,6 +428,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       return;
     }
     if (url === "/yc/preset-save" && method === "POST") {
+      if (!ycAuthorized(req)) { json(res, 401, { ok: false, error: "Unauthorized" }); return; }
       const body = JSON.parse(await readBody(req)) as Record<string, unknown>;
       const { naam, functietitel, locatie } = body;
       if (!naam || !functietitel || !locatie) { json(res, 400, { ok: false }); return; }
@@ -412,6 +444,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       return;
     }
     if (url === "/yc/preset-delete" && method === "POST") {
+      if (!ycAuthorized(req)) { json(res, 401, { ok: false, error: "Unauthorized" }); return; }
       const body = JSON.parse(await readBody(req)) as { id?: string };
       const cfg = ycReadConfig();
       if (Array.isArray(cfg["presets"])) {
@@ -422,6 +455,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       return;
     }
     if (url === "/yc/import-session" && method === "POST") {
+      if (!ycAuthorized(req)) { json(res, 401, { ok: false, error: "Unauthorized" }); return; }
       try {
         const body = JSON.parse(await readBody(req)) as { cookies?: unknown[] };
         if (!Array.isArray(body.cookies) || body.cookies.length === 0) {
@@ -512,6 +546,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // ── Young Consult scan (POST /yc/scan) ──────────────────────────────────
   if (url === "/yc/scan" && method === "POST") {
+    if (!ycAuthorized(req)) { json(res, 401, { ok: false, error: "Unauthorized" }); return; }
     let params: Record<string, unknown>;
     try {
       params = JSON.parse(await readBody(req)) as Record<string, unknown>;
