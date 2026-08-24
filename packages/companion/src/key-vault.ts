@@ -92,4 +92,29 @@ export class KeyVault {
       return {};
     }
   }
+
+  /**
+   * Versleutelt één waarde tot een DPAPI-blob (base64), zodat de EXTENSIE die versleuteld
+   * kan bewaren i.p.v. de kale sleutel. null op niet-Windows of bij een fout.
+   */
+  encryptValue(plain: string): string | null {
+    if (!this.available || !plain) return null;
+    try {
+      return this.ps(ENCRYPT_PS, plain);
+    } catch (e) {
+      this.log(`encrypt-waarde faalde: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  /** Ontsleutelt één DPAPI-blob terug naar platte tekst. null als het geen geldige blob is. */
+  decryptValue(blob: string): string | null {
+    if (!this.available || !blob) return null;
+    try {
+      return this.ps(DECRYPT_PS, blob);
+    } catch (e) {
+      this.log(`decrypt-waarde faalde: ${(e as Error).message}`);
+      return null;
+    }
+  }
 }
