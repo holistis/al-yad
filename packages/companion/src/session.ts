@@ -395,26 +395,40 @@ export class BrainSession implements HandBridge {
       }
       case "UPDATE_CONFIG": {
         const p = raw.payload as {
-          env: Record<string, string>;
+          env?: Record<string, string>;
+          encEnv?: Record<string, string>;
           maxSteps?: number;
           autonomy?: "confirm" | "auto";
           language?: "nl" | "en";
           maxRequestsPerDay?: number;
           killed?: boolean;
         };
-        // Schrijf UI-sleutels over process.env (compatibel met loadEnvFile die ook
-        // process.env gebruikt). Lege waarden worden genegeerd zodat de .env-bodem
-        // intact blijft: de UI is additief bovenop .env. Een in de UI uitgeschakelde
-        // provider die óók in .env staat, blijft dus tot een herstart actief — dat is
-        // bewust (we wissen nooit de .env-sleutels van de gebruiker live weg).
-        // Defensief: een misvormde payload zonder env mag de companion niet laten crashen.
+        // Defensief: een misvormde payload mag de companion niet laten crashen.
         const env = p.env && typeof p.env === "object" ? p.env : {};
-        for (const [k, v] of Object.entries(env)) {
-          if (v) process.env[k] = v;
+        const encEnv = p.encEnv && typeof p.encEnv === "object" ? p.encEnv : {};
+        const knownKeys: Record<string, string> = {};
+        // 1. Versleutelde blobs van de extensie -> platte tekst in process.env. Zo bewaart de
+        //    extensie nooit de kale sleutel, alleen dit DPAPI-slot dat alleen deze Windows-user opent.
+        for (const [k, blob] of Object.entries(encEnv)) {
+          if (!blob) continue;
+          const plain = this.keyVault?.decryptValue(blob) ?? null;
+          if (plain) {
+            process.env[k] = plain;
+            knownKeys[k] = plain;
+          }
         }
-        // Sleutels versleuteld bewaren (DPAPI), zodat ze de volgende sessie overleven
-        // en de companion ze heeft zonder dat de extensie ze opnieuw hoeft te sturen.
-        this.keyVault?.store(env);
+        // 2. Platte sleutels (eerste keer, of dev/.env) -> process.env, en versleutel ze meteen
+        //    zodat de extensie ze voortaan als blob kan bewaren i.p.v. plat.
+        const encKeys: Record<string, string> = {};
+        for (const [k, v] of Object.entries(env)) {
+          if (!v) continue;
+          process.env[k] = v;
+          knownKeys[k] = v;
+          const blob = this.keyVault?.encryptValue(v) ?? null;
+          if (blob) encKeys[k] = blob;
+        }
+        // Companion's eigen kluis bijwerken (versleutelde bodem voor het pre-connect-venster).
+        if (Object.keys(knownKeys).length > 0) this.keyVault?.store(knownKeys);
         if (p.maxSteps && p.maxSteps > 0) this.defaultMaxSteps = p.maxSteps;
         if (p.autonomy === "confirm" || p.autonomy === "auto") this.autonomy = p.autonomy;
         if (p.language === "nl" || p.language === "en") this.language = p.language;
@@ -425,8 +439,14 @@ export class BrainSession implements HandBridge {
         // Guard behouden: zonder dit valt de poort weg bij elke config-update.
         this.router = new LlmRouter(newPool, { log: (m) => this.log(`[motor] ${m}`), guard: this.guard });
         this.log(`config bijgewerkt: ${newPool.map((pr) => pr.name).join(",")} (${newPool.length} providers)`);
-        // Stuur actieve providers terug zodat de UI ze kan tonen (geen sleutelwaarden, alleen namen).
-        this.send(brainMessage("COMPANION_CONFIG", { activeProviders: newPool.map((pr) => pr.name) }));
+        // Stuur actieve providers + eventueel de versleutelde blobs terug (NOOIT platte sleutels),
+        // zodat de extensie haar platte kopie kan vervangen door het DPAPI-slot.
+        this.send(
+          brainMessage("COMPANION_CONFIG", {
+            activeProviders: newPool.map((pr) => pr.name),
+            ...(Object.keys(encKeys).length > 0 ? { encKeys } : {}),
+          }),
+        );
         return;
       }
       case "SESSION_CAPTURE": {

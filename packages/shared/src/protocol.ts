@@ -63,7 +63,7 @@ export interface HandPayloads {
   /** breek de lopende run af (bv. de run-tab is gesloten) */
   ABORT_RUN: { reason: string };
   /** live configuratie-update vanuit de instellingen (sleutels, gedrag) */
-  UPDATE_CONFIG: { env: Record<string, string>; maxSteps?: number; autonomy?: "confirm" | "auto"; language?: "nl" | "en"; maxRequestsPerDay?: number; killed?: boolean };
+  UPDATE_CONFIG: { env?: Record<string, string>; encEnv?: Record<string, string>; maxSteps?: number; autonomy?: "confirm" | "auto"; language?: "nl" | "en"; maxRequestsPerDay?: number; killed?: boolean };
   /** vastgelegde sessie van de actieve tab (cookies + localStorage) voor de REDACTED-adapter */
   SESSION_CAPTURE: {
     url: string;
@@ -187,7 +187,7 @@ export interface BrainPayloads {
   /** voortgang naar de sidepanel */
   RUN_UPDATE: { status: RunStatus; step?: number; message: string; action?: Action };
   /** welke providers zijn actief in de companion-pool (na (her)bouw) */
-  COMPANION_CONFIG: { activeProviders: string[] };
+  COMPANION_CONFIG: { activeProviders: string[]; encKeys?: Record<string, string> };
   /** resultaat van een SESSION_CAPTURE: heeft de REDACTED-adapter de sessie opgeslagen? */
   SESSION_RESULT: {
     ok: boolean;

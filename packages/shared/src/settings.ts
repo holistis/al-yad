@@ -6,6 +6,13 @@ export interface ProviderUserConfig {
   baseUrl?: string;
   /** deze provider als sterkste EERST proberen (tier -1 in de pool) */
   primary?: boolean;
+  /**
+   * true = `key` is GEEN kale sleutel meer maar een DPAPI-versleutelde blob van de companion
+   * (alleen op deze Windows-machine te ontsleutelen). Zo bewaart de extensie nooit een
+   * leesbare sleutel op schijf. false/ontbrekend = `key` is (nog) platte tekst, bv. net
+   * geplakt door de gebruiker of op een niet-Windows dev-machine.
+   */
+  encrypted?: boolean;
 }
 
 /** Hoe zelfstandig Yad mag handelen. */
@@ -72,6 +79,23 @@ const POOL_NAME: Record<string, string> = {
   ollama: "ollama",
 };
 
+/** Env-var-naam -> catalogus-provider-id, voor het terugmappen van encKeys naar de UI. */
+export const ENV_KEY_TO_PROVIDER: Record<string, string> = {
+  GROQ_API_KEY: "groq",
+  CEREBRAS_API_KEY: "cerebras",
+  GEMINI_API_KEY: "gemini",
+  GEMINI_API_KEY_2: "gemini2",
+  GEMINI_API_KEY_3: "gemini3",
+  GEMINI_API_KEY_4: "gemini4",
+  OPENROUTER_API_KEY: "openrouter",
+  GITHUB_TOKEN: "github",
+  TOGETHER_API_KEY: "together",
+  MISTRAL_API_KEY: "mistral",
+  HYPERBOLIC_API_KEY: "hyperbolic",
+  YAD_PAID_API_KEY: "paid",
+  YAD_CUSTOM_API_KEY: "custom",
+};
+
 /** Volgorde waarin we naar de 'primary' (sterkste-eerst) provider zoeken. */
 const PRIMARY_ORDER = [
   "paid",
@@ -89,23 +113,42 @@ const PRIMARY_ORDER = [
   "hyperbolic",
 ];
 
-/** Converteert UI-instellingen naar env-variabelen voor de companion. */
-export function settingsToEnv(s: YadSettings): Record<string, string> {
+/** Env-variabelen voor de companion, gesplitst naar of de sleutel-waarde al versleuteld is. */
+export interface SettingsEnv {
+  /** Nog platte sleutels (net geplakt, of niet-Windows) — de companion versleutelt ze. */
+  env: Record<string, string>;
+  /** Al DPAPI-versleutelde blobs (companion ontsleutelt ze, bewaart NOOIT plat). */
+  encEnv: Record<string, string>;
+}
+
+/**
+ * Converteert UI-instellingen naar env-variabelen voor de companion, gesplitst in plat
+ * (env) en versleuteld (encEnv) op basis van elke provider's `encrypted`-vlag. Niet-sleutel
+ * instellingen (model, baseUrl, taal, primary) gaan altijd via `env`, nooit versleuteld.
+ */
+export function settingsToEnv(s: YadSettings): SettingsEnv {
   const env: Record<string, string> = {};
+  const encEnv: Record<string, string> = {};
   const p = s.providers;
 
+  /** Zet de sleutel in env of encEnv, afhankelijk van cfg.encrypted. Overige velden altijd in env. */
+  const setKey = (cfg: ProviderUserConfig, name: string): void => {
+    if (cfg.encrypted) encEnv[name] = cfg.key;
+    else env[name] = cfg.key;
+  };
+
   if (p.groq?.enabled && p.groq.key) {
-    env["GROQ_API_KEY"] = p.groq.key;
+    setKey(p.groq, "GROQ_API_KEY");
     if (p.groq.model) env["GROQ_MODEL"] = p.groq.model;
   }
   if (p.cerebras?.enabled && p.cerebras.key) {
-    env["CEREBRAS_API_KEY"] = p.cerebras.key;
+    setKey(p.cerebras, "CEREBRAS_API_KEY");
     if (p.cerebras.model) env["CEREBRAS_MODEL"] = p.cerebras.model;
   }
-  if (p.gemini?.enabled && p.gemini.key) env["GEMINI_API_KEY"] = p.gemini.key;
-  if (p.gemini2?.enabled && p.gemini2.key) env["GEMINI_API_KEY_2"] = p.gemini2.key;
-  if (p.gemini3?.enabled && p.gemini3.key) env["GEMINI_API_KEY_3"] = p.gemini3.key;
-  if (p.gemini4?.enabled && p.gemini4.key) env["GEMINI_API_KEY_4"] = p.gemini4.key;
+  if (p.gemini?.enabled && p.gemini.key) setKey(p.gemini, "GEMINI_API_KEY");
+  if (p.gemini2?.enabled && p.gemini2.key) setKey(p.gemini2, "GEMINI_API_KEY_2");
+  if (p.gemini3?.enabled && p.gemini3.key) setKey(p.gemini3, "GEMINI_API_KEY_3");
+  if (p.gemini4?.enabled && p.gemini4.key) setKey(p.gemini4, "GEMINI_API_KEY_4");
   // Als KEY_3 of KEY_4 actief zijn, geeft de gebruiker expliciet toestemming
   // voor gebruik van sleutels uit een betaald GCP-project (gratis dagquota).
   if ((p.gemini3?.enabled && p.gemini3.key) || (p.gemini4?.enabled && p.gemini4.key)) {
@@ -115,32 +158,32 @@ export function settingsToEnv(s: YadSettings): Record<string, string> {
   if (p.gemini?.model) env["GEMINI_MODEL"] = p.gemini.model;
   else if (p.gemini2?.model) env["GEMINI_MODEL"] = p.gemini2.model;
   if (p.openrouter?.enabled && p.openrouter.key) {
-    env["OPENROUTER_API_KEY"] = p.openrouter.key;
+    setKey(p.openrouter, "OPENROUTER_API_KEY");
     if (p.openrouter.model) env["OPENROUTER_MODEL"] = p.openrouter.model;
   }
   if (p.github?.enabled && p.github.key) {
-    env["GITHUB_TOKEN"] = p.github.key;
+    setKey(p.github, "GITHUB_TOKEN");
     if (p.github.model) env["GITHUB_MODELS_MODEL"] = p.github.model;
   }
   if (p.together?.enabled && p.together.key) {
-    env["TOGETHER_API_KEY"] = p.together.key;
+    setKey(p.together, "TOGETHER_API_KEY");
     if (p.together.model) env["TOGETHER_MODEL"] = p.together.model;
   }
   if (p.mistral?.enabled && p.mistral.key) {
-    env["MISTRAL_API_KEY"] = p.mistral.key;
+    setKey(p.mistral, "MISTRAL_API_KEY");
     if (p.mistral.model) env["MISTRAL_MODEL"] = p.mistral.model;
   }
   if (p.hyperbolic?.enabled && p.hyperbolic.key) {
-    env["HYPERBOLIC_API_KEY"] = p.hyperbolic.key;
+    setKey(p.hyperbolic, "HYPERBOLIC_API_KEY");
     if (p.hyperbolic.model) env["HYPERBOLIC_MODEL"] = p.hyperbolic.model;
   }
   if (p.paid?.enabled && p.paid.key) {
-    env["YAD_PAID_API_KEY"] = p.paid.key;
+    setKey(p.paid, "YAD_PAID_API_KEY");
     if (p.paid.baseUrl) env["YAD_PAID_BASE_URL"] = p.paid.baseUrl;
     if (p.paid.model) env["YAD_PAID_MODEL"] = p.paid.model;
   }
   if (p.custom?.enabled && p.custom.key && p.custom.baseUrl) {
-    env["YAD_CUSTOM_API_KEY"] = p.custom.key;
+    setKey(p.custom, "YAD_CUSTOM_API_KEY");
     env["YAD_CUSTOM_BASE_URL"] = p.custom.baseUrl;
     if (p.custom.model) env["YAD_CUSTOM_MODEL"] = p.custom.model;
   }
@@ -158,7 +201,7 @@ export function settingsToEnv(s: YadSettings): Record<string, string> {
     }
   }
 
-  return env;
+  return { env, encEnv };
 }
 
 /** Opgeslagen taak (workflow): één klik om opnieuw te starten. */

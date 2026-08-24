@@ -244,6 +244,9 @@ type TKey = keyof typeof STRINGS.nl;
 let currentLanguage: Lang = "nl";
 let currentAutonomy: "confirm" | "auto" = "confirm";
 let currentKilled = false;
+/** Laatst geladen instellingen, om een leeg-gelaten sleutelveld te kunnen onderscheiden
+ * van "gebruiker wil hem wissen" vs "hier stond al een versleutelde blob, niet aanraken". */
+let lastLoadedSettings: YadSettings | null = null;
 let currentSiteDomain = "";
 let companionActiveProviders: string[] = [];
 
@@ -891,6 +894,7 @@ function refreshLangState(): void {
 
 async function loadSettingsTab(): Promise<void> {
   const settings = await getSettings();
+  lastLoadedSettings = settings;
   // Taal eerst zetten: renderProviderCatalog gebruikt currentLanguage voor de uitleg-tekst.
   currentLanguage = settings.language === "en" ? "en" : "nl";
   renderProviderCatalog(settings);
@@ -1004,7 +1008,15 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
   meta.append(stars, signupBtn); detail.append(tagline, meta);
   const fields = document.createElement("div"); fields.className = "provider-fields";
   if (!config.enabled && !opts.recommended) fields.classList.add("hidden");
-  if (entry.requiresKey) fields.append(buildKeyField(`prov-${entry.id}-key`, t("provKeyLabel"), config.key, loc(entry.keyPlaceholder)));
+  if (entry.requiresKey) {
+    // Een versleutelde blob NOOIT in het veld tonen: leeg + duidelijke placeholder.
+    const savedEncrypted = config.encrypted && !!config.key;
+    const shownValue = savedEncrypted ? "" : config.key;
+    const shownPlaceholder = savedEncrypted
+      ? (currentLanguage === "en" ? "🔒 Saved, encrypted on this device" : "🔒 Opgeslagen, versleuteld op dit apparaat")
+      : loc(entry.keyPlaceholder);
+    fields.append(buildKeyField(`prov-${entry.id}-key`, t("provKeyLabel"), shownValue, shownPlaceholder));
+  }
   if (entry.supportsModel) fields.append(buildTextField(`prov-${entry.id}-model`, t("provModelLabel"), config.model ?? "", `${t("provModelPh")} ${entry.defaultModel}`));
   if (entry.supportsBaseUrl) {
     const defUrl = entry.defaultBaseUrl ?? "";
@@ -1058,10 +1070,15 @@ function collectSettings(): YadSettings {
   for (const entry of PROVIDER_CATALOG) {
     const enabledEl = document.getElementById(`prov-${entry.id}-enabled`) as HTMLInputElement | null;
     if (!enabledEl) continue;
-    const config: ProviderUserConfig = {
-      enabled: enabledEl.checked,
-      key: (document.getElementById(`prov-${entry.id}-key`) as HTMLInputElement | null)?.value.trim() ?? "",
-    };
+    const typedKey = (document.getElementById(`prov-${entry.id}-key`) as HTMLInputElement | null)?.value.trim() ?? "";
+    const prevCfg = lastLoadedSettings?.providers[entry.id];
+    // Veld leeg gelaten + er stond al een versleutelde blob: die blob behouden (niet wissen,
+    // en NOOIT de kale blob-placeholder als "nieuwe sleutel" zien). Iets getypt = nieuwe platte
+    // sleutel; die wordt dit rondje nog eenmaal plat verstuurd en daarna versleuteld teruggekregen.
+    const config: ProviderUserConfig =
+      typedKey === "" && prevCfg?.encrypted && prevCfg.key
+        ? { enabled: enabledEl.checked, key: prevCfg.key, encrypted: true }
+        : { enabled: enabledEl.checked, key: typedKey };
     const model = (document.getElementById(`prov-${entry.id}-model`) as HTMLInputElement | null)?.value.trim();
     if (model) config.model = model;
     const baseUrl = (document.getElementById(`prov-${entry.id}-baseUrl`) as HTMLInputElement | null)?.value.trim();

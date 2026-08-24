@@ -1,6 +1,6 @@
-import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, settingsToEnv } from "@yad/shared";
+import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, settingsToEnv, ENV_KEY_TO_PROVIDER } from "@yad/shared";
 import { isAccepted } from "./acceptance";
-import { getSettings, getSiteOverrides, addHistoryEntry } from "./storage";
+import { getSettings, saveSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { captureSession, getActiveWebTab } from "./session-capture";
 import { injectCookies, injectLocalStorage } from "./session-inject";
 import { startCapture, stopCapture, evaluateInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
@@ -494,8 +494,12 @@ function onMessage(raw: unknown): void {
       break;
     }
     case "COMPANION_CONFIG": {
-      const p = raw.payload as { activeProviders: string[] };
+      const p = raw.payload as { activeProviders: string[]; encKeys?: Record<string, string> };
       toSidepanel({ type: "YAD_COMPANION_CONFIG", activeProviders: p.activeProviders });
+      // De companion stuurde versleutelde blobs terug voor sleutels die nu nog plat
+      // opgeslagen staan: vervang de platte sleutel door de blob, nooit andersom.
+      // Zo bewaart de extensie na de eerste keer nooit meer een leesbare API-sleutel.
+      if (p.encKeys && Object.keys(p.encKeys).length > 0) void upgradeToEncrypted(p.encKeys);
       break;
     }
     case "SESSION_RESULT": {
@@ -798,15 +802,34 @@ function onMessage(raw: unknown): void {
   }
 }
 
+/**
+ * Vervangt platte sleutels in chrome.storage door de DPAPI-blob die de companion terugstuurde,
+ * en zet encrypted:true. Zo staat er ná de eerste ronde geen leesbare API-sleutel meer lokaal.
+ */
+async function upgradeToEncrypted(encKeys: Record<string, string>): Promise<void> {
+  const settings = await getSettings();
+  let changed = false;
+  for (const [envName, blob] of Object.entries(encKeys)) {
+    const providerId = ENV_KEY_TO_PROVIDER[envName];
+    const cfg = providerId ? settings.providers[providerId] : undefined;
+    if (cfg && !cfg.encrypted && blob) {
+      settings.providers[providerId] = { ...cfg, key: blob, encrypted: true };
+      changed = true;
+    }
+  }
+  if (changed) await saveSettings(settings);
+}
+
 /** Leest UI-instellingen en stuurt ze als UPDATE_CONFIG naar de companion. */
 async function sendConfigUpdate(): Promise<void> {
   if (!port) return;
   const settings = await getSettings();
   uiLang = settings.language === "en" ? "en" : "nl";
-  const env = settingsToEnv(settings);
+  const { env, encEnv } = settingsToEnv(settings);
   port.postMessage(
     handMessage("UPDATE_CONFIG", {
       env,
+      encEnv,
       maxSteps: settings.maxSteps,
       autonomy: settings.autonomy,
       language: settings.language,
