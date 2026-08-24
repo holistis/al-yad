@@ -3854,143 +3854,6 @@
         "schemaVersion": 1
       }
     ],
-    "www.REDACTED": [
-      {
-        "role": "link",
-        "nameSubstring": "sterk in je schoenen",
-        "urlPathPattern": "nl/registreren",
-        "actionKind": "click",
-        "successCount": 4,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "e-mailadres",
-        "urlPathPattern": "nl/home",
-        "actionKind": "type",
-        "successCount": 3,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "link",
-        "nameSubstring": "wachtwoord vergeten?",
-        "urlPathPattern": "nl/mijn-account/inloggen",
-        "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "e-mailadres",
-        "urlPathPattern": "nl/mijn-account/inloggen",
-        "actionKind": "type",
-        "successCount": 2,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "inschrijven",
-        "urlPathPattern": "nl/mijn-account/inloggen",
-        "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "versturen",
-        "urlPathPattern": "nl/mijn-account/inloggen",
-        "actionKind": "click",
-        "successCount": 6,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "link",
-        "nameSubstring": "registreer",
-        "urlPathPattern": "nl/mijn-account/inloggen",
-        "actionKind": "click",
-        "successCount": 3,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "e-mailadres *",
-        "urlPathPattern": "nl/mijn-account/registreren",
-        "actionKind": "click",
-        "successCount": 6,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "voornaam *",
-        "urlPathPattern": "nl/mijn-account/registreren",
-        "actionKind": "type",
-        "successCount": 3,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "naam *",
-        "urlPathPattern": "nl/mijn-account/registreren",
-        "actionKind": "type",
-        "successCount": 3,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "wachtwoord *",
-        "urlPathPattern": "nl/mijn-account/registreren",
-        "actionKind": "type",
-        "successCount": 4,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "registreer nu",
-        "urlPathPattern": "nl/mijn-account/registreren",
-        "actionKind": "click",
-        "successCount": 3,
-        "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "e-mailadres *",
-        "urlPathPattern": "nl/mijn-account/inloggen",
-        "actionKind": "type",
-        "successCount": 6,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "textbox",
-        "nameSubstring": "wachtwoord *",
-        "urlPathPattern": "nl/mijn-account/inloggen",
-        "actionKind": "type",
-        "successCount": 18,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "inloggen",
-        "urlPathPattern": "nl/mijn-account/inloggen",
-        "actionKind": "click",
-        "successCount": 22,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      }
-    ],
     "en-play.forgeofempires.com": [
       {
         "role": "textbox",
@@ -4762,116 +4625,6 @@
         "actionKind": "click",
         "successCount": 1,
         "lastSeen": "2026-07-21",
-        "schemaVersion": 1
-      }
-    ],
-    "www.REDACTED.sk": [
-      {
-        "role": "link",
-        "nameSubstring": "môj účet",
-        "urlPathPattern": "/",
-        "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "link",
-        "nameSubstring": "môj účet",
-        "urlPathPattern": "login",
-        "actionKind": "click",
-        "successCount": 77,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "otvoriť menu",
-        "urlPathPattern": "login",
-        "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "link",
-        "nameSubstring": "môj účet",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 8,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "menu prístupnosti",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 9,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "search",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 3,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "combobox",
-        "nameSubstring": "vyhľadať produkt...",
-        "urlPathPattern": "register",
-        "actionKind": "type",
-        "successCount": 1,
-        "lastSeen": "2026-07-22",
-        "schemaVersion": 1
-      },
-      {
-        "role": "combobox",
-        "nameSubstring": "vyhľadať produkt...",
-        "urlPathPattern": "/",
-        "actionKind": "type",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "button",
-        "nameSubstring": "search",
-        "urlPathPattern": "login",
-        "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "link",
-        "nameSubstring": "vyhľadať obchod",
-        "urlPathPattern": "login",
-        "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "combobox",
-        "nameSubstring": "vyhľadať produkt...",
-        "urlPathPattern": "login",
-        "actionKind": "type",
-        "successCount": 5,
-        "lastSeen": "2026-07-25",
-        "schemaVersion": 1
-      },
-      {
-        "role": "link",
-        "nameSubstring": "vyhľadať obchod",
-        "urlPathPattern": "register",
-        "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-07-25",
         "schemaVersion": 1
       }
     ],
@@ -6950,6 +6703,26 @@
         "urlPathPattern": "auth/realms/arkane",
         "actionKind": "click",
         "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      }
+    ],
+    "www.pdq.com": [
+      {
+        "role": "button",
+        "nameSubstring": "type of business*in-house it departmentr",
+        "urlPathPattern": "trial",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "continue",
+        "urlPathPattern": "trial",
+        "actionKind": "click",
+        "successCount": 4,
         "lastSeen": "2026-08-24",
         "schemaVersion": 1
       }

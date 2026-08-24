@@ -32,7 +32,7 @@ describe("getSiteProfile", () => {
   it("geeft gewone sites normal", () => {
     expect(getSiteProfile("https://www.nu.nl/")).toMatchObject({ tier: "normal" });
     expect(getSiteProfile("https://www.bol.com/")).toMatchObject({ tier: "normal" });
-    expect(getSiteProfile("https://REDACTED/")).toMatchObject({ tier: "normal" });
+    expect(getSiteProfile("https://www.example.com/")).toMatchObject({ tier: "normal" });
   });
 
   it("geeft about:blank normal", () => {
