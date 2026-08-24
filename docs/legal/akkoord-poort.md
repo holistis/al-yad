@@ -1,4 +1,4 @@
-# Akkoord-poort (Click-Wrap) — Yad / REDACTED
+# Akkoord-poort (Click-Wrap) — Yad
 
 > **LET OP — AI-onderzocht CONCEPT.** Dit document is opgesteld met AI-ondersteuning en is een **concept**. Het is **geen juridisch advies** en moet vóór gebruik worden gecontroleerd en vastgesteld door een **gekwalificeerd jurist** (Nederlands/EU-recht, AVG). Plaatshouders tussen `[ ]` moeten worden ingevuld. Versie van dit concept: `[VERSIE]` — Datum: `[DATUM]`.
 

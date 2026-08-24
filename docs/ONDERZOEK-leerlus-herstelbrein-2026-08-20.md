@@ -71,7 +71,7 @@ Bewezen hints worden GLOBAAL per `host|why` geserveerd (netwerkeffect).
   je eigen AI-bots **bug-intel-runner.mjs, benchmark-race-engineer.mjs, vps-brein.mjs**.
 - Een schone qwen2.5:7b-testaanvraag gaf zelfs met 90s timeout GEEN antwoord — hij staat in de
   wachtrij achter het 32B-werk, en CPU-inference (geen GPU) is inherent traag.
-- Modellen aanwezig: qwen2.5:7b/32b, REDACTED-race-engineer (7b-based), audit-agent/poc-agent (32b).
+- Modellen aanwezig: qwen2.5:7b/32b, race-engineer (7b-based), audit-agent/poc-agent (32b).
   GEEN klein model. Disk vrij: 301G (ruimte voor een klein model).
 
 **Gevolg voor de reflectie-laag:** Ollama in het HETE pad (gebruiker wacht op hint) = NEE, te traag

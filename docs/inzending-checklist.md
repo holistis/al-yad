@@ -46,7 +46,7 @@ is iets anders: die twee rechten dienden nooit het product.
 Nagekeken in de code: klikken, typen, lezen, wachten, navigeren en downloaden lopen allemaal
 via het content-script. De debugger werd alleen gebruikt voor netwerkverkeer inzien en
 onderscheppen, en cookies voor het overzetten van sessies tussen browsers. Dat zijn de
-gereedschappen voor het eigen beveiligingsonderzoek in REDACTED, niet voor de
+gereedschappen voor eigen beveiligingsonderzoek op andere sites, niet voor de
 boekhouder die facturen uit portalen haalt.
 
 **Gemeten, niet aangenomen.** De capaciteiten-benchmark op beide versies:

@@ -3,9 +3,9 @@ import { validateAssignment, isUrlInAssignment, type Assignment } from "./assign
 
 const VALID: Assignment = {
   id: "test-01",
-  description: "Test IDOR op REDACTED",
-  goal: "Navigeer naar www.REDACTED.nl en controleer IDOR",
-  targetDomains: ["www.REDACTED.nl", "api.REDACTED.nl"],
+  description: "Test IDOR op voorbeeldsite",
+  goal: "Navigeer naar www.example.com en controleer IDOR",
+  targetDomains: ["www.example.com", "api.example.com"],
   maxActions: 50,
   signedBy: "king",
   createdAt: Date.now(),
@@ -31,7 +31,7 @@ describe("validateAssignment", () => {
   });
 
   it("weigert een wildcard-domein", () => {
-    const r = validateAssignment({ ...VALID, targetDomains: ["*.REDACTED.nl"] });
+    const r = validateAssignment({ ...VALID, targetDomains: ["*.example.com"] });
     expect(r.ok).toBe(false);
     expect(r.errors.some((e) => e.includes("Wildcard"))).toBe(true);
   });
@@ -71,15 +71,15 @@ describe("validateAssignment", () => {
 
 describe("isUrlInAssignment", () => {
   it("keurt een URL op een toegestaan domein goed", () => {
-    expect(isUrlInAssignment("https://www.REDACTED.nl/account", VALID)).toBe(true);
+    expect(isUrlInAssignment("https://www.example.com/account", VALID)).toBe(true);
   });
 
   it("keurt een API-subdomein goed", () => {
-    expect(isUrlInAssignment("https://api.REDACTED.nl/v2/products", VALID)).toBe(true);
+    expect(isUrlInAssignment("https://api.example.com/v2/products", VALID)).toBe(true);
   });
 
   it("weigert een niet-toegestaan domein", () => {
-    expect(isUrlInAssignment("https://www.REDACTED.nl/login", VALID)).toBe(false);
+    expect(isUrlInAssignment("https://www.other-domain.com/login", VALID)).toBe(false);
   });
 
   it("weigert een onveilig scheme (javascript:)", () => {
@@ -91,7 +91,7 @@ describe("isUrlInAssignment", () => {
   });
 
   it("negeert www. prefix bij vergelijking", () => {
-    const a = { ...VALID, targetDomains: ["REDACTED.nl"] };
-    expect(isUrlInAssignment("https://www.REDACTED.nl/shop", a)).toBe(true);
+    const a = { ...VALID, targetDomains: ["example.com"] };
+    expect(isUrlInAssignment("https://www.example.com/shop", a)).toBe(true);
   });
 });

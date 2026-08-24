@@ -1,7 +1,6 @@
 import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, settingsToEnv, ENV_KEY_TO_PROVIDER } from "@yad/shared";
 import { isAccepted } from "./acceptance";
 import { getSettings, saveSettings, getSiteOverrides, addHistoryEntry } from "./storage";
-import { captureSession, getActiveWebTab } from "./session-capture";
 import { injectCookies, injectLocalStorage } from "./session-inject";
 import { startCapture, stopCapture, evaluateInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
 
@@ -65,7 +64,6 @@ const RUN_MSG = {
     noTabOpen: "Kon geen tab openen om de taak uit te voeren. Probeer het opnieuw.",
     notConnected: "Niet verbonden met de companion.",
     noWebTab: "Geen actieve web-tab gevonden.",
-    noWebTabSession: "Geen actieve web-tab gevonden. Open de site en probeer opnieuw.",
   },
   en: {
     tabClosed: "The tab was closed, so the task has stopped.",
@@ -74,7 +72,6 @@ const RUN_MSG = {
     noTabOpen: "Could not open a tab to run the task. Please try again.",
     notConnected: "Not connected to the companion.",
     noWebTab: "No active web tab found.",
-    noWebTabSession: "No active web tab found. Open the site and try again.",
   },
 } as const;
 
@@ -254,10 +251,6 @@ export function startNativePort(): void {
           sendResponse({ url });
         })();
         return true;
-      case "YAD_CAPTURE_SESSION":
-        void handleCaptureSession(msg.label as "A" | "B");
-        sendResponse({ ok: true });
-        return true;
       case "YAD_CAPTURE_FOR_CLAUDE":
         void handleCaptureForClaude();
         sendResponse({ ok: true });
@@ -431,7 +424,7 @@ function connect(): void {
 }
 
 function replyToBrain(
-  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT" | "SESSION_CAPTURE_DATA" | "SCREENSHOT_RESULT" | "CDP_RESULT" | "ADOPT_TAB_RESULT",
+  type: "SNAPSHOT_RESULT" | "ACT_RESULT" | "CONFIRM_RESULT" | "INJECT_COOKIES_RESULT" | "INJECT_LOCALSTORAGE_RESULT" | "NAVIGATE_RESULT" | "SCREENSHOT_RESULT" | "CDP_RESULT" | "ADOPT_TAB_RESULT",
   payload: object,
   correlationId: string,
 ): void {
@@ -502,11 +495,6 @@ function onMessage(raw: unknown): void {
       if (p.encKeys && Object.keys(p.encKeys).length > 0) void upgradeToEncrypted(p.encKeys);
       break;
     }
-    case "SESSION_RESULT": {
-      const p = raw.payload as { ok: boolean; brand?: string; path?: string; authType?: string; detail?: string };
-      toSidepanel({ type: "YAD_SESSION_RESULT", ...p });
-      break;
-    }
     case "INJECT_COOKIES": {
       const p = raw.payload as { url: string; cookies: Array<{ name: string; value: string }> };
       void injectCookies(p.url, p.cookies).then((count) => {
@@ -523,23 +511,6 @@ function onMessage(raw: unknown): void {
     }
     case "REQUEST_CAPTURE_FOR_CLAUDE": {
       void handleCaptureForClaude();
-      break;
-    }
-    case "REQUEST_SESSION_CAPTURE": {
-      const p = raw.payload as { label: "A" | "B" };
-      void (async () => {
-        try {
-          const tab = await getActiveWebTab();
-          if (!tab || typeof tab.id !== "number") {
-            replyToBrain("SESSION_CAPTURE_DATA", { ok: false, label: p.label, detail: "Geen actieve web-tab" }, raw.id);
-            return;
-          }
-          const captured = await captureSession(tab.id);
-          replyToBrain("SESSION_CAPTURE_DATA", { ok: true, label: p.label, ...captured }, raw.id);
-        } catch (e) {
-          replyToBrain("SESSION_CAPTURE_DATA", { ok: false, label: p.label, detail: (e as Error).message }, raw.id);
-        }
-      })();
       break;
     }
     case "REQUEST_NAVIGATE": {
@@ -892,25 +863,6 @@ async function handleCaptureForClaude(): Promise<void> {
   }
 }
 
-async function handleCaptureSession(label: "A" | "B"): Promise<void> {
-  await refreshUiLang();
-  if (!port) {
-    toSidepanel({ type: "YAD_SESSION_RESULT", ok: false, detail: rt("notConnected") });
-    return;
-  }
-  toSidepanel({ type: "YAD_SESSION_CAPTURING", label });
-  try {
-    const tab = await getActiveWebTab();
-    if (!tab || typeof tab.id !== "number") {
-      toSidepanel({ type: "YAD_SESSION_RESULT", ok: false, detail: rt("noWebTabSession") });
-      return;
-    }
-    const captured = await captureSession(tab.id);
-    port.postMessage(handMessage("SESSION_CAPTURE", { ...captured, label }));
-  } catch (e) {
-    toSidepanel({ type: "YAD_SESSION_RESULT", ok: false, detail: (e as Error).message });
-  }
-}
 
 function errorSnapshot(message: string): Snapshot {
   return { url: "", title: "", nodes: [], textDigest: `FOUT: ${message}` };

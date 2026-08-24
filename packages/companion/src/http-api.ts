@@ -11,7 +11,6 @@
  *   POST /navigate              → { ok } (body: { url })
  *   GET  /result                → laatste synchrone run-resultaat
  *   POST /verify                → stap-verificatie (body: { runId, stepStart?, stepEnd?, retries? })
- *   POST /save-session          → sessie opslaan (body: { account: "A"|"B" })
  *   GET  /assist                → stuck-status
  *   POST /assist                → herstelplan sturen (body: { hint, reason?, confidence?, avoid? })
  *   POST /cdp/capture/start     → begin netwerk vastleggen (body: { urlFilter?, tabId? })
@@ -37,7 +36,7 @@
  *     geen auth nodig (alleen lokale processen zoals Claude Code kunnen dit bereiken)
  *   - Niet-lokaal verkeer: standaard geweigerd (403), tenzij YAD_EXTERNAL_MODE=1
  *     bewust gezet is. Dan gelden: API-key via YAD_API_KEYS (header X-API-Key),
- *     endpoint-allowlist (alleen /status + /goal — geen cdp/*, fs/*, save-session),
+ *     endpoint-allowlist (alleen /status + /goal — geen cdp/*, fs/*),
  *     rate-limit (20 req/min per key+IP), audit-log (zie external-gate.ts)
  */
 
@@ -476,23 +475,6 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
         }
       } catch (e) {
         json(res, 400, { ok: false, detail: (e as Error).message });
-      }
-      return;
-    }
-
-    if (url === "/save-session" && method === "POST") {
-      if (!session.isConnected()) {
-        json(res, 503, { ok: false, detail: "Chrome niet verbonden — open Chrome met YAD extensie" });
-        return;
-      }
-      try {
-        const body = await readBody(req);
-        const parsed = JSON.parse(body) as { account?: string };
-        const label: "A" | "B" = parsed.account === "B" ? "B" : "A";
-        const result = await session.captureAndSaveSession(label);
-        json(res, result.ok ? 200 : 422, result);
-      } catch (e) {
-        json(res, 500, { ok: false, detail: (e as Error).message });
       }
       return;
     }
@@ -1168,7 +1150,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
 
     json(res, 404, { error: "Not found", endpoints: [
       "GET /status", "POST /capture", "POST /goal", "POST /navigate", "POST /adopt-tab", "GET /result",
-      "POST /verify", "POST /save-session", "GET /assist", "POST /assist",
+      "POST /verify", "GET /assist", "POST /assist",
       "POST /cdp/capture/start", "POST /cdp/capture/stop", "POST /cdp/evaluate",
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
       "POST /cdp/idor-compare", "POST /cdp/intercept/start", "POST /cdp/intercept/stop",

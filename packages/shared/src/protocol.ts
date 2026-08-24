@@ -64,22 +64,6 @@ export interface HandPayloads {
   ABORT_RUN: { reason: string };
   /** live configuratie-update vanuit de instellingen (sleutels, gedrag) */
   UPDATE_CONFIG: { env?: Record<string, string>; encEnv?: Record<string, string>; maxSteps?: number; autonomy?: "confirm" | "auto"; language?: "nl" | "en"; maxRequestsPerDay?: number; killed?: boolean };
-  /** vastgelegde sessie van de actieve tab (cookies + localStorage) voor de REDACTED-adapter */
-  SESSION_CAPTURE: {
-    url: string;
-    cookieHeader: string;
-    localStorage: Record<string, string>;
-    label: "A" | "B";
-  };
-  /** antwoord op REQUEST_SESSION_CAPTURE: ruwe sessie-data voor opslaan in REDACTED */
-  SESSION_CAPTURE_DATA: {
-    ok: boolean;
-    label: "A" | "B";
-    url?: string;
-    cookieHeader?: string;
-    localStorage?: Record<string, string>;
-    detail?: string;
-  };
   /** pagina-capture voor Claude Code — stuurt URL + titel + tekst + links naar companion die het naar schijf schrijft */
   PAGE_CAPTURE: {
     url: string;
@@ -188,14 +172,6 @@ export interface BrainPayloads {
   RUN_UPDATE: { status: RunStatus; step?: number; message: string; action?: Action };
   /** welke providers zijn actief in de companion-pool (na (her)bouw) */
   COMPANION_CONFIG: { activeProviders: string[]; encKeys?: Record<string, string> };
-  /** resultaat van een SESSION_CAPTURE: heeft de REDACTED-adapter de sessie opgeslagen? */
-  SESSION_RESULT: {
-    ok: boolean;
-    brand?: string;
-    path?: string;
-    authType?: string;
-    detail?: string;
-  };
   /** resultaat van een PAGE_CAPTURE: is de brug-file geschreven? */
   CLAUDE_BRIDGE_RESULT: {
     ok: boolean;
@@ -214,8 +190,6 @@ export interface BrainPayloads {
   INJECT_COOKIES: { url: string; cookies: Array<{ name: string; value: string }> };
   /** vraag de Hand om localStorage-items te zetten in de actieve run-tab (jwt-bearer sessie-hergebruik) */
   INJECT_LOCALSTORAGE: { items: Record<string, string> };
-  /** vraag de Hand om de actieve tab te capturen en de sessie-data terug te sturen (HTTP API-pad) */
-  REQUEST_SESSION_CAPTURE: { label: "A" | "B" };
   /** stuur een CDP-opdracht naar de extension (network capture, evaluate, response body) */
   CDP_COMMAND: {
     /** Welke CDP-operatie uitvoeren */
