@@ -5,12 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="google-site-verification" content="dICKBF9Jau4wn4HLrutJ25R5HwVjQVTQdQOn7SB7csw" />
     <meta name="google-site-verification" content="8Lv4W7exNeqQXbnVRmKfqjlFwcavbA47RLqx7LADY30" />
-<title>Yad, your own hand in the browser</title>
-<meta name="description" content="Yad is an AI browser agent that runs on your own computer. Say what you want, and it clicks and types in your own browser, with your own logins. You choose the AI. Your passwords stay with you.">
+<title>Yad — the free, open-source browser agent built and tested like a security product</title>
+<meta name="description" content="Yad is a free, open-source AI browser agent with two parts: a Chrome extension (Part A, the hand) and a local Companion (Part B, the brain). Runs on your own computer, never a cloud copy of your accounts. Your API key is encrypted on your device, capped, and stoppable with one click. Repeats cost zero further AI calls. Read the proof on our public Security page before you install.">
+<meta name="keywords" content="browser agent, AI browser extension, open source AI agent, local-first AI, BYOK AI agent, Chrome extension automation, privacy-first browser automation, encrypted API key, alternative to Nanobrowser">
 <meta name="theme-color" content="#0B0A12">
-<meta property="og:title" content="Yad, your own hand in the browser">
-<meta property="og:description" content="An AI browser agent that works in your real browser, on your machine. You choose the AI. Your data stays with you.">
+<meta property="og:title" content="Yad — the free, open-source browser agent built and tested like a security product">
+<meta property="og:description" content="Two parts: a Chrome extension (the hand) and a local Companion (the brain). Free, open source, local-first. Your API key is encrypted on your device, capped, and stoppable with one click. Full proof on the Security page.">
 <meta property="og:type" content="website">
+<meta property="og:image" content="https://wazir-x402.duckdns.org/yad-og-image.png">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%E2%9C%8B</text></svg>">
 <style>
   /* ---------- fonts (self-hosted, subset, inline; no CDN) ---------- */
@@ -445,23 +447,23 @@
     </div>
     <div class="bento" style="margin-top:var(--s6)">
       <div class="tile big reveal">
-        <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.5 2.5M16.5 16.5 19 19M19 5l-2.5 2.5M7.5 16.5 5 19"/></svg></span>
-        <h3>A recovery brain</h3>
-        <p>When a site trips it up, Yad learns the fix and reuses it next time. Proven fixes spread from one site to the next, in three layers, without you setting anything up.</p>
+        <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg></span>
+        <h3>Repeats cost nothing</h3>
+        <p>The first run figures it out. Every run after that reuses the exact same cached actions, zero further AI calls. No credits quietly draining on a task you already solved, the complaint people voice about Bardeen, HARPA, and Genspark. Run the same task a hundred times and the AI meter doesn't move past the first.</p>
         <div class="demo-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        <div class="layer-reveal">site-exact → same-signal → same-class · promoted automatically</div>
+        <div class="layer-reveal">action-cache · 0 model calls on a hit</div>
       </div>
       <div class="tile wide reveal">
+        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.5 2.5M16.5 16.5 19 19M19 5l-2.5 2.5M7.5 16.5 5 19"/></svg></span>
+        <h3>A recovery brain</h3>
+        <p>When a site trips it up, Yad learns the fix and reuses it next time. Proven fixes spread from one site to the next, in three layers, without you setting anything up.</p>
+        <div class="layer-reveal">site-exact → same-signal → same-class · promoted automatically</div>
+      </div>
+      <div class="tile reveal">
         <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/></svg></span>
         <h3>Works on any site</h3>
         <p>Your real, logged in browser. No fake cloud copy of your accounts.</p>
         <div class="layer-reveal">acts in your session, so sites treat it like you</div>
-      </div>
-      <div class="tile reveal">
-        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg></span>
-        <h3>Fewer AI calls</h3>
-        <p>It caches what already worked, so repeats are fast and cheap.</p>
-        <div class="layer-reveal">action-cache · 0 model calls on a hit</div>
       </div>
       <div class="tile reveal">
         <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
@@ -553,6 +555,8 @@
       <details class="reveal"><summary>Does my data leave my computer? <span class="chev">+</span></summary><div class="faq-body">You choose. With a local model, nothing leaves. With a cloud model, the page text and your task go to that provider to plan the next step. Your passwords and card numbers are masked before anything is sent, either way.</div></details>
       <details class="reveal"><summary>Do I need an account? <span class="chev">+</span></summary><div class="faq-body">No. Yad runs on your machine. There is no sign up, and no server of ours storing your data.</div></details>
       <details class="reveal"><summary>Is it really free? <span class="chev">+</span></summary><div class="faq-body">Yes, and open source. You bring your own AI key, or run a local model for free. Nothing is hidden behind a paywall.</div></details>
+      <details class="reveal"><summary>How is Yad different from other free, open-source browser agents? <span class="chev">+</span></summary><div class="faq-body">Nanobrowser is the closest comparison: also free, also open source, also bring-your-own-key. The real difference is what happens to the key and the money once you've handed it over. Yad encrypts your key on your device the moment you paste it, using Windows' own built-in encryption, and proves it with a public test log. It caps how much your key can spend per day and gives you a one-click Stop button that survives a restart. It hard-blocks payment and checkout pages from ever being acted on automatically. And it publishes a full account of an adversarial code review plus live attack attempts run against its own running code, successes and all. As far as we've found, no other free browser agent, Nanobrowser included, documents that level of detail about what happens to your key and your spend. Read the receipts on the Security page.</div></details>
+      <details class="reveal"><summary>Will it get me a perfect answer on the first try? <span class="chev">+</span></summary><div class="faq-body">Depends on the AI you bring. The free default model is genuinely good at clicking, filling forms, and repeating tasks. On harder jobs, like pulling exact structured data off a messy page, a stronger model does noticeably better. If your first task is that kind of extraction and the free model disappoints, don't judge the whole tool by it: switch to a sharper model in Settings (still free options exist, like a bigger Groq or OpenRouter model) and try again.</div></details>
       <details class="reveal"><summary>Where does my API key go, and is it safe? <span class="chev">+</span></summary><div class="faq-body">Your key stays with you. You paste it once, and from then on it lives in two places only: your own browser and the small Yad app on your own computer, both encrypted with Windows' own lock. It is never uploaded to a Yad account and we keep no copy of it. The one place it is ever sent is straight to the AI provider you chose yourself, such as Groq, Google, or OpenRouter. We are the messenger, never the holder.</div></details>
       <details class="reveal"><summary>Is my key encrypted on disk? <span class="chev">+</span></summary><div class="faq-body">Yes. The moment you paste your key, Yad's companion, the small app on your own computer, locks it with Windows' own built-in encryption (DPAPI) so only your Windows account can unlock it. The browser extension never keeps the readable key either, only that encrypted lock. For extra peace of mind, use a dedicated key with a spending cap, which Yad backs up with a daily limit and a one-click stop button.</div></details>
       <details class="reveal"><summary>Can Yad quietly drain my key? <span class="chev">+</span></summary><div class="faq-body">No. Yad counts every AI call and holds it under a daily limit that you set, and there is a Stop button that blocks all calls at once. An automatic task can never keep using your key without limit, so you stay in control the whole time.</div></details>
