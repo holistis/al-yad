@@ -3,13 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="google-site-verification" content="dICKBF9Jau4wn4HLrutJ25R5HwVjQVTQdQOn7SB7csw" />
-    <meta name="google-site-verification" content="8Lv4W7exNeqQXbnVRmKfqjlFwcavbA47RLqx7LADY30" />
-<title>Yad, your own hand in the browser</title>
-<meta name="description" content="Yad is an AI browser agent that runs on your own computer. Say what you want, and it clicks and types in your own browser, with your own logins. You choose the AI. Your passwords stay with you.">
+<title>Security, Yad</title>
+<meta name="description" content="Every claim on this page has a receipt: how Yad encrypts your API key, caps and stops AI spending, keeps your key off our servers, and put its own code on trial before you ever ran it.">
 <meta name="theme-color" content="#0B0A12">
-<meta property="og:title" content="Yad, your own hand in the browser">
-<meta property="og:description" content="An AI browser agent that works in your real browser, on your machine. You choose the AI. Your data stays with you.">
+<meta property="og:title" content="Security, Yad">
+<meta property="og:description" content="Proof over promises: the exact mechanism behind Yad's key encryption, spend guard, kill switch, and adversarial self-review, with what we do not claim.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%E2%9C%8B</text></svg>">
 <style>
@@ -302,6 +300,7 @@
     canvas#aurora{display:none}
   }
 </style>
+
 </head>
 <body>
 
@@ -314,13 +313,12 @@
 
 <header class="nav">
   <div class="container nav-in">
-    <a class="wordmark" href="#top"><span class="glyph">✋</span> yad</a>
+    <a class="wordmark" href="/yad#top"><span class="glyph">✋</span> yad</a>
     <nav class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#privacy">Privacy</a>
+      <a href="/yad#features">Features</a>
+      <a href="/yad#privacy">Privacy</a>
       <a href="/yad-security">Security</a>
-      <a href="#how">How it works</a>
-      <a href="#faq">FAQ</a>
+      <a href="/yad#faq">FAQ</a>
     </nav>
     <div class="nav-right">
       <button class="icon-btn" id="theme" aria-label="Switch theme" title="Switch theme">
@@ -333,256 +331,146 @@
 
 <main id="top">
   <!-- HERO -->
-  <section class="hero container" id="hero">
+  <section class="hero container" id="hero" style="min-height:auto;padding-top:64px;padding-bottom:8px">
     <div class="hero-top">
-      <span class="eyebrow"><span class="live"></span> AI browser agent · runs on your machine</span>
-      <h1 class="hero-copy">Your own <span class="grad-text breathe">hand</span> in the browser.</h1>
-      <p class="lede">Yad does tasks on any website for you. You say what you want in plain words, and it clicks and types in your own browser, with your own logins. Your passwords stay with you, and you choose which AI does the thinking.</p>
-      <div class="setup">
-        <p class="setup-head">Set it up once. Windows only for now. You need both parts, in this order.</p>
-        <div class="setup-track">
-          <div class="step">
-            <div class="step-head"><span class="step-badge">1</span><span class="step-title">The hand</span></div>
-            <p class="step-note">The Chrome extension you watch clicking and typing inside your browser.</p>
-            <a class="btn btn-primary" id="magnet" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.66 15l3.9-6.75A5 5 0 0 1 12 7h9.24A10 10 0 0 0 12 2Z" opacity=".9"/><circle cx="12" cy="12" r="3.2" fill="#fff"/></svg>
-              Add to Chrome
-            </a>
-          </div>
-          <div class="step-then" aria-hidden="true"><span>then</span></div>
-          <div class="step">
-            <div class="step-head"><span class="step-badge">2</span><span class="step-title">The brain</span></div>
-            <p class="step-note">A small free app (the companion) on your own computer. It runs the AI you choose, doing the thinking Chrome will not let the extension do on its own, so your logins and passwords never leave your machine.</p>
-            <a class="btn btn-primary" href="/yad-setup.exe">Install the companion (Windows)</a>
-          </div>
-        </div>
-        <p class="micro">Both parts are free, open source, and run only on your own computer. <a href="#how" style="color:inherit;text-decoration:underline">See how it works</a></p>
-      </div>
-    </div>
-
-    <div class="frame reveal" aria-label="Example of a Yad run">
-      <div class="frame-bar">
-        <span class="dots"><i></i><i></i><i></i></span>
-        <span class="addr mono">localhost:3747</span>
-        <span class="conn mono">Connected</span>
-      </div>
-      <div class="frame-body">
-        <div class="goal">
-          <span class="lab">Your task</span>
-          <span class="typed">Compare these 3 laptops and add the best one to my cart</span>
-        </div>
-        <ul class="runsteps">
-          <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span><span class="t mono">step 1 · read</span><span class="d">Found all three on the page</span></span></li>
-          <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span><span class="t mono">step 2 · compare</span><span class="d">Weighed price, memory and reviews</span></span></li>
-          <li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span><span class="t mono">step 3 · act</span><span class="d">Added the best value one to your cart</span></span></li>
-        </ul>
-        <div class="pause">
-          <span class="pi">‖</span>
-          <span><b>Paused.</b> I never check out or pay without you.</span>
-        </div>
-      </div>
+      <span class="eyebrow"><span class="live"></span> PROOF OVER PROMISES</span>
+      <h1 class="hero-copy" style="max-width:26ch">Every claim on this page has a <span class="grad-text breathe">receipt.</span></h1>
+      <p class="lede" style="max-width:60ch">Yad asks you for something real: your AI provider key, the exact credential that spends money every time it's used. We don't think you should hand that over on faith, so we didn't build this page on adjectives. Every sentence below points at a real mechanism, in code you can read, and a test we actually ran, including on a machine that had never seen Yad before. Where we're proud of the work, we say so plainly. Where a claim isn't ours to make, we say that too, on purpose, near the end of this page.</p>
     </div>
   </section>
 
-  <hr class="divider">
-
-  <!-- TRUST -->
-  <section class="container" style="padding-block:clamp(48px,7vw,80px)">
-    <div class="trust">
-      <div class="t-tile reveal">
-        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span>
-        <h3>Runs on your own machine</h3>
-        <p>The thinking happens locally, next to the browser you already use.</p>
-      </div>
-      <div class="t-tile reveal">
-        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.9-2.6c3-.3 6.2-1.5 6.2-6.7A5.2 5.2 0 0 0 19 4.8 4.9 4.9 0 0 0 18.9 1S17.7.6 15 2.5a13 13 0 0 0-7 0C5.3.6 4.1 1 4.1 1A4.9 4.9 0 0 0 4 4.8a5.2 5.2 0 0 0-1.4 3.6c0 5.2 3.2 6.4 6.2 6.7A3.4 3.4 0 0 0 8 17.7V22"/></svg></span>
-        <h3>Open source</h3>
-        <p>The code is public. You can read exactly what it does before you trust it.</p>
-      </div>
-      <div class="t-tile reveal">
-        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
-        <h3>No account, no sign up</h3>
-        <p>There is no login and no server storing your data. You just install and go.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- PRIVACY / PROBLEM FIRST -->
-  <section class="container" id="privacy">
-    <div class="chess">
-      <div class="reveal">
-        <span class="eyebrow">The honest part</span>
-        <h2>You are handing an AI your browser. Where does your password go?</h2>
-        <p>Most AI agents run in a cloud browser, on someone else's server, with a copy of your logins. Yad does not. It works in your real browser, on your machine. Your passwords and card numbers are masked before anything is sent, and you decide what leaves.</p>
-        <p>Pick a local model and the page content stays on your computer. Pick a cloud model and only what is needed to plan the next step goes out. Your call, every time.</p>
-        <p>Your key gets the same treatment. The first time you paste it in, it goes once to the small companion app on your own computer, which locks it immediately with Windows' own built-in encryption, tied to your Windows account, and the extension never shows the raw key again. Every AI call also counts against a daily limit you set, and a one-click Stop button blocks all further calls at once. Both settings survive a restart, and if either one is ever missing or corrupted, Yad defaults to blocking AI calls rather than allowing them.</p>
-      </div>
-      <div class="c-media reveal">
-        <div class="diagram">
-          <div class="flowrow">
-            <div class="node you"><span class="n-lab">You type</span><span class="n-val">"Reply to this email"</span></div>
-          </div>
-          <div class="flowrow"><span class="arrow mono">↓ masked first</span></div>
-          <div class="flowrow">
-            <div class="node stay"><span class="n-lab">Stays on your machine</span><span class="n-val">Passwords, card numbers, your files</span></div>
-          </div>
-          <div class="flowrow">
-            <div class="node"><span class="n-lab">Local model</span><span class="n-val">Nothing leaves at all</span></div>
-            <div class="node"><span class="n-lab">Cloud model</span><span class="n-val">Only the step to plan</span></div>
-          </div>
-          <p class="diag-note">// local-first. you decide what goes out.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- BENTO FEATURES -->
-  <section class="container" id="features">
+  <!-- SECTION 1: FOUNDATION -->
+  <section class="container" style="padding-block:clamp(32px,5vw,56px)">
     <div class="sec-head reveal">
-      <span class="eyebrow">What is under the hood</span>
-      <h2>Small, honest, and it learns.</h2>
-      <p>Not a demo toy. Yad remembers what works, notices when it is stuck, and finds another way.</p>
+      <span class="eyebrow">The ground this is built on</span>
+      <h2>Local first, by design.</h2>
+      <p>Yad runs inside your own real Chrome browser, on your own computer. Not a cloud browser sitting on a server somewhere else.</p>
+      <p>It has two free parts, and you need both. <strong>Part A is this Chrome extension</strong>, the hand: it reads the page in front of you and acts on it, clicking, typing, navigating. <strong>Part B is the Companion</strong>, a small free app you download and run once on your own computer, the brain: it is the only piece of Yad that ever does the actual AI thinking or touches your raw API key. Part A alone can't think. Part B alone can't see your browser. Install both once and you're set. The Companion is Windows only for now.</p>
+      <p>You bring the AI: Groq, Google Gemini, OpenRouter, a custom endpoint you type in yourself, or a fully local model. Yad never holds an AI key on your behalf in some hosted account of ours, and never resells access to one.</p>
+      <p>Sensitive page content, passwords, card numbers, the fields that should never leave your screen, is masked before anything reaches any AI, cloud or local. Payment and checkout pages are always blocked from autonomous action, even when Yad is running in full-auto mode. No exceptions.</p>
+      <p style="color:var(--text-dim)">That was already true. What follows is what we built on top of it: locking down the one piece of sensitive data Yad has to touch, your API key itself.</p>
+    </div>
+  </section>
+
+  <div class="divider container"></div>
+
+  <!-- SECTION 2: ENCRYPTION -->
+  <section class="container" style="padding-block:clamp(32px,5vw,56px)">
+    <div class="sec-head reveal">
+      <span class="eyebrow">The encryption, proven, not assumed</span>
+      <h2>Encrypted the instant you paste it, on a machine that remembered nothing.</h2>
+      <p>Here is the exact mechanism. The first time you paste an API key into Yad, the extension sends it once to your local Companion. The Companion immediately locks that key using Windows' own built-in encryption, DPAPI, scoped to your Windows user account, so only that same account on that same machine can ever unlock it again. The Companion sends back an encrypted blob, the extension throws away the plaintext it was holding, and from that moment on the extension only ever stores and handles the encrypted blob. The raw key is never shown again, and it is never written to disk anywhere in readable form. When the Companion actually needs the key to call your AI provider, it decrypts it into memory for that single instant and nothing more.</p>
+      <p>We didn't assume that works. We proved it, the way a brand new user actually experiences it: with the real packaged installer, the exact file you'd download, run from a completely clean folder with no prior state and no leftover .env file from development. A freshly started Companion, in a different folder, with zero memory of anything that came before, was handed nothing but the encrypted blob. It correctly unlocked the key and activated the AI provider.</p>
+      <p>Then we tried to break it on purpose. We fed a freshly started Companion a corrupted, garbage blob instead of a real one. It did not crash. It did not activate anything. It failed safely and stopped, exactly the way a security boundary is supposed to fail.</p>
+    </div>
+  </section>
+
+  <div class="divider container"></div>
+
+  <!-- SECTION 3: SPEND GUARD -->
+  <section class="container" style="padding-block:clamp(32px,5vw,56px)">
+    <div class="sec-head reveal">
+      <span class="eyebrow">The spend guard</span>
+      <h2>A cap you set. A stop button that actually stops everything.</h2>
+      <p>Every single AI call Yad makes, across every feature, is counted against a daily cap you set yourself. The default is 1000 calls a day, yours to change. That check sits at the one choke point every AI call in the entire system has to pass through on its way out, so there is no side door and no code path that skips it.</p>
+      <p>There's also a one-click Stop button. Press it, and every further AI call is blocked instantly, full stop.</p>
+      <p>Both the daily cap and the kill switch state survive a Companion restart, because a guard that resets itself when the app restarts isn't a guard. And we rebuilt both to fail closed instead of failing open: if the saved state is ever missing or unreadable for any reason, Yad's default is to block calls, not to quietly allow them and hope for the best. That matters most exactly when you're not watching. An autonomous task can never sit there draining your key while you're away from your desk.</p>
+    </div>
+  </section>
+
+  <div class="divider container"></div>
+
+  <!-- SECTION 4: NETWORK PATH -->
+  <section class="container" style="padding-block:clamp(32px,5vw,56px)">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Where your key can go</span>
+      <h2>Your key has exactly one place it's allowed to go.</h2>
+      <p>Your API key is only ever sent over the network to the single AI provider you personally chose when you set Yad up: Groq, Google Gemini, OpenRouter, or a custom endpoint you typed in yourself. It is never sent to any server that we, the Yad team, control. There is no relay, no proxy, no logging endpoint that sees your key in transit.</p>
+      <p>Yad does have one feature that phones home: the recovery brain, a small system that learns from failed browser runs to get better at recovering from them across users. Even that feature, the one part of Yad explicitly designed to send data back to us, is deliberately narrow in what it's allowed to send. It transmits a bare website hostname and a short reason code, nothing else. Never your key. Never the content of the page you were on. Never the full URL, which could itself carry sensitive identifiers.</p>
+    </div>
+  </section>
+
+  <div class="divider container"></div>
+
+  <!-- SECTION 5: ADVERSARIAL REVIEW -->
+  <section class="container" style="padding-block:clamp(32px,5vw,56px)">
+    <div class="sec-head reveal">
+      <span class="eyebrow">The code, on trial</span>
+      <h2>We put our own code on trial before you ever ran it.</h2>
+      <p>Before any of this shipped, the new security code went through an 18-agent, AI-driven adversarial code review, a process the developer designed, built, and ran himself. Said plainly, because it matters: this is not a third-party audit firm, not a paid penetration test, and not any kind of certification. It's a rigorous, automated, multi-pass review the developer runs against his own code, the same way he'd run a test suite, except the reviewers are independent AI passes instructed to try to break the code rather than confirm it works.</p>
+      <p>Three separate lenses went through the code hunting for different things: one for plain correctness bugs, one for security holes specifically, and one for failure modes and edge cases that only show up when something goes wrong. Then a separate verification pass went back and rechecked every single claimed finding against the actual code before anything was accepted as real. A review that only lists suspicions isn't worth much. This one had to prove each finding against the real source before it counted.</p>
+      <p>The result: 12 real, confirmed issues. Two are worth naming directly. The kill switch state was not actually surviving a Companion restart, which would have quietly reopened the spending gate every time the app relaunched. And a PowerShell subprocess used during encryption was being launched by a bare program name instead of a locked-down absolute path, exactly the kind of gap that could let a planted fake binary intercept a key if one ever made it onto the search path. Both of those, and all ten of the others, got fixed.</p>
+      <p>Every fix was re-verified, not just with unit tests in isolation, but with live smoke tests and a full end-to-end test that drove the real Companion process through the actual native-messaging wire protocol Chrome itself uses to talk to it, the same channel a live session uses in production. Not a simulation of it.</p>
+    </div>
+  </section>
+
+  <div class="divider container"></div>
+
+  <!-- SECTION 5b: RED TEAM -->
+  <section class="container" style="padding-block:clamp(32px,5vw,56px)">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Our own security intelligence</span>
+      <h2>We don't just review the code. We try to break it.</h2>
+      <p>A code review reads the source. That's necessary, but it's not the same as actually attacking the running thing the way someone with bad intentions would. So after the review above, we put on that hat ourselves and went after Yad's own live components directly, the same instincts a real security researcher brings to a target.</p>
+      <p>We tried to sneak a payment page past the checkout guard eleven different ways: capital letters, double URL-encoding, hiding it in a hash route, path-traversal tricks, a null byte. All eleven were caught. We tried five dangerous link types a page could hand the agent, including one designed to run arbitrary code in your browser. All five were refused.</p>
+      <p>We attacked the Companion's local control channel with a DNS-rebinding trick, the exact method a malicious webpage would use to make itself look like it's calling from your own machine. Blocked, including on the two most sensitive routes: one that can read files from your computer, and one that can run JavaScript in your browser.</p>
+      <p>We fed the wire protocol between the extension and the Companion garbage bytes, a fake multi-gigabyte message length, and a message deliberately built to blow past its own size limit. The process didn't blink. We hammered the daily spend cap right at its exact edge to hunt for an off-by-one, and fired a hundred simultaneous kill-switch toggles at once looking for a race condition that could corrupt the saved state. Clean on both.</p>
+      <p>Nothing here was staged for this page. Every attempt above was run against the real, compiled, running code, not a description of what should happen.</p>
+    </div>
+  </section>
+
+  <div class="divider container"></div>
+
+  <!-- SECTION 6: REGRESSION -->
+  <section class="container" style="padding-block:clamp(32px,5vw,56px)">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Did the hardening cost us the agent?</span>
+      <h2>No. Zero crashes, zero regressions.</h2>
+      <p>Security work that quietly breaks the product it's protecting isn't a win. After every fix from that review was in and re-verified, we reran Yad's own task benchmark suite in full, the same suite that drives a real Chrome browser through real websites end to end to measure whether Yad can still actually do its job. Zero crashes. Zero regressions in the agent's core task-completion pipeline. The hardening made Yad safer without making it worse at the one thing it exists to do.</p>
+    </div>
+  </section>
+
+  <!-- SECTION 7: SMALLER FIXES (bento) -->
+  <section class="container" style="padding-block:clamp(32px,5vw,56px)">
+    <div class="sec-head reveal">
+      <span class="eyebrow">The smaller fixes</span>
+      <h2>Rigor lives in the details too.</h2>
+      <p>A few more changes landed in the same review pass. Smaller individually, each one closes a real gap.</p>
     </div>
     <div class="bento" style="margin-top:var(--s6)">
-      <div class="tile big reveal">
-        <span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.5 2.5M16.5 16.5 19 19M19 5l-2.5 2.5M7.5 16.5 5 19"/></svg></span>
-        <h3>A recovery brain</h3>
-        <p>When a site trips it up, Yad learns the fix and reuses it next time. Proven fixes spread from one site to the next, in three layers, without you setting anything up.</p>
-        <div class="demo-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        <div class="layer-reveal">site-exact → same-signal → same-class · promoted automatically</div>
-      </div>
-      <div class="tile wide reveal">
-        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/></svg></span>
-        <h3>Works on any site</h3>
-        <p>Your real, logged in browser. No fake cloud copy of your accounts.</p>
-        <div class="layer-reveal">acts in your session, so sites treat it like you</div>
-      </div>
-      <div class="tile reveal">
-        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg></span>
-        <h3>Fewer AI calls</h3>
-        <p>It caches what already worked, so repeats are fast and cheap.</p>
-        <div class="layer-reveal">action-cache · 0 model calls on a hit</div>
-      </div>
-      <div class="tile reveal">
-        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
-        <h3>Notices when stuck</h3>
-        <p>Eight signals catch a loop or a dead end, then it tries another way.</p>
-        <div class="layer-reveal">repeat · state-loop · no-progress · goal-drift · +4</div>
-      </div>
-      <div class="tile reveal">
-        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M16 3h5v5"/></svg></span>
-        <h3>You choose the AI</h3>
-        <p>Cloud for power, or a local model so nothing leaves your computer.</p>
-        <div class="layer-reveal">bring your own key, or run fully local</div>
-      </div>
-      <div class="tile reveal">
-        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 5V3M16 5V3M4 10h16"/></svg></span>
-        <h3>It remembers</h3>
-        <p>Selectors and past runs are stored, on your device, so it gets better.</p>
-        <div class="layer-reveal">selector-store · run-history · all local</div>
-      </div>
-      <div class="tile wide reveal">
-        <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-        <h3>Locked, capped, and stoppable</h3>
-        <p>Your AI key is encrypted the moment you paste it, locked with Windows' own built-in encryption and tied to your Windows account, and the extension never shows it again. A daily spending cap and a one-click Stop button keep any task, automatic or not, from running past the limit you set.</p>
-        <div class="layer-reveal">dpapi-encrypted key · daily cap · one-click stop</div>
-      </div>
+      <div class="tile reveal"><h3>Atomic saves</h3><p>Writes to disk are atomic, so an interrupted save can never leave a corrupted state file behind.</p></div>
+      <div class="tile reveal"><h3>Validated cap</h3><p>The daily cap value is validated, so a corrupted or zero value can never accidentally lock you out entirely.</p></div>
+      <div class="tile reveal"><h3>Timeouts everywhere</h3><p>Every subprocess call involved in encryption now has a timeout, so it can never hang the app.</p></div>
+      <div class="tile reveal"><h3>Crash-isolated messages</h3><p>One malformed message in the Companion can never take down the whole process.</p></div>
+      <div class="tile reveal"><h3>Local calendar day</h3><p>The daily call count resets on your local day, not a hidden UTC boundary you'd never notice was off.</p></div>
+      <div class="tile reveal"><h3>Local model is free</h3><p>Calls to the local Ollama model never count against your paid key's daily cap.</p></div>
     </div>
   </section>
 
-  <!-- HOW IT WORKS -->
-  <section class="container" id="how">
+  <!-- HONESTY SECTION -->
+  <section class="container" id="honesty" style="padding-block:clamp(32px,5vw,56px)">
     <div class="sec-head reveal">
-      <span class="eyebrow">Get started</span>
-      <h2>Running in three steps.</h2>
-      <p>Yad has two free parts: the Chrome extension you see, and a small companion app that runs on your own computer. You install both once, then you are set. The companion is Windows only for now.</p>
+      <span class="eyebrow">What we don't claim, on purpose</span>
+      <h2>Owning your limits is part of the engineering.</h2>
+      <p>Not an afterthought bolted on for legal cover. Here's exactly what this page is not saying.</p>
     </div>
-    <div class="how" style="margin-top:var(--s6)">
-      <div class="stepc reveal"><span class="n mono">STEP 1</span><h3>Add the extension</h3><p>Install Yad from the Chrome Web Store. It is free.</p></div>
-      <div class="stepc reveal"><span class="n mono">STEP 2</span><h3>Run the companion</h3><p>Download the small companion and run it once. No unpacking, no setup. It connects itself from then on.</p><a class="btn btn-primary" href="/yad-setup.exe" style="margin-top:12px;display:inline-block">Download the companion (Windows)</a></div>
-      <div class="stepc reveal"><span class="n mono">STEP 3</span><h3>Type a task</h3><p>Open the side panel, say what you want, and watch it work.</p></div>
-    </div>
-  </section>
-
-  <!-- MEMORY CHESS ROW -->
-  <section class="container">
-    <div class="chess rev">
-      <div class="c-media reveal">
-        <div class="layers">
-          <div class="layer"><span class="lt">Same site, same problem</span><span class="lv mono">tier 1</span></div>
-          <div class="layer"><span class="lt">Any site, same signal</span><span class="lv mono">tier 2</span></div>
-          <div class="layer"><span class="lt">Any site, same class</span><span class="lv mono">tier 3</span></div>
-          <p class="diag-note" style="margin-top:4px">// proven by 2+ sites → promoted on its own</p>
-        </div>
-      </div>
-      <div class="reveal">
-        <span class="eyebrow">The memory</span>
-        <h2>It gets better the more it is used.</h2>
-        <p>Every fix Yad finds is saved and matched back the next time the same kind of problem shows up. A trick learned on one site can rescue a run on a site it has never seen. All of it lives on your machine, in plain readable files.</p>
-      </div>
+    <div class="faq" style="margin-top:var(--s5)">
+      <details class="reveal" open><summary>Are you SOC 2 or ISO 27001 certified? <span class="chev">+</span></summary><div class="faq-body">No. Nobody has issued Yad a badge, and we're not implying otherwise.</div></details>
+      <details class="reveal" open><summary>Was this reviewed by an outside security firm? <span class="chev">+</span></summary><div class="faq-body">No. No outside security firm and no independent researcher has reviewed this code and signed off on it. The 18-agent review described above is our own automated process, run by us, on our own code, before release. It's real and rigorous. It is not the same thing as an outside audit, and we won't call it one.</div></details>
+      <details class="reveal" open><summary>Was this a paid penetration test? <span class="chev">+</span></summary><div class="faq-body">No. Nobody probed a live deployment from the outside acting as a hired attacker.</div></details>
+      <details class="reveal" open><summary>Is Yad "unhackable" or "100% secure"? <span class="chev">+</span></summary><div class="faq-body">No such thing exists, and we won't say it does. Never military-grade, bank-level, unbreakable, hacker-proof, or 100 percent secure. Those phrases don't mean anything you can verify, so we don't reach for them, no matter how proud we are of the work.</div></details>
     </div>
   </section>
 
-  <!-- CODE BLOCK -->
-  <section class="container">
-    <div class="sec-head reveal">
-      <span class="eyebrow">For the builders</span>
-      <h2>It is scriptable, too.</h2>
-      <p>The companion runs a small local API. Send it a goal, it does the run.</p>
-    </div>
-    <div class="codewrap reveal" style="margin-top:var(--s5)">
-      <div class="code-bar"><span class="dots"><i></i><i></i><i></i></span><span class="fn mono">POST localhost:3747/goal</span></div>
-<pre class="code mono"><span class="c">// tell Yad what to do, in your own scripts</span>
-<span class="k">POST</span> http://localhost:3747/goal
-{
-  <span class="p">"goal"</span>: <span class="s">"Find the cheapest flight to Lisbon on Friday"</span>,
-  <span class="p">"sync"</span>: <span class="k">true</span>,
-  <span class="p">"autonomy"</span>: <span class="s">"auto"</span>,
-  <span class="p">"maxSteps"</span>: <span class="k">15</span>
-}</pre>
-    </div>
-  </section>
-
-  <!-- FAQ -->
-  <section class="container" id="faq">
-    <div class="sec-head reveal" style="margin-bottom:var(--s6)">
-      <span class="eyebrow">Straight answers</span>
-      <h2>The questions people actually ask.</h2>
-    </div>
-    <div class="faq">
-      <details class="reveal"><summary>Does my data leave my computer? <span class="chev">+</span></summary><div class="faq-body">You choose. With a local model, nothing leaves. With a cloud model, the page text and your task go to that provider to plan the next step. Your passwords and card numbers are masked before anything is sent, either way.</div></details>
-      <details class="reveal"><summary>Do I need an account? <span class="chev">+</span></summary><div class="faq-body">No. Yad runs on your machine. There is no sign up, and no server of ours storing your data.</div></details>
-      <details class="reveal"><summary>Is it really free? <span class="chev">+</span></summary><div class="faq-body">Yes, and open source. You bring your own AI key, or run a local model for free. Nothing is hidden behind a paywall.</div></details>
-      <details class="reveal"><summary>Where does my API key go, and is it safe? <span class="chev">+</span></summary><div class="faq-body">Your key stays with you. You paste it once, and from then on it lives in two places only: your own browser and the small Yad app on your own computer, both encrypted with Windows' own lock. It is never uploaded to a Yad account and we keep no copy of it. The one place it is ever sent is straight to the AI provider you chose yourself, such as Groq, Google, or OpenRouter. We are the messenger, never the holder.</div></details>
-      <details class="reveal"><summary>Is my key encrypted on disk? <span class="chev">+</span></summary><div class="faq-body">Yes. The moment you paste your key, Yad's companion, the small app on your own computer, locks it with Windows' own built-in encryption (DPAPI) so only your Windows account can unlock it. The browser extension never keeps the readable key either, only that encrypted lock. For extra peace of mind, use a dedicated key with a spending cap, which Yad backs up with a daily limit and a one-click stop button.</div></details>
-      <details class="reveal"><summary>Can Yad quietly drain my key? <span class="chev">+</span></summary><div class="faq-body">No. Yad counts every AI call and holds it under a daily limit that you set, and there is a Stop button that blocks all calls at once. An automatic task can never keep using your key without limit, so you stay in control the whole time.</div></details>
-      <details class="reveal"><summary>How do I turn my key off completely? <span class="chev">+</span></summary><div class="faq-body">Revoke the key in your provider's dashboard. That is the real off switch and it works instantly. You can then clear Yad's settings and uninstall if you like.</div></details>
-      <details class="reveal"><summary>What will it not do? <span class="chev">+</span></summary><div class="faq-body">It will not check out, pay, or place orders without you. It will not store your browsing history or your files, and it will not sell or share your data.</div></details>
-      <details class="reveal"><summary>How do I keep everything local? <span class="chev">+</span></summary><div class="faq-body">Turn on local mode and pick a local model. Then the page content stays on your machine and the cloud is never touched.</div></details>
-      <details class="reveal"><summary>Can I use it for my company or heavier work? <span class="chev">+</span></summary><div class="faq-body">Yes. The free local brain covers everyday tasks. For a whole team, heavier or sensitive work, or a setup tuned to how you work, email info@mergefix.com and we set it up with you.</div></details>
-    </div>
-  </section>
-
-  <!-- FOR TEAMS / BUSINESS -->
-  <section class="container" id="teams">
-    <div class="sec-head reveal">
-      <span class="eyebrow">For teams and heavier work</span>
-      <h2>Bigger jobs, or a whole company?</h2>
-      <p>The free local brain handles everyday tasks right on your own machine. Running Yad across a team, on heavier or sensitive work, or want it tuned to how you work? We set that up with you. Tell us what you need.</p>
-    </div>
-    <div class="reveal" style="margin-top:var(--s5)">
-      <a class="btn btn-primary" href="mailto:info@mergefix.com?subject=Yad%20for%20my%20team">Talk to us</a>
-    </div>
-  </section>
-
-  <!-- FINAL CTA -->
+  <!-- CLOSING CTA -->
   <section class="finalcta container">
-    <h2>Put your <span class="grad-text">hand</span> back in the browser.</h2>
-    <div class="ctas">
+    <h2>Free and open source, <span class="grad-text">built independently.</span></h2>
+    <p class="lede" style="margin-inline:auto;text-align:center">Read the code, run the tests yourself, and judge every claim on this page against the real thing, not our confidence in it.</p>
+    <div class="ctas" style="justify-content:center">
       <a class="btn btn-primary" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Add to Chrome</a>
-      <a class="btn btn-ghost" href="https://wazir-x402.duckdns.org/yad-privacy">Read the privacy policy</a>
+      <a class="btn btn-ghost" href="/yad#top">Back to Yad</a>
     </div>
-    <p class="micro">Free. Open source. Your data stays with you.</p>
+    <p class="micro">Questions? <a href="mailto:info@mergefix.com" style="color:inherit;text-decoration:underline">info@mergefix.com</a></p>
   </section>
 </main>
 
@@ -591,8 +479,8 @@
     <div class="foot-brand mono">yad ✋ your own hand in the browser</div>
     <div class="foot-links">
       <a href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Chrome Web Store</a>
-      <a href="https://wazir-x402.duckdns.org/yad-privacy">Privacy</a>
-      <a href="https://wazir-x402.duckdns.org/yad-security">Security</a>
+      <a href="/yad-privacy">Privacy</a>
+      <a href="/yad-security">Security</a>
       <a href="mailto:info@mergefix.com">Contact</a>
     </div>
     <p class="foot-built">Built by Abdellah Ouadoudi. Questions? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
@@ -603,10 +491,6 @@
 (function(){
   "use strict";
   var root=document.documentElement;
-  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var fine=matchMedia("(hover:hover) and (pointer:fine)").matches;
-
-  /* theme toggle (respect stored, else keep dark default) */
   try{
     var saved=localStorage.getItem("yad-theme");
     if(saved){root.setAttribute("data-theme",saved);}
@@ -617,91 +501,6 @@
     root.setAttribute("data-theme",cur);
     try{localStorage.setItem("yad-theme",cur);}catch(e){}
   });}
-
-  /* cursor spotlight (fine pointer only) */
-  if(fine && !reduce){
-    var spot=document.getElementById("spot");
-    var tx=innerWidth/2, ty=innerHeight/2, cx=tx, cy=ty, raf=0;
-    spot.classList.add("on");
-    addEventListener("pointermove",function(e){tx=e.clientX;ty=e.clientY;if(!raf)raf=requestAnimationFrame(loop);},{passive:true});
-    function loop(){cx+=(tx-cx)*.14;cy+=(ty-cy)*.14;spot.style.setProperty("--mx",cx+"px");spot.style.setProperty("--my",cy+"px");
-      if(Math.abs(tx-cx)>.5||Math.abs(ty-cy)>.5){raf=requestAnimationFrame(loop);}else{raf=0;}}
-    loop();
-  }
-
-  /* magnetic primary CTA */
-  if(fine && !reduce){
-    var mag=document.getElementById("magnet");
-    if(mag){
-      mag.addEventListener("pointermove",function(e){
-        var r=mag.getBoundingClientRect();
-        var dx=(e.clientX-(r.left+r.width/2))*.25, dy=(e.clientY-(r.top+r.height/2))*.35;
-        mag.style.translate=dx+"px "+dy+"px";
-      });
-      mag.addEventListener("pointerleave",function(){mag.style.translate="0 0";});
-    }
-  }
-
-  /* WebGL FBM aurora, heavily gated, degrades to static mesh */
-  (function(){
-    if(reduce) return;
-    var cores=navigator.hardwareConcurrency||2;
-    var mem=navigator.deviceMemory||4;
-    if(cores<=4 || mem<=4) return;
-    var cv=document.getElementById("aurora");
-    var gl=null;
-    try{gl=cv.getContext("webgl",{antialias:false,alpha:true,premultipliedAlpha:false,powerPreference:"low-power"});}catch(e){}
-    if(!gl) return;
-    var vs="attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
-    var fs=[
-"precision highp float;uniform vec2 R;uniform float T;",
-"float h(vec2 n){return fract(sin(dot(n,vec2(12.9898,78.233)))*43758.5453);}",
-"float no(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);",
-"float a=h(i),b=h(i+vec2(1,0)),c=h(i+vec2(0,1)),d=h(i+vec2(1,1));",
-"return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}",
-"float fbm(vec2 p){float s=0.,m=.5;for(int i=0;i<5;i++){s+=m*no(p);p*=2.03;m*=.5;}return s;}",
-"void main(){vec2 uv=gl_FragCoord.xy/R;vec2 p=uv*vec2(R.x/R.y,1.);",
-"float t=T*.03;",
-"float f=fbm(p*2.2+vec2(t,t*.6));",
-"f+=.5*fbm(p*4.0-vec2(t*.7,t));",
-"float band=smoothstep(.15,1.05,f+uv.y*.5);",
-"vec3 c1=vec3(.31,.275,.898);vec3 c2=vec3(.486,.227,.929);vec3 c3=vec3(.576,.2,.917);",
-"vec3 col=mix(c1,c2,smoothstep(.2,.7,f));col=mix(col,c3,smoothstep(.55,1.,f));",
-"float a=band*(.55+.45*sin(f*6.28+t*2.))*(1.-uv.y*.35);",
-"gl_FragColor=vec4(col*a,a);}"
-].join("");
-    function sh(t,s){var o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;}
-    var pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(pr);
-    if(!gl.getProgramParameter(pr,gl.LINK_STATUS))return;
-    gl.useProgram(pr);
-    var buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
-    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
-    var lp=gl.getAttribLocation(pr,"p");gl.enableVertexAttribArray(lp);gl.vertexAttribPointer(lp,2,gl.FLOAT,false,0,0);
-    var uR=gl.getUniformLocation(pr,"R"),uT=gl.getUniformLocation(pr,"T");
-    gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
-    var scale=.6,dpr=Math.min(devicePixelRatio||1,1.5);
-    function size(){var w=Math.floor(innerWidth*dpr*scale),hh=Math.floor(innerHeight*dpr*scale);
-      if(cv.width!==w||cv.height!==hh){cv.width=w;cv.height=hh;gl.viewport(0,0,w,hh);}}
-    size();addEventListener("resize",size,{passive:true});
-    cv.classList.add("on");
-    var t0=0,running=true,rafid=0;
-    function frame(ts){ if(!running){return;} if(!t0)t0=ts; gl.uniform2f(uR,cv.width,cv.height); gl.uniform1f(uT,(ts-t0)/1000);
-      gl.drawArrays(gl.TRIANGLES,0,6); rafid=requestAnimationFrame(frame); }
-    rafid=requestAnimationFrame(frame);
-    /* pause when hero off-screen or tab hidden */
-    var hero=document.getElementById("hero");
-    if("IntersectionObserver" in window && hero){
-      new IntersectionObserver(function(en){
-        var vis=en[0].isIntersecting;
-        if(vis && !running){running=true;t0=0;rafid=requestAnimationFrame(frame);cv.classList.add("on");}
-        else if(!vis && running){running=false;cancelAnimationFrame(rafid);cv.classList.remove("on");}
-      },{threshold:.08}).observe(hero);
-    }
-    document.addEventListener("visibilitychange",function(){
-      if(document.hidden){running=false;cancelAnimationFrame(rafid);}
-      else if(!running){running=true;t0=0;rafid=requestAnimationFrame(frame);}
-    });
-  })();
 })();
 </script>
 </body>
