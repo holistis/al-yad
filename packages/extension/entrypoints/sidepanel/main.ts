@@ -65,11 +65,6 @@ const STRINGS = {
     statsSuccessRate: "Slaagkans", statsTopTasks: "Meest gebruikte taken",
     statsPrivacy: "Alle gegevens staan alleen op jouw apparaat. Er wordt niets verzonden.",
     domainLabel: "Huidig domein:",
-    sessionCaptureTitle: "Sessies (REDACTED)",
-    sessionCaptureHint: "Log in op een REDACTED site in de actieve tab. Klik dan om de sessie vast te leggen zodat de pentest-suite hem kan gebruiken.",
-    captureA: "📸 Account A",
-    captureB: "📸 Account B",
-    capturingMsg: "Sessie vastleggen…",
     claudeBridgeTitle: "Claude-brug",
     claudeBridgeHint: "Stuur de huidige pagina naar Claude Code. Claude leest hem direct via C:\\Code\\yad-claude-bridge.json.",
     claudeCaptureBtn: "🔗 Stuur naar Claude",
@@ -121,8 +116,6 @@ const STRINGS = {
     scanReadError: "Kon de pagina niet lezen: ",
     bridgeSent: "Pagina verstuurd",
     unknownError: "Onbekende fout",
-    sessionFallbackName: "Sessie",
-    sessionCaptured: "account vastgelegd",
     cvContextPrefix: "CONTEXT, mijn CV",
     cvDefaultGoal: "Zoek vacatures die bij dit CV passen op jobs.be, Indeed.be of LinkedIn. Geef de top 5 met functietitel, bedrijf en link.",
     gateTitle: "Voor je begint",
@@ -168,11 +161,6 @@ const STRINGS = {
     statsSuccessRate: "Success rate", statsTopTasks: "Most used tasks",
     statsPrivacy: "All data stays on your device only. Nothing is sent.",
     domainLabel: "Current domain:",
-    sessionCaptureTitle: "Sessions (REDACTED)",
-    sessionCaptureHint: "Log in to an REDACTED site in the active tab, then click to capture the session so the pentest suite can use it.",
-    captureA: "📸 Account A",
-    captureB: "📸 Account B",
-    capturingMsg: "Capturing session…",
     claudeBridgeTitle: "Claude bridge",
     claudeBridgeHint: "Send the current page to Claude Code. Claude reads it directly from C:\\Code\\yad-claude-bridge.json.",
     claudeCaptureBtn: "🔗 Send to Claude",
@@ -224,8 +212,6 @@ const STRINGS = {
     scanReadError: "Could not read the page: ",
     bridgeSent: "Page sent",
     unknownError: "Unknown error",
-    sessionFallbackName: "Session",
-    sessionCaptured: "account captured",
     cvContextPrefix: "CONTEXT, my CV",
     cvDefaultGoal: "Find jobs that match this CV on Indeed, LinkedIn or a local job board. Give the top 5 with job title, company and link.",
     gateTitle: "Before you begin",
@@ -1237,30 +1223,6 @@ function startApp(): void {
       void refreshTierButtons();
     }));
 
-  // REDACTED sessie-capture knoppen
-  const captureMsg = document.getElementById("capture-msg") as HTMLElement | null;
-  function setCaptureMsg(text: string, type: "ok" | "err" | ""): void {
-    if (!captureMsg) return;
-    captureMsg.textContent = text;
-    captureMsg.className = type;
-  }
-  function setCaptureLoading(loading: boolean): void {
-    const a = document.getElementById("capture-a") as HTMLButtonElement | null;
-    const b = document.getElementById("capture-b") as HTMLButtonElement | null;
-    if (a) a.disabled = loading;
-    if (b) b.disabled = loading;
-  }
-  document.getElementById("capture-a")?.addEventListener("click", () => {
-    setCaptureMsg(t("capturingMsg"), "");
-    setCaptureLoading(true);
-    void chrome.runtime.sendMessage({ type: "YAD_CAPTURE_SESSION", label: "A" });
-  });
-  document.getElementById("capture-b")?.addEventListener("click", () => {
-    setCaptureMsg(t("capturingMsg"), "");
-    setCaptureLoading(true);
-    void chrome.runtime.sendMessage({ type: "YAD_CAPTURE_SESSION", label: "B" });
-  });
-
   // Claude bridge
   const claudeMsg = document.getElementById("claude-capture-msg") as HTMLElement | null;
   function setClaudeMsg(text: string, type: "ok" | "err" | ""): void {
@@ -1363,10 +1325,6 @@ function startApp(): void {
       const settingsPanel = document.getElementById("tab-instellingen");
       if (settingsPanel && !settingsPanel.classList.contains("hidden")) void loadSettingsTab();
     }
-    else if (msg?.type === "YAD_SESSION_CAPTURING") {
-      const lbl = document.getElementById("capture-msg");
-      if (lbl) { lbl.textContent = t("capturingMsg"); lbl.className = ""; }
-    }
     else if (msg?.type === "YAD_CLAUDE_BRIDGE_CAPTURING") {
       const el = document.getElementById("claude-capture-msg");
       if (el) { el.textContent = t("claudeCapturingMsg"); el.className = ""; }
@@ -1382,22 +1340,6 @@ function startApp(): void {
         } else {
           el.textContent = `✗ ${msg.detail ?? t("unknownError")}`;
           el.className = "err";
-        }
-      }
-    }
-    else if (msg?.type === "YAD_SESSION_RESULT") {
-      const captMsgEl = document.getElementById("capture-msg");
-      const a = document.getElementById("capture-a") as HTMLButtonElement | null;
-      const b = document.getElementById("capture-b") as HTMLButtonElement | null;
-      if (a) a.disabled = false;
-      if (b) b.disabled = false;
-      if (captMsgEl) {
-        if (msg.ok) {
-          captMsgEl.textContent = `✓ ${msg.brand ?? t("sessionFallbackName")} ${t("sessionCaptured")}: ${msg.authType ?? ""}`;
-          captMsgEl.className = "ok";
-        } else {
-          captMsgEl.textContent = `✗ ${msg.detail ?? t("unknownError")}`;
-          captMsgEl.className = "err";
         }
       }
     }
