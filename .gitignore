@@ -35,3 +35,4 @@ ollama_key.pub
 # Chrome Web Store API geheimen (nooit committen)
 webstore-secrets.json
 yad-winkel-upload.zip
+data/recovery-store.jsonl
