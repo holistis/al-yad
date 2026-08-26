@@ -1,34 +1,88 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://yadagent.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-nl</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-nl"/>
   </url>
   <url>
     <loc>https://yadagent.com/yad-business</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-business"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-business-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-business-nl</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-business"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-business-nl"/>
   </url>
   <url>
     <loc>https://yadagent.com/yad-security</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-security"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-security-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-security-nl</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-security"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-security-nl"/>
   </url>
   <url>
     <loc>https://yadagent.com/yad-blog</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-blog-nl</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-nl"/>
   </url>
   <url>
     <loc>https://yadagent.com/yad-blog-browsers</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-browsers"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-browsers-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-blog-browsers-nl</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-browsers"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-browsers-nl"/>
   </url>
   <url>
     <loc>https://yadagent.com/yad-blog-desktop-app</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-desktop-app"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-desktop-app-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-blog-desktop-app-nl</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-desktop-app"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-desktop-app-nl"/>
   </url>
   <url>
     <loc>https://yadagent.com/yad-privacy</loc>
