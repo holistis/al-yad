@@ -57,6 +57,7 @@ function parseArgs(): {
   sessionFile?: string;
   headless: boolean;
   maxActions: number;
+  recordVideoDir?: string;
 } {
   const args = process.argv.slice(2);
   const get = (flag: string): string | undefined => {
@@ -77,6 +78,7 @@ function parseArgs(): {
     sessionFile: get("--session"),
     headless: !has("--headed"),
     maxActions: parseInt(get("--max-actions") ?? "100", 10),
+    recordVideoDir: get("--record-video"),
   };
 }
 
@@ -151,7 +153,7 @@ async function main(): Promise<void> {
   }
 
   // ── Playwright + ScopeGuard opstarten ──────────────────────────────────────
-  const hand = new PlaywrightHand({ headless: args.headless, log, cookies });
+  const hand = new PlaywrightHand({ headless: args.headless, log, cookies, recordVideoDir: args.recordVideoDir });
   await hand.init();
 
   const guard = new ScopeGuard(hand, assignment, log);

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>YAD Demo — Facturatie naar Excel</title>
+<style>
+  :root{
+    --bg:#0B0A12; --panel:#15131f; --panel2:#181622; --line:#2a2740;
+    --text:#f1eefb; --muted:#9791b8; --accent:#8b5cf6; --accent2:#6d28d9;
+    --old:#c9c4dd; --oldbg:#1c1a28; --good:#34d399;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,Segoe UI,Inter,Arial,sans-serif;overflow:hidden;}
+  .stage{width:1280px;height:800px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:28px;}
+  .row{display:flex;gap:36px;align-items:stretch;}
+  .panel{width:430px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:22px 24px;position:relative;}
+  .panel h3{margin:0 0 4px;font-size:15px;font-weight:600;color:var(--text);}
+  .panel .sub{margin:0 0 18px;font-size:12px;color:var(--muted);}
+  .old h3{color:var(--old);}
+  .old{background:var(--oldbg);}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:11px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+  .field .val{background:#0f0d16;border:1px solid var(--line);border-radius:6px;
+    padding:9px 11px;font-size:14px;font-family:Consolas,monospace;color:var(--old);}
+  .new .field input{width:100%;background:#0f0d16;border:1px solid var(--line);
+    border-radius:6px;padding:9px 11px;font-size:14px;font-family:Consolas,monospace;
+    color:var(--text);outline:none;}
+  .new .field input:focus{border-color:var(--accent);}
+  .new h3{color:#c4b5fd;}
+  .badge{position:absolute;top:20px;right:20px;font-size:10px;padding:3px 8px;
+    border-radius:20px;border:1px solid var(--line);color:var(--muted);}
+  .arrow{display:flex;align-items:center;justify-content:center;width:36px;
+    color:var(--accent);font-size:26px;}
+  .caption{color:var(--muted);font-size:13px;letter-spacing:.02em;}
+  .caption b{color:var(--text);font-weight:600;}
+  .logo{position:absolute;top:26px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);
+    letter-spacing:.03em;}
+  .logo b{color:var(--text);}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="logo">✋ <b>yad</b> — twee systemen die niet met elkaar praten</div>
+  <div class="row">
+    <div class="panel old">
+      <div class="badge">geen exportknop</div>
+      <h3>Oude Facturatie Software</h3>
+      <p class="sub">FactuSysteem NV — versie 4.2</p>
+      <div class="field"><label>Factuurnummer</label><div class="val" id="src-nr">INV-2026-0847</div></div>
+      <div class="field"><label>Bedrag</label><div class="val" id="src-bedrag">€ 1.240,00</div></div>
+      <div class="field"><label>Datum</label><div class="val" id="src-datum">26-08-2026</div></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="panel new">
+      <div class="badge" id="new-badge">wacht op invoer</div>
+      <h3>Excel — Uitgaven 2026</h3>
+      <p class="sub">gedeeld met de boekhouder</p>
+      <div class="field"><label>Factuurnummer</label><input id="dst-nr" name="dst-nr" autocomplete="off"></div>
+      <div class="field"><label>Bedrag</label><input id="dst-bedrag" name="dst-bedrag" autocomplete="off"></div>
+      <div class="field"><label>Datum</label><input id="dst-datum" name="dst-datum" autocomplete="off"></div>
+    </div>
+  </div>
+  <p class="caption">YAD leest het linkerscherm en typt het rechts over, <b>met jouw eigen inlog</b>, zonder API.</p>
+</div>
+<script>
+  function checkDone(){
+    var ok = ['dst-nr','dst-bedrag','dst-datum'].every(function(id){
+      return document.getElementById(id).value.trim().length > 2;
+    });
+    if(ok){ document.getElementById('new-badge').textContent = 'overgezet ✓';
+      document.getElementById('new-badge').style.color = '#34d399';
+      document.getElementById('new-badge').style.borderColor = '#34d399'; }
+  }
+  ['dst-nr','dst-bedrag','dst-datum'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', checkDone);
+  });
+</script>
+</body>
+</html>
