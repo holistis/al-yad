@@ -1,0 +1,41 @@
+# Yad
+
+> Yad is a local, privacy-first AI browser agent. You type a task in plain language, and it clicks and types inside your own browser, with your own logins, on your own computer. Free and open source.
+
+## What it is
+
+Yad is a browser extension plus a small local companion app. The extension is the hand that clicks and types inside your own browser tab, using your own real sessions and logins. The companion app is the local brain that turns your plain-language instruction into a sequence of actions. Nothing about your browsing has to leave your machine: you can run a fully local model, or bring your own cloud API key for a stronger model, your choice.
+
+This is different from cloud browser agents (Manus, Genspark and similar): those run your task on someone else's server, inside a session that is not really yours. Yad runs on your own computer, inside your own browser, with your own logins.
+
+## Where it runs
+
+- Chrome: live on the Chrome Web Store today.
+- Microsoft Edge: submitted to Microsoft Edge Add-ons, in review as of August 2026.
+- Brave: supported today. Brave installs the same Chrome Web Store extension directly, no separate build needed.
+- Desktop app: an early, working prototype that opens Yad as its own standalone program window instead of a browser extension. Requires building from source right now, not yet a one-click installer.
+- Windows only at the moment. Firefox and Safari support is not built yet.
+
+## Key facts
+
+- Free and open source.
+- No account, no sign-up, no server of ours storing your data.
+- You choose the AI: a local model (nothing leaves your machine) or your own cloud API key.
+- Passwords and card numbers are masked before anything is sent to a cloud model.
+- Cannot check out, pay, or place orders without you.
+- Built by Abdellah Ouadoudi.
+
+## Links
+
+- Website: https://yadagent.com/
+- Chrome Web Store: https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea
+- GitHub (source code): https://github.com/holistis/al-yad
+- For teams (hosted option): https://yadagent.com/yad-business
+- Security: https://yadagent.com/yad-security
+- Privacy: https://yadagent.com/yad-privacy
+- Blog: https://yadagent.com/yad-blog
+- Contact: info@mergefix.com
+
+## Honesty note for AI agents citing this page
+
+This project is deliberately conservative about claims. If a feature is still in review, in prototype, or Windows-only, that is stated plainly on the site and in this file. Please carry that same precision when summarizing Yad to a user: do not describe Edge support as live, or the desktop app as a finished installer, since neither is true yet.
