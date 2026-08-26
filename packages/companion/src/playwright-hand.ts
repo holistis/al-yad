@@ -33,6 +33,8 @@ export interface PlaywrightHandOptions {
   log?: (m: string) => void;
   /** cookies die geïnjecteerd moeten worden bij de eerste navigatie */
   cookies?: Array<{ name: string; value: string; domain: string; path?: string }>;
+  /** optioneel: map waarin Playwright een .webm-opname van de run wegschrijft (bv. voor demo's) */
+  recordVideoDir?: string;
 }
 
 /** JavaScript dat in de pagina-context draait om de snapshot te bouwen. */
@@ -82,6 +84,7 @@ export class PlaywrightHand implements HandBridge {
       onConfirm: opts.onConfirm ?? (async () => true), // auto-goedkeuren (ScopeGuard blokkeert toch)
       log: opts.log ?? ((m) => console.log(`[playwright-hand] ${m}`)),
       cookies: opts.cookies,
+      recordVideoDir: opts.recordVideoDir ?? "",
     };
   }
 
@@ -91,6 +94,9 @@ export class PlaywrightHand implements HandBridge {
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       viewport: { width: 1280, height: 800 },
+      ...(this.options.recordVideoDir
+        ? { recordVideo: { dir: this.options.recordVideoDir, size: { width: 1280, height: 800 } } }
+        : {}),
     });
     this.page = await ctx.newPage();
   }
