@@ -4,9 +4,9 @@ Built by [Abdellah Ouadoudi](https://github.com/holistis)
 
 ## Website / homepage / live URL
 
-- **The YAD website (live landing page): https://wazir-x402.duckdns.org/yad** — hosted on the project's own server. There is NO dedicated domain (yad.com / yad.nl / yad.app etc.) yet; this duckdns URL IS the official site. Do not conclude "YAD has no website".
-- **Chrome Web Store listing** (install page): https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea (submitted 2026-08-20, in review).
-- Landing page source lives in `site/index.html`; it deploys to the duckdns URL via a `/yad` route on the x402 server.
+- **The YAD website (live landing page): https://yadagent.com** — own domain, purchased 2026-08-25, migrated live 2026-08-26. Served from the same server as before (nginx vhost proxies `/` to the `/yad` route on the x402 server). The old https://wazir-x402.duckdns.org/yad URL still works and serves the same content, but yadagent.com is now the canonical one.
+- **Chrome Web Store listing** (install page): https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea (submitted 2026-08-20, in review — listing itself may still reference the old duckdns URL, not touched during migration to avoid resetting the review).
+- Landing page source lives in `site/index.html`; the deployed copy lives at `/app/euler-liquidator/data/yad-landing.html` on the server. nginx config for the domain: `/etc/nginx/sites-available/yadagent` on the Hetzner box.
 
 
 **Yad** ("the hand" in Arabic) is a thin Chrome extension (the Hand) controlled by a locally hosted brain (the Companion). It works inside the user's real, logged-in browser session, learns a task once, and then repeats it deterministically at near-zero cost.
