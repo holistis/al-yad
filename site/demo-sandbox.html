@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="nl">
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>YAD Demo: Facturatie naar Excel</title>
+<title>YAD Demo: Invoice to Excel</title>
 <style>
   :root{
     --bg:#0B0A12; --panel:#15131f; --panel2:#181622; --line:#2a2740;
@@ -13,7 +13,7 @@
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
     font-family:-apple-system,Segoe UI,Inter,Arial,sans-serif;overflow:hidden;}
   .stage{width:1280px;height:800px;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:28px;}
+    align-items:center;justify-content:center;gap:26px;}
   .row{display:flex;gap:36px;align-items:stretch;}
   .panel{width:430px;background:var(--panel);border:1px solid var(--line);
     border-radius:14px;padding:22px 24px;position:relative;}
@@ -35,12 +35,14 @@
     border-radius:20px;border:1px solid var(--line);color:var(--muted);}
   .arrow{display:flex;align-items:center;justify-content:center;width:36px;
     color:var(--accent);font-size:26px;}
-  .caption{color:var(--muted);font-size:13px;letter-spacing:.02em;}
+  .caption{color:var(--muted);font-size:13px;letter-spacing:.02em;max-width:760px;text-align:center;}
   .caption b{color:var(--text);font-weight:600;}
-  .logo{position:absolute;top:26px;left:50%;transform:translateX(-50%);
-    display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);
-    letter-spacing:.03em;}
-  .logo b{color:var(--text);}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand .hand{font-size:34px;}
+  .brand .wordmark{font-size:34px;font-weight:800;letter-spacing:.02em;color:var(--text);
+    font-family:-apple-system,Segoe UI,Inter,Arial,sans-serif;}
+  .brand .tag{font-size:14px;color:var(--muted);margin-left:6px;padding-left:14px;
+    border-left:1px solid var(--line);}
   #cursor{position:fixed;top:0;left:0;width:16px;height:16px;border-radius:50%;
     background:radial-gradient(circle at 35% 35%, #fff, var(--accent) 70%);
     box-shadow:0 0 0 4px rgba(139,92,246,.22), 0 2px 10px rgba(0,0,0,.5);
@@ -55,27 +57,30 @@
 </head>
 <body>
 <div class="stage">
-  <div class="logo">✋ <b>yad</b>, twee systemen die niet met elkaar praten</div>
+  <div class="brand">
+    <span class="hand">✋</span><span class="wordmark">yad</span>
+    <span class="tag">two systems that don't talk to each other</span>
+  </div>
   <div class="row">
     <div class="panel old">
-      <div class="badge">geen exportknop</div>
-      <h3>Oude Facturatie Software</h3>
-      <p class="sub">FactuSysteem NV, versie 4.2</p>
-      <div class="field"><label>Factuurnummer</label><div class="val" id="src-nr">INV-2026-0847</div></div>
-      <div class="field"><label>Bedrag</label><div class="val" id="src-bedrag">€ 1.240,00</div></div>
-      <div class="field"><label>Datum</label><div class="val" id="src-datum">26-08-2026</div></div>
+      <div class="badge">no export button</div>
+      <h3>Legacy Invoice Software</h3>
+      <p class="sub">InvoiceSys Corp, version 4.2</p>
+      <div class="field"><label>Invoice Number</label><div class="val" id="src-nr">INV-2026-0847</div></div>
+      <div class="field"><label>Amount</label><div class="val" id="src-bedrag">$1,240.00</div></div>
+      <div class="field"><label>Date</label><div class="val" id="src-datum">Aug 26, 2026</div></div>
     </div>
     <div class="arrow">→</div>
     <div class="panel new">
-      <div class="badge" id="new-badge">wacht op invoer</div>
-      <h3>Excel (Uitgaven 2026)</h3>
-      <p class="sub">gedeeld met de boekhouder</p>
-      <div class="field"><label>Factuurnummer</label><input id="dst-nr" name="dst-nr" autocomplete="off"></div>
-      <div class="field"><label>Bedrag</label><input id="dst-bedrag" name="dst-bedrag" autocomplete="off"></div>
-      <div class="field"><label>Datum</label><input id="dst-datum" name="dst-datum" autocomplete="off"></div>
+      <div class="badge" id="new-badge">waiting for input</div>
+      <h3>Excel (2026 Expenses)</h3>
+      <p class="sub">shared with the bookkeeper</p>
+      <div class="field"><label>Invoice Number</label><input id="dst-nr" name="dst-nr" autocomplete="off"></div>
+      <div class="field"><label>Amount</label><input id="dst-bedrag" name="dst-bedrag" autocomplete="off"></div>
+      <div class="field"><label>Date</label><input id="dst-datum" name="dst-datum" autocomplete="off"></div>
     </div>
   </div>
-  <p class="caption">YAD leest het linkerscherm en typt het rechts over, <b>met jouw eigen inlog</b>, zonder API.</p>
+  <p class="caption">YAD reads the left screen and types it into the right, using <b>your own login</b>. No integration between the two systems required.</p>
 </div>
 <div id="cursor"></div>
 <script>
@@ -93,7 +98,7 @@
     var ok = ['dst-nr','dst-bedrag','dst-datum'].every(function(id){
       return document.getElementById(id).value.trim().length > 2;
     });
-    if(ok){ document.getElementById('new-badge').textContent = 'overgezet ✓';
+    if(ok){ document.getElementById('new-badge').textContent = 'transferred ✓';
       document.getElementById('new-badge').style.color = '#34d399';
       document.getElementById('new-badge').style.borderColor = '#34d399'; }
   }
