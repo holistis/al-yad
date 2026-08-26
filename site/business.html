@@ -54,6 +54,8 @@ header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(1
 .nav-links a{transition:color .2s}
 .nav-links a:hover{color:var(--text)}
 .nav-right{margin-left:auto;display:flex;align-items:center;gap:var(--s3)}
+.icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;display:grid;place-items:center;transition:.2s}
+.icon-btn:hover{color:var(--text);border-color:var(--border-strong)}
 .btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:15px;padding:11px 20px;border-radius:11px;border:1px solid transparent;cursor:pointer;transition:transform .22s,box-shadow .22s,border-color .2s,background .2s;white-space:nowrap}
 .btn-primary{background:var(--grad);color:#fff;box-shadow:0 6px 24px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.25)}
 .btn-primary:hover{box-shadow:0 10px 34px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.3)}
@@ -105,9 +107,18 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
 .foot-links a:hover{color:var(--text)}
 .foot-built{width:100%;font-size:13px;color:var(--text-faint);margin-top:6px}
 
+.nav-burger{display:none}
+.mobile-menu{display:none}
 @media (max-width:760px){
   .split{grid-template-columns:1fr}
   .nav-links{display:none}
+  .nav-burger{display:grid}
+  .mobile-menu{display:block;position:fixed;left:0;right:0;top:64px;z-index:49;background:var(--bg);border-bottom:1px solid var(--border);
+    max-height:0;overflow:hidden;transition:max-height .25s ease}
+  .mobile-menu.open{max-height:60vh}
+  .mobile-menu-in{display:flex;flex-direction:column;padding:var(--s3) var(--s4) var(--s5)}
+  .mobile-menu a{padding:13px 4px;font-size:15.5px;color:var(--text-dim);border-bottom:1px solid var(--border)}
+  .mobile-menu a:last-child{border-bottom:none}
 }
 </style>
 </head>
@@ -122,13 +133,26 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
       <a href="/yad#features">Features</a>
       <a href="/yad-security">Security</a>
       <a href="/yad-business">For Teams</a>
+      <a href="/yad-blog">Blog</a>
       <a href="/yad#faq">FAQ</a>
     </nav>
     <div class="nav-right">
+      <button class="icon-btn nav-burger" id="burger" aria-label="Open menu" title="Open menu" aria-expanded="false">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
+      </button>
       <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Add to Chrome</a>
     </div>
   </div>
 </header>
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-in">
+    <a href="/yad#features">Features</a>
+    <a href="/yad-security">Security</a>
+    <a href="/yad-business">For Teams</a>
+    <a href="/yad-blog">Blog</a>
+    <a href="/yad#faq">FAQ</a>
+  </div>
+</div>
 
 <main id="top">
   <section class="hero container">
@@ -216,5 +240,22 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
     <p class="foot-built">Built by <a href="https://github.com/holistis" style="color:inherit;text-decoration:underline">Abdellah Ouadoudi</a>. Questions? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
   </div>
 </footer>
+
+<script>
+(function(){
+  "use strict";
+  var burger=document.getElementById("burger");
+  var mmenu=document.getElementById("mobileMenu");
+  if(burger&&mmenu){
+    burger.addEventListener("click",function(){
+      var open=mmenu.classList.toggle("open");
+      burger.setAttribute("aria-expanded",open?"true":"false");
+    });
+    mmenu.addEventListener("click",function(e){
+      if(e.target.tagName==="A"){mmenu.classList.remove("open");burger.setAttribute("aria-expanded","false");}
+    });
+  }
+})();
+</script>
 </body>
 </html>
