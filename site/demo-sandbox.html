@@ -41,6 +41,16 @@
     display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);
     letter-spacing:.03em;}
   .logo b{color:var(--text);}
+  #cursor{position:fixed;top:0;left:0;width:16px;height:16px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #fff, var(--accent) 70%);
+    box-shadow:0 0 0 4px rgba(139,92,246,.22), 0 2px 10px rgba(0,0,0,.5);
+    pointer-events:none;z-index:999;transform:translate(-50%,-50%);
+    transition:left .55s cubic-bezier(.22,.61,.36,1), top .55s cubic-bezier(.22,.61,.36,1);
+    opacity:0;}
+  #cursor.on{opacity:1;}
+  #cursor.click::after{content:"";position:absolute;inset:-10px;border-radius:50%;
+    border:2px solid var(--accent);animation:ripple .5s ease-out;}
+  @keyframes ripple{from{transform:scale(.3);opacity:1;}to{transform:scale(2.2);opacity:0;}}
 </style>
 </head>
 <body>
@@ -67,7 +77,18 @@
   </div>
   <p class="caption">YAD leest het linkerscherm en typt het rechts over, <b>met jouw eigen inlog</b>, zonder API.</p>
 </div>
+<div id="cursor"></div>
 <script>
+  var cursor = document.getElementById('cursor');
+  var started = false;
+  document.addEventListener('mousemove', function(e){
+    if(!started){ started = true; cursor.classList.add('on'); }
+    cursor.style.left = e.clientX + 'px';
+    cursor.style.top = e.clientY + 'px';
+  });
+  document.addEventListener('mousedown', function(){
+    cursor.classList.remove('click'); void cursor.offsetWidth; cursor.classList.add('click');
+  });
   function checkDone(){
     var ok = ['dst-nr','dst-bedrag','dst-datum'].every(function(id){
       return document.getElementById(id).value.trim().length > 2;

@@ -35,6 +35,8 @@ export interface PlaywrightHandOptions {
   cookies?: Array<{ name: string; value: string; domain: string; path?: string }>;
   /** optioneel: map waarin Playwright een .webm-opname van de run wegschrijft (bv. voor demo's) */
   recordVideoDir?: string;
+  /** optioneel: laat de muis zichtbaar naar het doelelement glijden vóór click/type (alleen voor demo-opnames) */
+  demoCursor?: boolean;
 }
 
 /** JavaScript dat in de pagina-context draait om de snapshot te bouwen. */
@@ -71,9 +73,17 @@ const SNAPSHOT_SCRIPT = `(() => {
   return nodes;
 })()`;
 
+export interface DemoTimelineEntry {
+  label: string;
+  tStartMs: number;
+  tEndMs: number;
+}
+
 export class PlaywrightHand implements HandBridge {
   private browser: Browser | null = null;
   private page: Page | null = null;
+  private videoStartTs = 0;
+  public readonly demoTimeline: DemoTimelineEntry[] = [];
   private readonly options: Required<Omit<PlaywrightHandOptions, "cookies">> & { cookies?: PlaywrightHandOptions["cookies"] };
   private firstNav = true;
 
@@ -85,7 +95,17 @@ export class PlaywrightHand implements HandBridge {
       log: opts.log ?? ((m) => console.log(`[playwright-hand] ${m}`)),
       cookies: opts.cookies,
       recordVideoDir: opts.recordVideoDir ?? "",
+      demoCursor: opts.demoCursor ?? false,
     };
+  }
+
+  /** Beweegt de muis zichtbaar naar het midden van een element (alleen actief met demoCursor). */
+  private async glideTo(el: import("playwright").Locator): Promise<void> {
+    if (!this.options.demoCursor || !this.page) return;
+    const box = await el.boundingBox().catch(() => null);
+    if (!box) return;
+    await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 18 });
+    await this.page.waitForTimeout(180);
   }
 
   async init(): Promise<void> {
@@ -99,6 +119,13 @@ export class PlaywrightHand implements HandBridge {
         : {}),
     });
     this.page = await ctx.newPage();
+    this.videoStartTs = Date.now();
+  }
+
+  /** Markeert een zichtbaar-actief venster in de demo-tijdlijn (alleen relevant met demoCursor). */
+  private markDemo(label: string, tStartMs: number): void {
+    if (!this.options.demoCursor) return;
+    this.demoTimeline.push({ label, tStartMs, tEndMs: Date.now() - this.videoStartTs });
   }
 
   async close(): Promise<void> {
@@ -149,6 +176,7 @@ export class PlaywrightHand implements HandBridge {
     try {
       switch (action.kind) {
         case "navigate": {
+          const tStart = Date.now() - this.videoStartTs;
           // Bij eerste navigatie: injecteer eventuele cookies in de browsercontext.
           if (this.firstNav && this.options.cookies?.length) {
             await this.injectCookies(action.url);
@@ -156,12 +184,16 @@ export class PlaywrightHand implements HandBridge {
           }
           await page.goto(action.url, { waitUntil: "domcontentloaded", timeout: 20_000 });
           await page.waitForTimeout(this.options.spaWaitMs);
+          this.markDemo("navigate", tStart);
           return { ok: true };
         }
         case "click": {
+          const tStart = Date.now() - this.videoStartTs;
           const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          await this.glideTo(el);
           await el.click({ timeout: 8_000 });
           await page.waitForTimeout(this.options.spaWaitMs / 2);
+          this.markDemo("click", tStart);
           return { ok: true };
         }
         case "click-at": {
@@ -175,10 +207,18 @@ export class PlaywrightHand implements HandBridge {
           return { ok: true };
         }
         case "type": {
+          const tStart = Date.now() - this.videoStartTs;
           const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
-          await el.fill(action.text, { timeout: 8_000 });
+          await this.glideTo(el);
+          if (this.options.demoCursor) {
+            await el.click({ timeout: 8_000 });
+            await el.pressSequentially(action.text, { delay: 28 });
+          } else {
+            await el.fill(action.text, { timeout: 8_000 });
+          }
           if (action.submit) await el.press("Enter");
           await page.waitForTimeout(this.options.spaWaitMs / 2);
+          this.markDemo("type", tStart);
           return { ok: true };
         }
         case "paste": {

@@ -16,7 +16,8 @@
  *   - Exit code 0 = klaar, 1 = fout of scope-overtreding
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import process from "node:process";
 import { loadEnvFile } from "./env.js";
 import { buildPool } from "./engine/pool.js";
@@ -58,6 +59,7 @@ function parseArgs(): {
   headless: boolean;
   maxActions: number;
   recordVideoDir?: string;
+  demoCursor: boolean;
 } {
   const args = process.argv.slice(2);
   const get = (flag: string): string | undefined => {
@@ -79,6 +81,7 @@ function parseArgs(): {
     headless: !has("--headed"),
     maxActions: parseInt(get("--max-actions") ?? "100", 10),
     recordVideoDir: get("--record-video"),
+    demoCursor: has("--demo-cursor"),
   };
 }
 
@@ -153,7 +156,13 @@ async function main(): Promise<void> {
   }
 
   // ── Playwright + ScopeGuard opstarten ──────────────────────────────────────
-  const hand = new PlaywrightHand({ headless: args.headless, log, cookies, recordVideoDir: args.recordVideoDir });
+  const hand = new PlaywrightHand({
+    headless: args.headless,
+    log,
+    cookies,
+    recordVideoDir: args.recordVideoDir,
+    demoCursor: args.demoCursor,
+  });
   await hand.init();
 
   const guard = new ScopeGuard(hand, assignment, log);
@@ -206,7 +215,18 @@ async function main(): Promise<void> {
     log(`Fout: ${(e as Error).message}`);
     exitCode = 1;
   } finally {
+    if (args.demoCursor && args.recordVideoDir) {
+      const timelinePath = join(args.recordVideoDir, "timeline.json");
+      writeFileSync(timelinePath, JSON.stringify(hand.demoTimeline, null, 2));
+      log(`Demo-tijdlijn geschreven: ${timelinePath} (${hand.demoTimeline.length} momenten)`);
+    }
     await hand.close();
+    if (args.recordVideoDir) {
+      // Playwright's eigen video-encoder-subproces flusht na browser.close() nog even door.
+      // Zonder deze pauze sluit process.exit() het bestand af vóórdat het écht klaar is
+      // ("File ended prematurely" bij nabewerking).
+      await new Promise((r) => setTimeout(r, 2000));
+    }
   }
 
   process.exit(exitCode);
