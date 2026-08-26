@@ -10,6 +10,9 @@
 <meta property="og:description" content="Short, honest updates on what Yad can actually do today, written as it happens, including the parts that aren't finished yet.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%E2%9C%8B</text></svg>">
+<link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog">
+<link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-nl">
+<link rel="alternate" hreflang="x-default" href="https://yadagent.com/yad-blog">
 <style>
 :root{
   --bg:#0B0A12; --surf-1:#141221; --surf-2:#1C1830;
@@ -55,6 +58,8 @@ header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(1
 .nav-right{margin-left:auto;display:flex;align-items:center;gap:var(--s3)}
 .icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;display:grid;place-items:center;transition:.2s}
 .icon-btn:hover{color:var(--text);border-color:var(--border-strong)}
+.lang-switch{font-size:13px;font-weight:600;color:var(--text-dim);border:1px solid var(--border);border-radius:8px;padding:7px 10px;transition:.2s}
+.lang-switch:hover{color:var(--text);border-color:var(--border-strong)}
 .btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:15px;padding:11px 20px;border-radius:11px;border:1px solid transparent;cursor:pointer;transition:transform .22s,box-shadow .22s,border-color .2s,background .2s;white-space:nowrap}
 .btn-primary{background:var(--grad);color:#fff;box-shadow:0 6px 24px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.25)}
 .btn-primary:hover{box-shadow:0 10px 34px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.3)}
@@ -111,6 +116,7 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
       <a href="/yad#faq">FAQ</a>
     </nav>
     <div class="nav-right">
+      <a class="lang-switch" href="/yad-blog-nl" title="Nederlands">NL</a>
       <button class="icon-btn nav-burger" id="burger" aria-label="Open menu" title="Open menu" aria-expanded="false">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
       </button>
@@ -125,6 +131,7 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
     <a href="/yad-business">For Teams</a>
     <a href="/yad-blog">Blog</a>
     <a href="/yad#faq">FAQ</a>
+    <a href="/yad-blog-nl">Nederlands</a>
   </div>
 </div>
 

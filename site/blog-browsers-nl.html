@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="nl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Chrome, Edge, Brave: an honest update on where Yad runs</title>
-<meta name="description" content="Yad started on Chrome only. This week Edge went into review and Brave got tested for real, not assumed. Here is exactly what changed, and what still hasn't.">
+<title>Chrome, Edge, Brave: een eerlijke update over waar Yad draait</title>
+<meta name="description" content="Yad begon alleen op Chrome. Deze week ging Edge in review en is Brave écht getest, niet aangenomen. Hier is precies wat er veranderde, en wat nog niet.">
 <meta name="theme-color" content="#0B0A12">
-<meta property="og:title" content="Chrome, Edge, Brave: an honest update on where Yad runs">
-<meta property="og:description" content="Yad started on Chrome only. This week Edge went into review and Brave got tested for real, not assumed. Here is exactly what changed, and what still hasn't.">
+<meta property="og:title" content="Chrome, Edge, Brave: een eerlijke update over waar Yad draait">
+<meta property="og:description" content="Yad begon alleen op Chrome. Deze week ging Edge in review en is Brave écht getest, niet aangenomen. Hier is precies wat er veranderde, en wat nog niet.">
 <meta property="og:type" content="article">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%E2%9C%8B</text></svg>">
 <link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-browsers">
@@ -106,76 +106,76 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
   <div class="container nav-in">
     <a class="wordmark" href="/yad#top"><span class="glyph">✋</span> yad</a>
     <nav class="nav-links">
-      <a href="/yad#features">Features</a>
-      <a href="/yad-security">Security</a>
-      <a href="/yad-business">For Teams</a>
-      <a href="/yad-blog">Blog</a>
+      <a href="/yad#features">Functies</a>
+      <a href="/yad-security-nl">Beveiliging</a>
+      <a href="/yad-business-nl">Voor teams</a>
+      <a href="/yad-blog-nl">Blog</a>
       <a href="/yad#faq">FAQ</a>
     </nav>
     <div class="nav-right">
-      <a class="lang-switch" href="/yad-blog-browsers-nl" title="Nederlands">NL</a>
-      <button class="icon-btn nav-burger" id="burger" aria-label="Open menu" title="Open menu" aria-expanded="false">
+      <a class="lang-switch" href="/yad-blog-browsers" title="English">EN</a>
+      <button class="icon-btn nav-burger" id="burger" aria-label="Menu openen" title="Menu openen" aria-expanded="false">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
       </button>
-      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Add to Chrome</a>
+      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Toevoegen aan Chrome</a>
     </div>
   </div>
 </header>
 <div class="mobile-menu" id="mobileMenu">
   <div class="mobile-menu-in">
-    <a href="/yad#features">Features</a>
-    <a href="/yad-security">Security</a>
-    <a href="/yad-business">For Teams</a>
-    <a href="/yad-blog">Blog</a>
+    <a href="/yad#features">Functies</a>
+    <a href="/yad-security-nl">Beveiliging</a>
+    <a href="/yad-business-nl">Voor teams</a>
+    <a href="/yad-blog-nl">Blog</a>
     <a href="/yad#faq">FAQ</a>
-    <a href="/yad-blog-browsers-nl">Nederlands</a>
+    <a href="/yad-blog-browsers">English</a>
   </div>
 </div>
 
 <main id="top">
   <article class="narrow">
-    <a class="back" href="/yad-blog">← All posts</a>
-    <div class="art-date">August 26, 2026</div>
-    <h1>Chrome, Edge, Brave: an honest update on where Yad runs</h1>
-    <p class="lede">Yad started on Chrome. This week that changed, so here is exactly what changed and what did not.</p>
+    <a class="back" href="/yad-blog-nl">← Alle posts</a>
+    <div class="art-date">26 augustus 2026</div>
+    <h1>Chrome, Edge, Brave: een eerlijke update over waar Yad draait</h1>
+    <p class="lede">Yad begon op Chrome. Deze week veranderde dat, dus hier is precies wat er veranderde en wat niet.</p>
 
     <div class="prose">
-      <p>YAD started on Chrome. That was the whole browser story for a while: build the extension, load the companion app, ship it to the Chrome Web Store, done. It works, it is live, you can check it yourself.</p>
-      <p>This week that changed, so here is exactly what changed and what did not.</p>
+      <p>YAD begon op Chrome. Dat was een tijdlang het hele browserverhaal: bouw de extensie, laad de companion-app, zet 'm in de Chrome Web Store, klaar. Het werkt, het staat live, je kan het zelf checken.</p>
+      <p>Deze week veranderde dat, dus hier is precies wat er veranderde en wat niet.</p>
 
-      <h3>Edge submission</h3>
-      <p>Today we submitted YAD to Microsoft Edge Add-ons through Partner Center. Status right now: in review. Microsoft's own estimate is about seven working days before we hear back. So Edge is not live yet. It is submitted. There is a difference, and I am not going to blur it.</p>
+      <h3>Edge-indiening</h3>
+      <p>Vandaag hebben we YAD ingediend bij Microsoft Edge Add-ons, via Partner Center. Status nu: in review. Microsoft schat zelf zo'n zeven werkdagen voor we iets horen. Edge staat dus nog niet live. Het is ingediend. Dat is een verschil, en dat ga ik niet vervagen.</p>
 
-      <h3>Brave, actually tested</h3>
-      <p>Brave is different. We did not assume it would just work because Brave is Chromium under the hood. We installed Brave, loaded the built extension in an isolated test profile, and checked it through Chrome DevTools Protocol. Two things had to be true: the extension needed to get the exact same extension ID in Brave as it has in Chrome, and a real native messaging call from inside the extension needed to actually start the local Companion app on the machine, not just log something in a browser console. Both checked out, confirmed at the operating system level.</p>
-      <p>Because of that, Brave needs no separate store submission. Brave uses the Chrome Web Store directly. The moment someone on Brave clicks Add to Chrome, they get the same extension we already tested and already ship.</p>
+      <h3>Brave, écht getest</h3>
+      <p>Brave is anders. We namen niet aan dat het gewoon zou werken omdat Brave onder de motorkap Chromium is. We installeerden Brave, laadden de gebouwde extensie in een geïsoleerd testprofiel, en checkten het via Chrome DevTools Protocol. Twee dingen moesten kloppen: de extensie moest in Brave precies dezelfde extension ID krijgen als in Chrome, en een echte native messaging-aanroep vanuit de extensie moest de lokale Companion-app op de machine daadwerkelijk starten, niet alleen iets loggen in een browserconsole. Allebei klopten, bevestigd op besturingssysteem-niveau.</p>
+      <p>Daardoor heeft Brave geen aparte store-indiening nodig. Brave gebruikt rechtstreeks de Chrome Web Store. Zodra iemand op Brave op Toevoegen aan Chrome klikt, krijgt hij dezelfde extensie die we al getest hebben en al uitleveren.</p>
 
-      <h3>Why this took separate work at all</h3>
-      <p>Chrome, Edge and Brave all run on Chromium, so it is fair to ask why this was not one job finished in one afternoon. The answer is that every browser store runs its own review process with its own rules, even when the underlying browser engine is identical. A concrete example: Microsoft's store rejected a manifest field that Chrome's store accepts without complaint. Nothing about what the extension does was different. It was a store rule, not a functional one. That is the kind of small, boring difference that eats a day if you are not looking for it.</p>
+      <h3>Waarom dit apart werk kostte</h3>
+      <p>Chrome, Edge en Brave draaien allemaal op Chromium, dus het is een terechte vraag waarom dit niet in één middag geklaard was. Het antwoord is dat elke browserstore zijn eigen reviewproces heeft met eigen regels, ook als de onderliggende browser-engine identiek is. Een concreet voorbeeld: de store van Microsoft wees een manifest field af dat de store van Chrome zonder klagen accepteert. Er veranderde niets aan wat de extensie doet. Het was een storeregel, geen functionele regel. Dat is het soort klein, saai verschil dat een dag opeet als je er niet op let.</p>
 
-      <h3>What is not done</h3>
-      <p>Firefox uses a different extension format entirely, and it is not on the schedule as finished work right now. Safari is blocked for a plainer reason: building for Safari requires a Mac with Apple's own developer tools, and we do not have one available at the moment. I would rather say that plainly than let the page imply more browsers than we have actually verified.</p>
+      <h3>Wat nog niet af is</h3>
+      <p>Firefox gebruikt een compleet ander extensieformaat, en dat staat nu niet op de planning als afgerond werk. Safari zit vast om een simpelere reden: bouwen voor Safari vereist een Mac met Apple's eigen developer tools, en die hebben we op dit moment niet beschikbaar. Dat zeg ik liever gewoon zo, dan dat de pagina meer browsers suggereert dan we daadwerkelijk geverifieerd hebben.</p>
 
-      <h3>Why bother writing this down</h3>
-      <p>None of this is a big announcement. It is three small, checkable facts: Chrome is live, Edge is submitted and waiting on Microsoft, Brave is tested and confirmed working today. That is what a browser-agent company should sound like when it talks about itself. Not a promise about tomorrow. A record of what was actually verified today, including the parts that are not finished yet.</p>
-      <p>That is the whole update.</p>
+      <h3>Waarom dit opschrijven</h3>
+      <p>Niks van dit alles is een grote aankondiging. Het zijn drie kleine, controleerbare feiten: Chrome staat live, Edge is ingediend en wacht op Microsoft, Brave is getest en vandaag bevestigd werkend. Zo hoort een browser-agent-bedrijf te klinken als het over zichzelf praat. Geen belofte over morgen. Een verslag van wat vandaag daadwerkelijk geverifieerd is, inclusief de delen die nog niet af zijn.</p>
+      <p>Dat is de hele update.</p>
     </div>
 
-    <a class="back" href="/yad-blog">← All posts</a>
+    <a class="back" href="/yad-blog-nl">← Alle posts</a>
   </article>
 </main>
 
 <footer>
   <div class="container foot-in">
-    <div class="foot-brand mono">yad ✋ your own hand in the browser</div>
+    <div class="foot-brand mono">yad ✋ je eigen hand in de browser</div>
     <div class="foot-links">
       <a href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Chrome Web Store</a>
       <a href="https://github.com/holistis/al-yad">GitHub</a>
       <a href="/yad-privacy">Privacy</a>
-      <a href="/yad-security">Security</a>
+      <a href="/yad-security-nl">Beveiliging</a>
       <a href="mailto:info@mergefix.com">Contact</a>
     </div>
-    <p class="foot-built">Built by <a href="https://github.com/holistis" style="color:inherit;text-decoration:underline">Abdellah Ouadoudi</a>. Questions? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
+    <p class="foot-built">Gebouwd door <a href="https://github.com/holistis" style="color:inherit;text-decoration:underline">Abdellah Ouadoudi</a>. Vragen? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
   </div>
 </footer>
 

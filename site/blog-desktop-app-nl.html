@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html lang="nl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Chrome, Edge, Brave: an honest update on where Yad runs</title>
-<meta name="description" content="Yad started on Chrome only. This week Edge went into review and Brave got tested for real, not assumed. Here is exactly what changed, and what still hasn't.">
+<title>Yad draait nu ook als eigen desktop-app</title>
+<meta name="description" content="Een tweede manier om Yad te draaien, volledig buiten je browser om. Wat het is, waarom het bestaat, hoe het werkt, en een eerlijk woord over hoe af het echt is.">
 <meta name="theme-color" content="#0B0A12">
-<meta property="og:title" content="Chrome, Edge, Brave: an honest update on where Yad runs">
-<meta property="og:description" content="Yad started on Chrome only. This week Edge went into review and Brave got tested for real, not assumed. Here is exactly what changed, and what still hasn't.">
+<meta property="og:title" content="Yad draait nu ook als eigen desktop-app">
+<meta property="og:description" content="Een tweede manier om Yad te draaien, volledig buiten je browser om. Wat het is, waarom het bestaat, hoe het werkt, en een eerlijk woord over hoe af het echt is.">
 <meta property="og:type" content="article">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%E2%9C%8B</text></svg>">
-<link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-browsers">
-<link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-browsers-nl">
-<link rel="alternate" hreflang="x-default" href="https://yadagent.com/yad-blog-browsers">
+<link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-desktop-app">
+<link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-desktop-app-nl">
+<link rel="alternate" hreflang="x-default" href="https://yadagent.com/yad-blog-desktop-app">
 <style>
 :root{
   --bg:#0B0A12; --surf-1:#141221; --surf-2:#1C1830;
@@ -87,7 +87,11 @@ article .lede{font-size:var(--step-1);color:var(--text-dim);margin-top:18px}
 .prose{margin-top:var(--s6)}
 .prose h3{font-size:20px;margin-top:var(--s6);margin-bottom:2px}
 .prose p{color:var(--text-dim);margin-top:16px;font-size:16px;line-height:1.7}
-.prose a{color:var(--accent);text-decoration:underline}
+.prose a{color:var(--accent);text-decoration:underline;word-break:break-word}
+.honest{margin-top:var(--s5);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--border));
+  background:color-mix(in srgb,var(--accent) 7%,var(--surf-1));border-radius:16px;padding:var(--s5)}
+.honest p{margin-top:0}
+.honest p+p{margin-top:16px}
 
 footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-dim)}
 .foot-in{display:flex;flex-wrap:wrap;gap:18px 30px;justify-content:space-between;align-items:baseline}
@@ -106,76 +110,73 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
   <div class="container nav-in">
     <a class="wordmark" href="/yad#top"><span class="glyph">✋</span> yad</a>
     <nav class="nav-links">
-      <a href="/yad#features">Features</a>
-      <a href="/yad-security">Security</a>
-      <a href="/yad-business">For Teams</a>
-      <a href="/yad-blog">Blog</a>
+      <a href="/yad#features">Functies</a>
+      <a href="/yad-security-nl">Beveiliging</a>
+      <a href="/yad-business-nl">Voor teams</a>
+      <a href="/yad-blog-nl">Blog</a>
       <a href="/yad#faq">FAQ</a>
     </nav>
     <div class="nav-right">
-      <a class="lang-switch" href="/yad-blog-browsers-nl" title="Nederlands">NL</a>
-      <button class="icon-btn nav-burger" id="burger" aria-label="Open menu" title="Open menu" aria-expanded="false">
+      <a class="lang-switch" href="/yad-blog-desktop-app" title="English">EN</a>
+      <button class="icon-btn nav-burger" id="burger" aria-label="Menu openen" title="Menu openen" aria-expanded="false">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
       </button>
-      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Add to Chrome</a>
+      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Toevoegen aan Chrome</a>
     </div>
   </div>
 </header>
 <div class="mobile-menu" id="mobileMenu">
   <div class="mobile-menu-in">
-    <a href="/yad#features">Features</a>
-    <a href="/yad-security">Security</a>
-    <a href="/yad-business">For Teams</a>
-    <a href="/yad-blog">Blog</a>
+    <a href="/yad#features">Functies</a>
+    <a href="/yad-security-nl">Beveiliging</a>
+    <a href="/yad-business-nl">Voor teams</a>
+    <a href="/yad-blog-nl">Blog</a>
     <a href="/yad#faq">FAQ</a>
-    <a href="/yad-blog-browsers-nl">Nederlands</a>
+    <a href="/yad-blog-desktop-app">English</a>
   </div>
 </div>
 
 <main id="top">
   <article class="narrow">
-    <a class="back" href="/yad-blog">← All posts</a>
-    <div class="art-date">August 26, 2026</div>
-    <h1>Chrome, Edge, Brave: an honest update on where Yad runs</h1>
-    <p class="lede">Yad started on Chrome. This week that changed, so here is exactly what changed and what did not.</p>
+    <a class="back" href="/yad-blog-nl">← Alle posts</a>
+    <div class="art-date">26 augustus 2026</div>
+    <h1>Yad draait nu ook als eigen desktop-app</h1>
+    <p class="lede">Een tweede manier om Yad te draaien, volledig buiten je browser om.</p>
 
     <div class="prose">
-      <p>YAD started on Chrome. That was the whole browser story for a while: build the extension, load the companion app, ship it to the Chrome Web Store, done. It works, it is live, you can check it yourself.</p>
-      <p>This week that changed, so here is exactly what changed and what did not.</p>
+      <p>Tot nu toe leefde Yad alleen in je browser. Het was een extensie: iets wat je toevoegde aan Chrome, Edge of Brave. Je moest die browser open hebben, met de extensie er al in, voor je Yad iets kon laten doen. Dat werkt nog steeds precies zoals voorheen. Maar er is nu een tweede manier om Yad te draaien, en die raakt je gewone browser helemaal niet aan.</p>
+      <p>We bouwden een zelfstandige desktopversie van Yad. Je dubbelklikt erop, en het opent als eigen programmavenster, los van je gewone tabbladen, je gewone logins, wat je ook al open had staan. Geen nieuw icoontje tussen je andere extensies gepropt. Het opent gewoon, zoals elk ander programma op je computer opent.</p>
+      <p>Waarom zou je dat willen, als de extensie het werk al doet? Omdat je soms je dagelijkse browser er niet bij wilt betrekken. Je wilt Yad gewoon één taak geven en laten draaien, zonder dat je open tabbladen, je opgeslagen sessies, of de tien andere dingen waar je mee bezig was ergens in de buurt komen. De desktop-app geeft Yad zijn eigen schone ruimte om in te werken, in plaats van die van jou te lenen.</p>
 
-      <h3>Edge submission</h3>
-      <p>Today we submitted YAD to Microsoft Edge Add-ons through Partner Center. Status right now: in review. Microsoft's own estimate is about seven working days before we hear back. So Edge is not live yet. It is submitted. There is a difference, and I am not going to blur it.</p>
+      <h3>Hoe het werkt</h3>
+      <p>Een dubbelklik start een kleine lokale server op je eigen machine. Het is dezelfde engine, hetzelfde "brein", dat ook de extensieversie aandrijft, dit keer gewoon zelfstandig draaiend. Dat opent een gewoon browservenster in app mode, geen adresbalk, geen zichtbare tabbladen, en dat venster wordt je control panel: de plek waar je typt wat je gedaan wilt hebben en het ziet gebeuren.</p>
+      <p>Dat control panel is alleen de schil. Het echte werk, het klikken en typen, gebeurt in een compleet apart browservenster, een venster waarin je in real time kunt zien hoe het zijn werk doet. Dat is dezelfde scheiding die de extensie al heeft tussen het control panel en de hand die het werk doet. De desktop-app verpakt datzelfde idee gewoon in zijn eigen venster in plaats van een browsertab.</p>
+      <p>Dezelfde engine eronder betekent dat Yad in beide gevallen hetzelfde kan doen. Wat verandert is hoe je het opent en hoe je ermee praat, niet waartoe het in staat is.</p>
 
-      <h3>Brave, actually tested</h3>
-      <p>Brave is different. We did not assume it would just work because Brave is Chromium under the hood. We installed Brave, loaded the built extension in an isolated test profile, and checked it through Chrome DevTools Protocol. Two things had to be true: the extension needed to get the exact same extension ID in Brave as it has in Chrome, and a real native messaging call from inside the extension needed to actually start the local Companion app on the machine, not just log something in a browser console. Both checked out, confirmed at the operating system level.</p>
-      <p>Because of that, Brave needs no separate store submission. Brave uses the Chrome Web Store directly. The moment someone on Brave clicks Add to Chrome, they get the same extension we already tested and already ship.</p>
+      <div class="honest">
+        <p>Dan het eerlijke deel, want dit is een regel waar we niet van afwijken. Dit is een echt, werkend prototype. We hebben het zelf getest, meer dan één keer, en het draait. Het is geen mockup. Maar het is een vroege, ontwikkelaars-gerichte build, geen af product voor een gewone, niet-technische gebruiker.</p>
+        <p>Op dit moment betekent gebruiken: Node.js geïnstalleerd hebben en het zelf bouwen vanaf de broncode. pnpm install draaien, dan pnpm build, en een apart commando om de browser te installeren waarmee het automatiseert. Er is nog geen download-en-installer in één klik. Ben je thuis in een terminal en wil je het vandaag proberen, dan vind je de desktop-app hier: <a href="https://github.com/holistis/al-yad/tree/feat/yad-onboarding-copy/packages/desktop-app">github.com/holistis/al-yad, packages/desktop-app</a>.</p>
+        <p>Voor iedereen die dat niet is: de extensie blijft vandaag de manier om Yad te gebruiken, en de eenvoudige, makkelijke installer voor de desktopversie komt eraan, maar is er nog niet.</p>
+      </div>
 
-      <h3>Why this took separate work at all</h3>
-      <p>Chrome, Edge and Brave all run on Chromium, so it is fair to ask why this was not one job finished in one afternoon. The answer is that every browser store runs its own review process with its own rules, even when the underlying browser engine is identical. A concrete example: Microsoft's store rejected a manifest field that Chrome's store accepts without complaint. Nothing about what the extension does was different. It was a store rule, not a functional one. That is the kind of small, boring difference that eats a day if you are not looking for it.</p>
-
-      <h3>What is not done</h3>
-      <p>Firefox uses a different extension format entirely, and it is not on the schedule as finished work right now. Safari is blocked for a plainer reason: building for Safari requires a Mac with Apple's own developer tools, and we do not have one available at the moment. I would rather say that plainly than let the page imply more browsers than we have actually verified.</p>
-
-      <h3>Why bother writing this down</h3>
-      <p>None of this is a big announcement. It is three small, checkable facts: Chrome is live, Edge is submitted and waiting on Microsoft, Brave is tested and confirmed working today. That is what a browser-agent company should sound like when it talks about itself. Not a promise about tomorrow. A record of what was actually verified today, including the parts that are not finished yet.</p>
-      <p>That is the whole update.</p>
+      <p>Nog één ding: het is voorlopig alleen voor Windows, net als de rest van Yad.</p>
     </div>
 
-    <a class="back" href="/yad-blog">← All posts</a>
+    <a class="back" href="/yad-blog-nl">← Alle posts</a>
   </article>
 </main>
 
 <footer>
   <div class="container foot-in">
-    <div class="foot-brand mono">yad ✋ your own hand in the browser</div>
+    <div class="foot-brand mono">yad ✋ je eigen hand in de browser</div>
     <div class="foot-links">
       <a href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Chrome Web Store</a>
       <a href="https://github.com/holistis/al-yad">GitHub</a>
       <a href="/yad-privacy">Privacy</a>
-      <a href="/yad-security">Security</a>
+      <a href="/yad-security-nl">Beveiliging</a>
       <a href="mailto:info@mergefix.com">Contact</a>
     </div>
-    <p class="foot-built">Built by <a href="https://github.com/holistis" style="color:inherit;text-decoration:underline">Abdellah Ouadoudi</a>. Questions? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
+    <p class="foot-built">Gebouwd door <a href="https://github.com/holistis" style="color:inherit;text-decoration:underline">Abdellah Ouadoudi</a>. Vragen? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
   </div>
 </footer>
 

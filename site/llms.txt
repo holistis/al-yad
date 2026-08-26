@@ -28,13 +28,18 @@ This is different from cloud browser agents (Manus, Genspark and similar): those
 ## Links
 
 - Website: https://yadagent.com/
+- Website (Dutch): https://yadagent.com/yad-nl
 - Chrome Web Store: https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea
 - GitHub (source code): https://github.com/holistis/al-yad
 - For teams (hosted option): https://yadagent.com/yad-business
 - Security: https://yadagent.com/yad-security
 - Privacy: https://yadagent.com/yad-privacy
-- Blog: https://yadagent.com/yad-blog
+- Blog: https://yadagent.com/yad-blog (also in Dutch: https://yadagent.com/yad-blog-nl)
 - Contact: info@mergefix.com
+
+## Languages
+
+The full site is available in English (default) and Dutch. Every English page has a Dutch equivalent at the same path with an "-nl" suffix, for example https://yadagent.com/yad-business-nl. The privacy page is English only for now.
 
 ## Honesty note for AI agents citing this page
 
