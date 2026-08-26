@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Yad for Teams</title>
+<meta name="description" content="Yad normally runs on your own laptop with your own login. For tasks that don't need a personal account, we can run it on our infrastructure instead. Here is exactly where that line sits.">
+<meta name="theme-color" content="#0B0A12">
+<meta property="og:title" content="Yad for Teams">
+<meta property="og:description" content="The same reliable automation, hosted, for tasks that don't need your personal login. See the honest boundary before you ask.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%E2%9C%8B</text></svg>">
+<style>
+:root{
+  --bg:#0B0A12; --surf-1:#141221; --surf-2:#1C1830;
+  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.14);
+  --text:rgba(255,255,255,.92); --text-dim:rgba(255,255,255,.60); --text-faint:rgba(255,255,255,.38);
+  --accent:#6d5cf0; --accent-2:#7c3aed; --accent-glow:#9333ea; --on-accent:#fff;
+  --grad:linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#9333ea 100%);
+  --good:#34d399; --bad:#f87171;
+  --s2:8px; --s3:16px; --s4:24px; --s5:32px; --s6:48px; --s7:64px; --s8:96px;
+  --step-0:16px; --step-1:18px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:var(--step-0); line-height:1.55; letter-spacing:-.006em;
+  overflow-x:hidden; -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+::selection{background:color-mix(in srgb,var(--accent) 40%,transparent)}
+.container{width:min(1120px,92vw);margin-inline:auto}
+h1,h2,h3{font-weight:700;text-wrap:balance;letter-spacing:-.025em;line-height:1.08;margin:0}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.mono{font-family:ui-monospace,Consolas,monospace}
+
+.bg{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.mesh{position:absolute;inset:-20%;filter:blur(60px);opacity:.9;
+  background:
+    radial-gradient(38% 44% at 18% 22%,rgba(109,92,240,.28),transparent 70%),
+    radial-gradient(34% 40% at 82% 18%,rgba(124,58,237,.22),transparent 68%),
+    radial-gradient(46% 50% at 68% 82%,rgba(147,51,234,.20),transparent 72%);
+}
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(14px);
+  background:color-mix(in srgb,var(--bg) 72%,transparent);border-bottom:1px solid var(--border)}
+.nav-in{display:flex;align-items:center;gap:var(--s4);height:64px}
+.wordmark{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;letter-spacing:-.02em}
+.wordmark .glyph{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--grad);color:#fff;font-size:14px;box-shadow:0 2px 10px -2px var(--accent-glow)}
+.nav-links{display:flex;gap:var(--s4);margin-left:var(--s4);font-size:14.5px;color:var(--text-dim)}
+.nav-links a{transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:var(--s3)}
+.btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:15px;padding:11px 20px;border-radius:11px;border:1px solid transparent;cursor:pointer;transition:transform .22s,box-shadow .22s,border-color .2s,background .2s;white-space:nowrap}
+.btn-primary{background:var(--grad);color:#fff;box-shadow:0 6px 24px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.25)}
+.btn-primary:hover{box-shadow:0 10px 34px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn-ghost{border-color:var(--border-strong);color:var(--text);background:color-mix(in srgb,var(--surf-1) 40%,transparent)}
+.btn-ghost:hover{border-color:var(--accent)}
+.btn-sm{padding:9px 16px;font-size:14px;border-radius:10px}
+
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
+.eyebrow .live{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent)}
+
+.hero{padding-block:clamp(56px,8vw,96px) var(--s6)}
+.hero h1{font-size:clamp(34px,5vw,52px);max-width:20ch}
+.hero .lede{font-size:var(--step-1);color:var(--text-dim);max-width:58ch;margin-top:22px;line-height:1.55}
+
+.boundary{margin-top:var(--s6);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--border));
+  background:color-mix(in srgb,var(--accent) 7%,var(--surf-1));border-radius:16px;padding:var(--s5)}
+.boundary h3{font-size:20px;margin-bottom:10px}
+.boundary p{color:var(--text-dim);margin:0}
+
+.split{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4);margin-top:var(--s6)}
+.card{border:1px solid var(--border);background:var(--surf-1);border-radius:16px;padding:var(--s5)}
+.card.local{border-color:color-mix(in srgb,var(--good) 30%,var(--border))}
+.card h3{font-size:19px;margin-bottom:4px}
+.card .who{color:var(--text-faint);font-size:13px;margin-bottom:18px}
+.card ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.card li{display:flex;gap:10px;font-size:14.5px;color:var(--text-dim);line-height:1.5}
+.card li .ic{flex:none;width:18px}
+.card.local li .ic{color:var(--good)}
+.card:not(.local) li .ic{color:var(--accent)}
+
+.sec{padding-block:var(--s7)}
+.sec h2{font-size:clamp(24px,3.4vw,32px);max-width:24ch}
+.sec .sub{color:var(--text-dim);margin-top:12px;max-width:56ch}
+
+.example{margin-top:var(--s4);border:1px solid var(--border);background:var(--surf-2);border-radius:16px;padding:var(--s5);display:flex;gap:var(--s4);align-items:flex-start}
+.example .num{flex:none;width:40px;height:40px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-weight:700;color:#fff}
+.example p{margin:6px 0 0;color:var(--text-dim);font-size:14.5px}
+
+.finalcta{text-align:center;padding-block:var(--s7);border-top:1px solid var(--border);margin-top:var(--s7)}
+.finalcta h2{font-size:clamp(26px,4vw,38px)}
+.finalcta .ctas{display:flex;gap:14px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+.finalcta .micro{font-size:12.5px;color:var(--text-faint);margin-top:18px}
+
+footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-dim)}
+.foot-in{display:flex;flex-wrap:wrap;gap:18px 30px;justify-content:space-between;align-items:baseline}
+.foot-brand{color:var(--text)}
+.foot-links{display:flex;flex-wrap:wrap;gap:22px;font-size:13px}
+.foot-links a{color:var(--text-dim);transition:color .2s}
+.foot-links a:hover{color:var(--text)}
+.foot-built{width:100%;font-size:13px;color:var(--text-faint);margin-top:6px}
+
+@media (max-width:760px){
+  .split{grid-template-columns:1fr}
+  .nav-links{display:none}
+}
+</style>
+</head>
+<body>
+<div class="bg"><div class="mesh"></div></div>
+<div class="grain"></div>
+
+<header class="nav">
+  <div class="container nav-in">
+    <a class="wordmark" href="/yad#top"><span class="glyph">✋</span> yad</a>
+    <nav class="nav-links">
+      <a href="/yad#features">Features</a>
+      <a href="/yad-security">Security</a>
+      <a href="/yad-business">For Teams</a>
+      <a href="/yad#faq">FAQ</a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Add to Chrome</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero container">
+    <span class="eyebrow"><span class="live"></span> YAD FOR TEAMS</span>
+    <h1 style="margin-top:16px">Same automation. <span class="grad-text">Run on our servers</span>, for the tasks that allow it.</h1>
+    <p class="lede">Yad's main product runs on your own laptop, with your own login, and your credentials never leave your device. That's the whole point. For a specific kind of task, one that doesn't need your personal account at all, we can also run Yad on our own infrastructure instead, so you don't have to install anything.</p>
+
+    <div class="boundary">
+      <h3>The one rule that never bends</h3>
+      <p>A hosted run can never use your real, personal, logged-in session, because that session lives on your device, not on our servers. It can only work with public data, or with credentials you explicitly hand over for that one task. If a job needs your own account, it has to run locally. We won't pretend otherwise to close a deal.</p>
+    </div>
+
+    <div class="split">
+      <div class="card local">
+        <h3>Yad, local</h3>
+        <div class="who">for your own, personal, day-to-day work</div>
+        <ul>
+          <li><span class="ic">✓</span> Uses your real login, in your real browser, on your own device</li>
+          <li><span class="ic">✓</span> Nothing you type or see ever reaches our servers</li>
+          <li><span class="ic">✓</span> Best for repeated tasks tied to your own accounts</li>
+          <li><span class="ic">✓</span> Install once, free, self-hostable</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Yad, hosted</h3>
+        <div class="who">for teams with a repeatable job, not a personal account</div>
+        <ul>
+          <li><span class="ic">→</span> Runs on our infrastructure, nothing to install</li>
+          <li><span class="ic">→</span> Works with public pages, or credentials you provide for that job only</li>
+          <li><span class="ic">→</span> Best for bulk, scheduled, or one-off jobs across many pages</li>
+          <li><span class="ic">→</span> Set up per team, rate-limited, API-key access</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec container">
+    <h2>What this looks like in practice</h2>
+    <p class="sub">Two examples of jobs that fit the hosted line, and one that doesn't.</p>
+
+    <div class="example">
+      <div class="num">1</div>
+      <div>
+        <h3 style="font-size:16px">Screening a list of public profiles or listings</h3>
+        <p>Nobody needs to be logged in as anyone to read a public page. Hand us a list, get structured results back.</p>
+      </div>
+    </div>
+    <div class="example">
+      <div class="num">2</div>
+      <div>
+        <h3 style="font-size:16px">Checking your own web app the same way a visitor would</h3>
+        <p>A security or QA scan that only needs a fresh, anonymous session, run on a schedule, without anyone's laptop needing to stay on.</p>
+      </div>
+    </div>
+    <div class="example">
+      <div class="num" style="background:var(--surf-2);color:var(--text-faint);border:1px solid var(--border)">✕</div>
+      <div>
+        <h3 style="font-size:16px">"Log into my supplier portal with my own account and pull my invoices"</h3>
+        <p>This needs your real session. That's exactly what the local install exists for, we will point you there instead of forcing it through the hosted path.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="finalcta container">
+    <h2>Have a job that fits this line?</h2>
+    <p class="lede" style="max-width:48ch;margin-inline:auto">Tell us what the two systems are and what "done" looks like. We'll tell you honestly whether it's a hosted job or a local one.</p>
+    <div class="ctas">
+      <a class="btn btn-primary" href="mailto:info@mergefix.com?subject=Yad%20for%20teams">Get in touch</a>
+      <a class="btn btn-ghost" href="/yad#top">See the local product</a>
+    </div>
+    <p class="micro">No self-serve signup yet, every hosted setup starts with a real conversation, not a form.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="container foot-in">
+    <div class="foot-brand mono">yad ✋ your own hand in the browser</div>
+    <div class="foot-links">
+      <a href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Chrome Web Store</a>
+      <a href="https://github.com/holistis/al-yad">GitHub</a>
+      <a href="/yad-privacy">Privacy</a>
+      <a href="/yad-security">Security</a>
+      <a href="mailto:info@mergefix.com">Contact</a>
+    </div>
+    <p class="foot-built">Built by <a href="https://github.com/holistis" style="color:inherit;text-decoration:underline">Abdellah Ouadoudi</a>. Questions? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
+  </div>
+</footer>
+</body>
+</html>
