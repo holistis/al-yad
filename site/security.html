@@ -107,7 +107,18 @@
   .btn-ghost{border-color:var(--border-strong);color:var(--text);background:color-mix(in srgb,var(--surf-1) 40%,transparent)}
   .btn-ghost:hover{border-color:var(--accent)}
   .btn-sm{padding:9px 16px;font-size:14px;border-radius:10px}
-  @media (max-width:820px){ .nav-links{display:none} }
+  .nav-burger{display:none}
+  .mobile-menu{display:none}
+  @media (max-width:820px){
+    .nav-links{display:none}
+    .nav-burger{display:grid}
+    .mobile-menu{display:block;position:fixed;left:0;right:0;top:64px;z-index:49;background:var(--bg);border-bottom:1px solid var(--border);
+      max-height:0;overflow:hidden;transition:max-height .25s ease}
+    .mobile-menu.open{max-height:60vh}
+    .mobile-menu-in{display:flex;flex-direction:column;padding:var(--s3) var(--s4) var(--s5)}
+    .mobile-menu a{padding:13px 4px;font-size:15.5px;color:var(--text-dim);border-bottom:1px solid var(--border)}
+    .mobile-menu a:last-child{border-bottom:none}
+  }
 
   /* ---------- sections ---------- */
   section{padding-block:clamp(64px,10vw,120px);position:relative}
@@ -319,16 +330,30 @@
       <a href="/yad#privacy">Privacy</a>
       <a href="/yad-security">Security</a>
       <a href="/yad-business">For Teams</a>
+      <a href="/yad-blog">Blog</a>
       <a href="/yad#faq">FAQ</a>
     </nav>
     <div class="nav-right">
       <button class="icon-btn" id="theme" aria-label="Switch theme" title="Switch theme">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
       </button>
+      <button class="icon-btn nav-burger" id="burger" aria-label="Open menu" title="Open menu" aria-expanded="false">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
+      </button>
       <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Add to Chrome</a>
     </div>
   </div>
 </header>
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-in">
+    <a href="/yad#features">Features</a>
+    <a href="/yad#privacy">Privacy</a>
+    <a href="/yad-security">Security</a>
+    <a href="/yad-business">For Teams</a>
+    <a href="/yad-blog">Blog</a>
+    <a href="/yad#faq">FAQ</a>
+  </div>
+</div>
 
 <main id="top">
   <!-- HERO -->
@@ -504,6 +529,18 @@
     root.setAttribute("data-theme",cur);
     try{localStorage.setItem("yad-theme",cur);}catch(e){}
   });}
+
+  var burger=document.getElementById("burger");
+  var mmenu=document.getElementById("mobileMenu");
+  if(burger&&mmenu){
+    burger.addEventListener("click",function(){
+      var open=mmenu.classList.toggle("open");
+      burger.setAttribute("aria-expanded",open?"true":"false");
+    });
+    mmenu.addEventListener("click",function(e){
+      if(e.target.tagName==="A"){mmenu.classList.remove("open");burger.setAttribute("aria-expanded","false");}
+    });
+  }
 })();
 </script>
 </body>

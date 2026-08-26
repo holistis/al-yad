@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Yad now runs as its own desktop app</title>
+<meta name="description" content="A second way to run Yad, outside your browser entirely. What it is, why it exists, how it works, and an honest word on how finished it really is.">
+<meta name="theme-color" content="#0B0A12">
+<meta property="og:title" content="Yad now runs as its own desktop app">
+<meta property="og:description" content="A second way to run Yad, outside your browser entirely. What it is, why it exists, how it works, and an honest word on how finished it really is.">
+<meta property="og:type" content="article">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%E2%9C%8B</text></svg>">
+<style>
+:root{
+  --bg:#0B0A12; --surf-1:#141221; --surf-2:#1C1830;
+  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.14);
+  --text:rgba(255,255,255,.92); --text-dim:rgba(255,255,255,.60); --text-faint:rgba(255,255,255,.38);
+  --accent:#6d5cf0; --accent-2:#7c3aed; --accent-glow:#9333ea; --on-accent:#fff;
+  --grad:linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#9333ea 100%);
+  --s2:8px; --s3:16px; --s4:24px; --s5:32px; --s6:48px; --s7:64px;
+  --step-0:16px; --step-1:18px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:var(--step-0); line-height:1.55; letter-spacing:-.006em;
+  overflow-x:hidden; -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+::selection{background:color-mix(in srgb,var(--accent) 40%,transparent)}
+.container{width:min(880px,92vw);margin-inline:auto}
+.narrow{width:min(680px,92vw);margin-inline:auto}
+h1,h2,h3{font-weight:700;text-wrap:balance;letter-spacing:-.025em;line-height:1.15;margin:0}
+.mono{font-family:ui-monospace,Consolas,monospace}
+
+.bg{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.mesh{position:absolute;inset:-20%;filter:blur(60px);opacity:.9;
+  background:
+    radial-gradient(38% 44% at 18% 22%,rgba(109,92,240,.28),transparent 70%),
+    radial-gradient(34% 40% at 82% 18%,rgba(124,58,237,.22),transparent 68%),
+    radial-gradient(46% 50% at 68% 82%,rgba(147,51,234,.20),transparent 72%);
+}
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(14px);
+  background:color-mix(in srgb,var(--bg) 72%,transparent);border-bottom:1px solid var(--border)}
+.nav-in{display:flex;align-items:center;gap:var(--s4);height:64px}
+.wordmark{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;letter-spacing:-.02em}
+.wordmark .glyph{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--grad);color:#fff;font-size:14px;box-shadow:0 2px 10px -2px var(--accent-glow)}
+.nav-links{display:flex;gap:var(--s4);margin-left:var(--s4);font-size:14.5px;color:var(--text-dim)}
+.nav-links a{transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:var(--s3)}
+.icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;display:grid;place-items:center;transition:.2s}
+.icon-btn:hover{color:var(--text);border-color:var(--border-strong)}
+.btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:15px;padding:11px 20px;border-radius:11px;border:1px solid transparent;cursor:pointer;transition:transform .22s,box-shadow .22s,border-color .2s,background .2s;white-space:nowrap}
+.btn-primary{background:var(--grad);color:#fff;box-shadow:0 6px 24px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.25)}
+.btn-primary:hover{box-shadow:0 10px 34px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn-sm{padding:9px 16px;font-size:14px;border-radius:10px}
+.nav-burger{display:none}
+.mobile-menu{display:none}
+@media (max-width:820px){
+  .nav-links{display:none}
+  .nav-burger{display:grid}
+  .mobile-menu{display:block;position:fixed;left:0;right:0;top:64px;z-index:49;background:var(--bg);border-bottom:1px solid var(--border);
+    max-height:0;overflow:hidden;transition:max-height .25s ease}
+  .mobile-menu.open{max-height:60vh}
+  .mobile-menu-in{display:flex;flex-direction:column;padding:var(--s3) var(--s4) var(--s5)}
+  .mobile-menu a{padding:13px 4px;font-size:15.5px;color:var(--text-dim);border-bottom:1px solid var(--border)}
+  .mobile-menu a:last-child{border-bottom:none}
+}
+
+.back{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--text-dim);margin-top:var(--s6)}
+.back:hover{color:var(--text)}
+
+article{padding-block:var(--s4) var(--s7)}
+.art-date{font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-top:var(--s4)}
+article h1{font-size:clamp(28px,4.4vw,42px);margin-top:14px}
+article .lede{font-size:var(--step-1);color:var(--text-dim);margin-top:18px}
+.prose{margin-top:var(--s6)}
+.prose h3{font-size:20px;margin-top:var(--s6);margin-bottom:2px}
+.prose p{color:var(--text-dim);margin-top:16px;font-size:16px;line-height:1.7}
+.prose a{color:var(--accent);text-decoration:underline;word-break:break-word}
+.honest{margin-top:var(--s5);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--border));
+  background:color-mix(in srgb,var(--accent) 7%,var(--surf-1));border-radius:16px;padding:var(--s5)}
+.honest p{margin-top:0}
+.honest p+p{margin-top:16px}
+
+footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-dim)}
+.foot-in{display:flex;flex-wrap:wrap;gap:18px 30px;justify-content:space-between;align-items:baseline}
+.foot-brand{color:var(--text)}
+.foot-links{display:flex;flex-wrap:wrap;gap:22px;font-size:13px}
+.foot-links a{color:var(--text-dim);transition:color .2s}
+.foot-links a:hover{color:var(--text)}
+.foot-built{width:100%;font-size:13px;color:var(--text-faint);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="bg"><div class="mesh"></div></div>
+<div class="grain"></div>
+
+<header class="nav">
+  <div class="container nav-in">
+    <a class="wordmark" href="/yad#top"><span class="glyph">✋</span> yad</a>
+    <nav class="nav-links">
+      <a href="/yad#features">Features</a>
+      <a href="/yad-security">Security</a>
+      <a href="/yad-business">For Teams</a>
+      <a href="/yad-blog">Blog</a>
+      <a href="/yad#faq">FAQ</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn nav-burger" id="burger" aria-label="Open menu" title="Open menu" aria-expanded="false">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
+      </button>
+      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Add to Chrome</a>
+    </div>
+  </div>
+</header>
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-in">
+    <a href="/yad#features">Features</a>
+    <a href="/yad-security">Security</a>
+    <a href="/yad-business">For Teams</a>
+    <a href="/yad-blog">Blog</a>
+    <a href="/yad#faq">FAQ</a>
+  </div>
+</div>
+
+<main id="top">
+  <article class="narrow">
+    <a class="back" href="/yad-blog">← All posts</a>
+    <div class="art-date">August 26, 2026</div>
+    <h1>Yad now runs as its own desktop app</h1>
+    <p class="lede">A second way to run Yad, outside your browser entirely.</p>
+
+    <div class="prose">
+      <p>Until now, Yad only lived inside your browser. It was an extension: something you added to Chrome, Edge or Brave, and you had to have that browser open, with the extension already sitting in it, before you could give Yad anything to do. That still works exactly the same as before. But there's now a second way to run it, and this one doesn't touch your regular browser at all.</p>
+      <p>We built a standalone desktop version of Yad. You double-click it, and it opens as its own program window, separate from your normal tabs, your normal logins, whatever you already had open. No new icon squeezed in next to your other extensions. It just opens, the way any other app on your computer opens.</p>
+      <p>Why would you want that, if the extension already does the job? Because sometimes you don't want your everyday browser pulled into it. You just want to give Yad one task and let it run, without your open tabs, your saved sessions, or the ten other things you were doing getting anywhere near it. The desktop app gives Yad its own clean space to work in, instead of borrowing yours.</p>
+
+      <h3>How it works</h3>
+      <p>A double-click starts a small local server on your own machine. It's the same engine, the same "brain," that powers the extension version, just running on its own this time. That opens an ordinary browser window in app mode, no address bar, no visible tabs, and that window becomes your control panel: the place where you type what you want done and watch it happen.</p>
+      <p>That control panel is just the shell. The actual work, the clicking and typing, happens in a completely separate browser window of its own, one you can watch doing its thing in real time. That's the same split the extension already has between the control panel and the hand that does the work. The desktop app just wraps that same idea in its own window instead of a browser tab.</p>
+      <p>Same engine underneath means Yad can do the same things either way. What changes is how you open it and how you talk to it, not what it's capable of.</p>
+
+      <div class="honest">
+        <p>Now, the honest part, because this is a rule we don't bend on. This is a real, working prototype. We've tested it ourselves, more than once, and it runs. It is not a mockup. But it is an early, developer-focused build, not a finished product for a regular, non-technical user.</p>
+        <p>Right now, using it means having Node.js installed and building it yourself from source: running pnpm install, then pnpm build, and a separate command to install the browser it automates with. There's no one-click download and installer yet. If you're comfortable in a terminal and want to try it today, the desktop app lives here: <a href="https://github.com/holistis/al-yad/tree/feat/yad-onboarding-copy/packages/desktop-app">github.com/holistis/al-yad, packages/desktop-app</a>.</p>
+        <p>For everyone else, the extension is still the way to use Yad today, and the plain, easy installer for the desktop version is coming, not here yet.</p>
+      </div>
+
+      <p>One more thing: it's Windows only for now, same as the rest of Yad.</p>
+    </div>
+
+    <a class="back" href="/yad-blog">← All posts</a>
+  </article>
+</main>
+
+<footer>
+  <div class="container foot-in">
+    <div class="foot-brand mono">yad ✋ your own hand in the browser</div>
+    <div class="foot-links">
+      <a href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Chrome Web Store</a>
+      <a href="https://github.com/holistis/al-yad">GitHub</a>
+      <a href="/yad-privacy">Privacy</a>
+      <a href="/yad-security">Security</a>
+      <a href="mailto:info@mergefix.com">Contact</a>
+    </div>
+    <p class="foot-built">Built by <a href="https://github.com/holistis" style="color:inherit;text-decoration:underline">Abdellah Ouadoudi</a>. Questions? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var burger=document.getElementById("burger");
+  var mmenu=document.getElementById("mobileMenu");
+  if(burger&&mmenu){
+    burger.addEventListener("click",function(){
+      var open=mmenu.classList.toggle("open");
+      burger.setAttribute("aria-expanded",open?"true":"false");
+    });
+    mmenu.addEventListener("click",function(e){
+      if(e.target.tagName==="A"){mmenu.classList.remove("open");burger.setAttribute("aria-expanded","false");}
+    });
+  }
+})();
+</script>
+</body>
+</html>
