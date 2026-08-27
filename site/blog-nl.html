@@ -60,6 +60,16 @@ header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(1
 .icon-btn:hover{color:var(--text);border-color:var(--border-strong)}
 .lang-switch{font-size:13px;font-weight:600;color:var(--text-dim);border:1px solid var(--border);border-radius:8px;padding:7px 10px;transition:.2s}
 .lang-switch:hover{color:var(--text);border-color:var(--border-strong)}
+
+.lang-toggle{display:flex;align-items:center;gap:2px;border:1px solid var(--border);border-radius:9px;padding:3px;background:transparent}
+.lang-toggle a{display:flex;align-items:center;justify-content:center;padding:5px 6px;border-radius:6px;opacity:.4;transition:.2s}
+.lang-toggle a:hover{opacity:.75}
+.lang-toggle a.active{opacity:1;background:var(--surf-2)}
+.mobile-lang-toggle{display:flex;gap:8px;padding:10px 4px 4px}
+.mobile-lang-toggle a{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px 8px;border-radius:10px;border:1px solid var(--border);font-size:14.5px;color:var(--text-dim);opacity:.55}
+.mobile-lang-toggle a.active{opacity:1;color:var(--text);border-color:var(--border-strong);background:var(--surf-2)}
+.btn-short{display:none}
+@media (max-width:400px){.lang-toggle{gap:0}.btn-sm{padding:9px 12px;font-size:13.5px}.btn-full{display:none}.btn-short{display:inline}}
 .btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:15px;padding:11px 20px;border-radius:11px;border:1px solid transparent;cursor:pointer;transition:transform .22s,box-shadow .22s,border-color .2s,background .2s;white-space:nowrap}
 .btn-primary{background:var(--grad);color:#fff;box-shadow:0 6px 24px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.25)}
 .btn-primary:hover{box-shadow:0 10px 34px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.3)}
@@ -71,7 +81,7 @@ header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(1
   .nav-burger{display:grid}
   .mobile-menu{display:block;position:fixed;left:0;right:0;top:64px;z-index:49;background:var(--bg);border-bottom:1px solid var(--border);
     max-height:0;overflow:hidden;transition:max-height .25s ease}
-  .mobile-menu.open{max-height:60vh}
+  .mobile-menu.open{max-height:80vh;overflow-y:auto}
   .mobile-menu-in{display:flex;flex-direction:column;padding:var(--s3) var(--s4) var(--s5)}
   .mobile-menu a{padding:13px 4px;font-size:15.5px;color:var(--text-dim);border-bottom:1px solid var(--border)}
   .mobile-menu a:last-child{border-bottom:none}
@@ -116,11 +126,11 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
       <a href="/yad#faq">FAQ</a>
     </nav>
     <div class="nav-right">
-      <a class="lang-switch" href="/yad-blog" title="English"><svg width="15" height="11" viewBox="0 0 60 30" style="vertical-align:-1px;margin-right:4px;border-radius:2px" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="60" height="30" fill="#00247d"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#cf142b" stroke-width="2"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#cf142b" stroke-width="6"/></svg>EN</a>
+      <div class="lang-toggle"><a href="/yad-blog" class="lang-opt" title="English"><svg width="16" height="12" viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="border-radius:2px;display:block"><rect width="60" height="30" fill="#00247d"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#cf142b" stroke-width="2"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#cf142b" stroke-width="6"/></svg></a><a href="/yad-blog-nl" class="lang-opt active" title="Nederlands"><svg width="16" height="12" viewBox="0 0 9 6" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="border-radius:2px;display:block"><rect width="9" height="2" fill="#AE1C28"/><rect y="2" width="9" height="2" fill="#FFF"/><rect y="4" width="9" height="2" fill="#21468B"/></svg></a></div>
       <button class="icon-btn nav-burger" id="burger" aria-label="Menu openen" title="Menu openen" aria-expanded="false">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
       </button>
-      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Toevoegen aan Chrome</a>
+      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea"><span class="btn-full">Toevoegen aan Chrome</span><span class="btn-short">Chrome</span></a>
     </div>
   </div>
 </header>
@@ -131,7 +141,7 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
     <a href="/yad-business-nl">Voor teams</a>
     <a href="/yad-blog-nl">Blog</a>
     <a href="/yad#faq">FAQ</a>
-    <a href="/yad-blog"><svg width="15" height="11" viewBox="0 0 60 30" style="vertical-align:-1px;margin-right:4px;border-radius:2px" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="60" height="30" fill="#00247d"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#cf142b" stroke-width="2"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#cf142b" stroke-width="6"/></svg>English</a>
+    <div class="mobile-lang-toggle"><a href="/yad-blog" class="lang-opt"><svg width="16" height="12" viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="border-radius:2px;display:block"><rect width="60" height="30" fill="#00247d"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#cf142b" stroke-width="2"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#cf142b" stroke-width="6"/></svg> EN</a><a href="/yad-blog-nl" class="lang-opt active"><svg width="16" height="12" viewBox="0 0 9 6" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="border-radius:2px;display:block"><rect width="9" height="2" fill="#AE1C28"/><rect y="2" width="9" height="2" fill="#FFF"/><rect y="4" width="9" height="2" fill="#21468B"/></svg> NL</a></div>
   </div>
 </div>
 
