@@ -60,8 +60,8 @@ describe("normalizeText", () => {
 });
 
 describe("SNAPSHOT_LIMITS", () => {
-  it("DIGEST_LIMIT is 1500 (conservatieve grens voor beide Handen)", () => {
-    expect(SNAPSHOT_LIMITS.DIGEST_LIMIT).toBe(1500);
+  it("DIGEST_LIMIT is 3000 (verhoogd voor Wikipedia-infobox-bereikbaarheid)", () => {
+    expect(SNAPSHOT_LIMITS.DIGEST_LIMIT).toBe(3000);
   });
 
   it("NAME_LIMIT is 120", () => {

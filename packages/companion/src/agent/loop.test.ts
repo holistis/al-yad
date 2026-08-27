@@ -277,7 +277,7 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
     expect(hand.updates.some((u) => u.message.includes("Finish geweigerd"))).toBe(true);
   });
 
-  it("eindigt met fout na MAX_FINISH_REJECTIONS+1 mislukte finish-pogingen", async () => {
+  it("eindigt met gestopt (niet fout) na MAX_FINISH_REJECTIONS+1 mislukte finish-pogingen", async () => {
     // Alle snapshots unsorted: elke finish-poging wordt geweigerd
     const hand = new DynamicMockHand([
       UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP,
@@ -285,12 +285,13 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
     const router = new MockRouter([
       FINISH_WITH_DONE, // stap 1: geweigerd (finishRejections=1 ≤ 2 → continue)
       FINISH_WITH_DONE, // stap 2: geweigerd (finishRejections=2 ≤ 2 → continue)
-      FINISH_WITH_DONE, // stap 3: geweigerd (finishRejections=3 > 2 → fout)
+      FINISH_WITH_DONE, // stap 3: geweigerd (finishRejections=3 > 2 → gestopt)
     ]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
     const out = await loop.run("sorteer producten op prijs laag naar hoog");
 
-    expect(out.status).toBe("fout");
+    // "gestopt" i.p.v. "fout": taak was grotendeels klaar, recovery-store mag later leren.
+    expect(out.status).toBe("gestopt");
     expect(hand.updates.some((u) => u.message.includes("Finish") && u.message.includes("geweigerd"))).toBe(true);
   });
 
