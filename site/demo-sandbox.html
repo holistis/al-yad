@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>YAD Demo: Invoice to Excel</title>
+<style>
+  :root{
+    --bg:#0B0A12; --panel:#15131f; --panel2:#181622; --line:#2a2740;
+    --text:#f1eefb; --muted:#9791b8; --accent:#8b5cf6; --accent2:#6d28d9;
+    --old:#c9c4dd; --oldbg:#1c1a28; --good:#34d399;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,Segoe UI,Inter,Arial,sans-serif;overflow:hidden;}
+  .stage{width:1280px;height:800px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:26px;}
+  .row{display:flex;gap:36px;align-items:stretch;}
+  .panel{width:430px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:22px 24px;position:relative;}
+  .panel h3{margin:0 0 4px;font-size:15px;font-weight:600;color:var(--text);}
+  .panel .sub{margin:0 0 18px;font-size:12px;color:var(--muted);}
+  .old h3{color:var(--old);}
+  .old{background:var(--oldbg);}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:11px;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;}
+  .field .val{background:#0f0d16;border:1px solid var(--line);border-radius:6px;
+    padding:9px 11px;font-size:14px;font-family:Consolas,monospace;color:var(--old);}
+  .new .field input{width:100%;background:#0f0d16;border:1px solid var(--line);
+    border-radius:6px;padding:9px 11px;font-size:14px;font-family:Consolas,monospace;
+    color:var(--text);outline:none;}
+  .new .field input:focus{border-color:var(--accent);}
+  .new h3{color:#c4b5fd;}
+  .badge{position:absolute;top:20px;right:20px;font-size:10px;padding:3px 8px;
+    border-radius:20px;border:1px solid var(--line);color:var(--muted);}
+  .arrow{display:flex;align-items:center;justify-content:center;width:36px;
+    color:var(--accent);font-size:26px;}
+  .caption{color:var(--muted);font-size:13px;letter-spacing:.02em;max-width:760px;text-align:center;}
+  .caption b{color:var(--text);font-weight:600;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand .hand{font-size:34px;}
+  .brand .wordmark{font-size:34px;font-weight:800;letter-spacing:.02em;color:var(--text);
+    font-family:-apple-system,Segoe UI,Inter,Arial,sans-serif;}
+  .brand .tag{font-size:14px;color:var(--muted);margin-left:6px;padding-left:14px;
+    border-left:1px solid var(--line);}
+  #cursor{position:fixed;top:0;left:0;width:16px;height:16px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #fff, var(--accent) 70%);
+    box-shadow:0 0 0 4px rgba(139,92,246,.22), 0 2px 10px rgba(0,0,0,.5);
+    pointer-events:none;z-index:999;transform:translate(-50%,-50%);
+    transition:left .55s cubic-bezier(.22,.61,.36,1), top .55s cubic-bezier(.22,.61,.36,1);
+    opacity:0;}
+  #cursor.on{opacity:1;}
+  #cursor.click::after{content:"";position:absolute;inset:-10px;border-radius:50%;
+    border:2px solid var(--accent);animation:ripple .5s ease-out;}
+  @keyframes ripple{from{transform:scale(.3);opacity:1;}to{transform:scale(2.2);opacity:0;}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="brand">
+    <span class="hand">✋</span><span class="wordmark">yad</span>
+    <span class="tag">two systems that don't talk to each other</span>
+  </div>
+  <div class="row">
+    <div class="panel old">
+      <div class="badge">no export button</div>
+      <h3>Legacy Invoice Software</h3>
+      <p class="sub">InvoiceSys Corp, version 4.2</p>
+      <div class="field"><label>Invoice Number</label><div class="val" id="src-nr">INV-2026-0847</div></div>
+      <div class="field"><label>Amount</label><div class="val" id="src-bedrag">$1,240.00</div></div>
+      <div class="field"><label>Date</label><div class="val" id="src-datum">Aug 26, 2026</div></div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="panel new">
+      <div class="badge" id="new-badge">waiting for input</div>
+      <h3>Excel (2026 Expenses)</h3>
+      <p class="sub">shared with the bookkeeper</p>
+      <div class="field"><label>Invoice Number</label><input id="dst-nr" name="dst-nr" autocomplete="off"></div>
+      <div class="field"><label>Amount</label><input id="dst-bedrag" name="dst-bedrag" autocomplete="off"></div>
+      <div class="field"><label>Date</label><input id="dst-datum" name="dst-datum" autocomplete="off"></div>
+    </div>
+  </div>
+  <p class="caption">YAD reads the left screen and types it into the right, using <b>your own login</b>. No integration between the two systems required.</p>
+</div>
+<div id="cursor"></div>
+<script>
+  var cursor = document.getElementById('cursor');
+  var started = false;
+  document.addEventListener('mousemove', function(e){
+    if(!started){ started = true; cursor.classList.add('on'); }
+    cursor.style.left = e.clientX + 'px';
+    cursor.style.top = e.clientY + 'px';
+  });
+  document.addEventListener('mousedown', function(){
+    cursor.classList.remove('click'); void cursor.offsetWidth; cursor.classList.add('click');
+  });
+  function checkDone(){
+    var ok = ['dst-nr','dst-bedrag','dst-datum'].every(function(id){
+      return document.getElementById(id).value.trim().length > 2;
+    });
+    if(ok){ document.getElementById('new-badge').textContent = 'transferred ✓';
+      document.getElementById('new-badge').style.color = '#34d399';
+      document.getElementById('new-badge').style.borderColor = '#34d399'; }
+  }
+  ['dst-nr','dst-bedrag','dst-datum'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', checkDone);
+  });
+</script>
+</body>
+</html>

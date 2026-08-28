@@ -40,6 +40,34 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.0)
 
+  packages/dashboard:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  packages/desktop-app:
+    dependencies:
+      '@yad/companion':
+        specifier: workspace:*
+        version: link:../companion
+      '@yad/shared':
+        specifier: workspace:*
+        version: link:../shared
+      playwright:
+        specifier: ^1.61.1
+        version: 1.61.1
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
   packages/extension:
     dependencies:
       '@yad/shared':
