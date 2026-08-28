@@ -19,6 +19,20 @@ import { generatePredicates, type PredicateChat } from "./predicate-generator.js
  *  Voorkomt een meta-lus: YAD vraagt hulp → plan faalt → vraagt opnieuw → etc. */
 const MAX_RECOVERY_ATTEMPTS = 3;
 
+/** Trefwoorden die een vergelijk/rangschik/tel-vraag aanduiden (NL+EN) — zelfde categorie als
+ *  prompt.ts's "COMPARE/RANK/COUNT TASKS"-regel ("gebruik ALTIJD extract zonder ref"). Gebruikt
+ *  door de code-niveau bewaker in run() die een ref-gerichte extract op zo'n vraag corrigeert
+ *  naar een volledige-pagina-extract. Ontdekt op 2026-08-28 (benchmark bk-002/bk-003): het model
+ *  volgt deze prompt-regel niet altijd — koos een ref die naar een navigatie-link wees ("Home")
+ *  i.p.v. de daadwerkelijke prijslijst, en gaf dat letterlijk terug als antwoord. Zelfde soort
+ *  vangnet als de bestaande extract-lus-bewaker verderop in run(). */
+const COMPARE_RANK_COUNT_PATTERN =
+  /goedkoopste|duurste|meeste|minste|beste|slechtste|hoogste|laagste|populairste|hoeveel|aantal|cheapest|most expensive|highest|lowest|most popular|least popular|how many|count of|number of/i;
+
+function isCompareRankCountGoal(goal: string): boolean {
+  return COMPARE_RANK_COUNT_PATTERN.test(goal);
+}
+
 export interface ChatLike {
   chat(req: ChatRequest): Promise<{ content: string; provider: string }>;
 }
@@ -908,8 +922,16 @@ export class AgentLoop {
 
       const planned = this.currentPlan.shift();
       if (!planned) continue; // defensief — zou nooit mogen
-      const action = planned.action;
+      let action = planned.action;
       const expectedOutcome = planned.expected;
+
+      // Compare/rank/count-bewaker (code-niveau): zie COMPARE_RANK_COUNT_PATTERN hierboven.
+      // Strip een meegegeven ref zodat de Hand de volledige paginatekst leest i.p.v. één
+      // (mogelijk verkeerd) element — de veilige aanpak die de prompt al voorschrijft.
+      if (action.kind === "extract" && action.ref && isCompareRankCountGoal(goal)) {
+        this.log(`compare/rank/count-bewaker: extract met ref ${action.ref} op vergelijk-vraag — ref verwijderd, volledige pagina lezen`);
+        action = { kind: "extract", what: action.what };
+      }
 
       if (action.kind === "finish") {
         // DONE-predicaat check (Stap 4): weiger de finish als de snapshot het doel
