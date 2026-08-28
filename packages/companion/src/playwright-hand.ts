@@ -33,6 +33,10 @@ export interface PlaywrightHandOptions {
   log?: (m: string) => void;
   /** cookies die geïnjecteerd moeten worden bij de eerste navigatie */
   cookies?: Array<{ name: string; value: string; domain: string; path?: string }>;
+  /** optioneel: map waarin Playwright een .webm-opname van de run wegschrijft (bv. voor demo's) */
+  recordVideoDir?: string;
+  /** optioneel: laat de muis zichtbaar naar het doelelement glijden vóór click/type (alleen voor demo-opnames) */
+  demoCursor?: boolean;
 }
 
 /** JavaScript dat in de pagina-context draait om de snapshot te bouwen. */
@@ -69,9 +73,17 @@ const SNAPSHOT_SCRIPT = `(() => {
   return nodes;
 })()`;
 
+export interface DemoTimelineEntry {
+  label: string;
+  tStartMs: number;
+  tEndMs: number;
+}
+
 export class PlaywrightHand implements HandBridge {
   private browser: Browser | null = null;
   private page: Page | null = null;
+  private videoStartTs = 0;
+  public readonly demoTimeline: DemoTimelineEntry[] = [];
   private readonly options: Required<Omit<PlaywrightHandOptions, "cookies">> & { cookies?: PlaywrightHandOptions["cookies"] };
   private firstNav = true;
 
@@ -82,7 +94,22 @@ export class PlaywrightHand implements HandBridge {
       onConfirm: opts.onConfirm ?? (async () => true), // auto-goedkeuren (ScopeGuard blokkeert toch)
       log: opts.log ?? ((m) => console.log(`[playwright-hand] ${m}`)),
       cookies: opts.cookies,
+      recordVideoDir: opts.recordVideoDir ?? "",
+      demoCursor: opts.demoCursor ?? false,
     };
+  }
+
+  /** Beweegt de muis zichtbaar naar het midden van een element (alleen actief met demoCursor). */
+  private async glideTo(el: import("playwright").Locator): Promise<void> {
+    if (!this.options.demoCursor || !this.page) return;
+    const box = await el.boundingBox().catch(() => null);
+    if (!box) return;
+    await this.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 18 });
+    // De zichtbare cursor-stip in de demo-pagina glijdt via een CSS-transition van 0.55s
+    // (zie site/demo-sandbox.html #cursor). Korter wachten laat een klik/typ-actie
+    // starten vóórdat de stip zichtbaar is aangekomen; langer wachten bouwt onnodige
+    // stilstand op die de montage er later weer moet uitknippen.
+    await this.page.waitForTimeout(450);
   }
 
   async init(): Promise<void> {
@@ -91,8 +118,18 @@ export class PlaywrightHand implements HandBridge {
       userAgent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       viewport: { width: 1280, height: 800 },
+      ...(this.options.recordVideoDir
+        ? { recordVideo: { dir: this.options.recordVideoDir, size: { width: 1280, height: 800 } } }
+        : {}),
     });
     this.page = await ctx.newPage();
+    this.videoStartTs = Date.now();
+  }
+
+  /** Markeert een zichtbaar-actief venster in de demo-tijdlijn (alleen relevant met demoCursor). */
+  private markDemo(label: string, tStartMs: number): void {
+    if (!this.options.demoCursor) return;
+    this.demoTimeline.push({ label, tStartMs, tEndMs: Date.now() - this.videoStartTs });
   }
 
   async close(): Promise<void> {
@@ -143,6 +180,7 @@ export class PlaywrightHand implements HandBridge {
     try {
       switch (action.kind) {
         case "navigate": {
+          const tStart = Date.now() - this.videoStartTs;
           // Bij eerste navigatie: injecteer eventuele cookies in de browsercontext.
           if (this.firstNav && this.options.cookies?.length) {
             await this.injectCookies(action.url);
@@ -150,38 +188,62 @@ export class PlaywrightHand implements HandBridge {
           }
           await page.goto(action.url, { waitUntil: "domcontentloaded", timeout: 20_000 });
           await page.waitForTimeout(this.options.spaWaitMs);
+          this.markDemo("navigate", tStart);
           return { ok: true };
         }
         case "click": {
+          const tStart = Date.now() - this.videoStartTs;
           const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          await this.glideTo(el);
           await el.click({ timeout: 8_000 });
           await page.waitForTimeout(this.options.spaWaitMs / 2);
+          this.markDemo("click", tStart);
           return { ok: true };
         }
         case "click-at": {
+          const tStart = Date.now() - this.videoStartTs;
           // Vision-fallback: geen data-yad-ref beschikbaar, klik op de rauwe
           // viewport-positie (fractie van de huidige viewport-afmeting).
           const size = page.viewportSize() ?? { width: 1280, height: 800 };
           const x = Math.max(0, Math.min(1, action.xFraction)) * size.width;
           const y = Math.max(0, Math.min(1, action.yFraction)) * size.height;
+          if (this.options.demoCursor && this.page) {
+            await this.page.mouse.move(x, y, { steps: 18 });
+            await this.page.waitForTimeout(450);
+          }
           await page.mouse.click(x, y);
           await page.waitForTimeout(this.options.spaWaitMs / 2);
+          this.markDemo("click-at", tStart);
           return { ok: true };
         }
         case "type": {
+          const tStart = Date.now() - this.videoStartTs;
           const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
-          await el.fill(action.text, { timeout: 8_000 });
+          await this.glideTo(el);
+          if (this.options.demoCursor) {
+            // fill('') maakt het veld in één stap leeg (in plaats van klik + Control+a +
+            // Delete als losse ronden) — zonder dit plakt een herhaalde typ-actie op
+            // hetzelfde veld aan de oude waarde vast, net als bij een kale click() hierboven.
+            await el.fill("", { timeout: 8_000 });
+            await el.pressSequentially(action.text, { delay: 28 });
+          } else {
+            await el.fill(action.text, { timeout: 8_000 });
+          }
           if (action.submit) await el.press("Enter");
           await page.waitForTimeout(this.options.spaWaitMs / 2);
+          this.markDemo("type", tStart);
           return { ok: true };
         }
         case "paste": {
+          const tStart = Date.now() - this.videoStartTs;
           const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          await this.glideTo(el);
           await el.click({ timeout: 8_000 });
           await page.keyboard.press("Control+a");
           await page.keyboard.insertText(action.text);
           if (action.submit) await el.press("Enter");
           await page.waitForTimeout(this.options.spaWaitMs / 2);
+          this.markDemo("paste", tStart);
           return { ok: true };
         }
         case "hover": {

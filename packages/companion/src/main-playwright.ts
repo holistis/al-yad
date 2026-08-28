@@ -16,7 +16,8 @@
  *   - Exit code 0 = klaar, 1 = fout of scope-overtreding
  */
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import process from "node:process";
 import { loadEnvFile } from "./env.js";
 import { buildPool } from "./engine/pool.js";
@@ -57,6 +58,8 @@ function parseArgs(): {
   sessionFile?: string;
   headless: boolean;
   maxActions: number;
+  recordVideoDir?: string;
+  demoCursor: boolean;
 } {
   const args = process.argv.slice(2);
   const get = (flag: string): string | undefined => {
@@ -77,6 +80,8 @@ function parseArgs(): {
     sessionFile: get("--session"),
     headless: !has("--headed"),
     maxActions: parseInt(get("--max-actions") ?? "100", 10),
+    recordVideoDir: get("--record-video"),
+    demoCursor: has("--demo-cursor"),
   };
 }
 
@@ -126,6 +131,9 @@ async function main(): Promise<void> {
   log(`Doel: ${assignment.goal}`);
   log(`Domeinen: ${assignment.targetDomains.join(", ")}`);
   log(`Max acties: ${assignment.maxActions}`);
+  if (args.demoCursor && !assignment.targetDomains.every((d) => d === "localhost" || d.endsWith(".localhost"))) {
+    log("⚠️  --demo-cursor staat aan buiten een localhost-doelwit — dit vertraagt elke klik/typ-actie zichtbaar (bedoeld voor opnames, niet voor echte runs).");
+  }
   log("─".repeat(60));
 
   // ── Sessie-injectie (optioneel) ─────────────────────────────────────────────
@@ -151,7 +159,13 @@ async function main(): Promise<void> {
   }
 
   // ── Playwright + ScopeGuard opstarten ──────────────────────────────────────
-  const hand = new PlaywrightHand({ headless: args.headless, log, cookies });
+  const hand = new PlaywrightHand({
+    headless: args.headless,
+    log,
+    cookies,
+    recordVideoDir: args.recordVideoDir,
+    demoCursor: args.demoCursor,
+  });
   await hand.init();
 
   const guard = new ScopeGuard(hand, assignment, log);
@@ -204,10 +218,66 @@ async function main(): Promise<void> {
     log(`Fout: ${(e as Error).message}`);
     exitCode = 1;
   } finally {
+    if (args.demoCursor && args.recordVideoDir) {
+      try {
+        mkdirSync(args.recordVideoDir, { recursive: true });
+        const timelinePath = join(args.recordVideoDir, "timeline.json");
+        writeFileSync(timelinePath, JSON.stringify(hand.demoTimeline, null, 2));
+        log(`Demo-tijdlijn geschreven: ${timelinePath} (${hand.demoTimeline.length} momenten)`);
+      } catch (e) {
+        log(`Kon demo-tijdlijn niet wegschrijven: ${(e as Error).message}`);
+      }
+    }
     await hand.close();
+    if (args.recordVideoDir) {
+      await waitForVideoFlush(args.recordVideoDir, log);
+    }
   }
 
   process.exit(exitCode);
+}
+
+/**
+ * Playwright's eigen video-encoder-subproces flusht na browser.close() nog even door.
+ * process.exit() direct daarna sneed het .webm-bestand eerder af ("File ended prematurely").
+ * In plaats van een vaste pauze te gokken: pollen tot de bestandsgrootte twee metingen op
+ * rij niet meer groeit, met een harde bovengrens als vangnet.
+ */
+async function waitForVideoFlush(dir: string, log: (m: string) => void, maxMs = 8_000): Promise<void> {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const latestWebm = (): string | null => {
+    try {
+      const files = readdirSync(dir).filter((f) => f.endsWith(".webm"));
+      const last = files.at(-1);
+      return last ? join(dir, last) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const started = Date.now();
+  let lastSize = -1;
+  let stableCount = 0;
+  while (Date.now() - started < maxMs) {
+    const file = latestWebm();
+    if (!file) {
+      await sleep(200);
+      continue;
+    }
+    const size = statSync(file).size;
+    if (size === lastSize && size > 0) {
+      stableCount++;
+      if (stableCount >= 2) {
+        log(`Video-opname stabiel (${size} bytes) na ${Date.now() - started}ms.`);
+        return;
+      }
+    } else {
+      stableCount = 0;
+    }
+    lastSize = size;
+    await sleep(250);
+  }
+  log(`Video-flush-check bereikte de bovengrens van ${maxMs}ms zonder stabiele bestandsgrootte — mogelijk nog niet volledig geschreven.`);
 }
 
 main().catch((e: Error) => {
