@@ -473,4 +473,26 @@ describe("AgentLoop — RunRecord-getters", () => {
     expect(loop2.lastStuckSignalId).toBeUndefined();
     expect(loop2.hadRecovery).toBe(false);
   });
+
+  it("strippt de ref van een extract-actie op een vergelijk/rangschik/tel-vraag (compare/rank/count-bewaker)", async () => {
+    const hand = new MockHand();
+    const router = new MockRouter([
+      '{"kind":"extract","what":"prijzen van alle producten","ref":"e1"}',
+      '{"kind":"finish","summary":"goedkoopste is product X"}',
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    await loop.run("wat is het goedkoopste product?");
+    expect(hand.acts[0]).toEqual({ kind: "extract", what: "prijzen van alle producten" });
+  });
+
+  it("laat de ref van een extract-actie ongemoeid als de vraag geen vergelijk/tel-woord bevat", async () => {
+    const hand = new MockHand();
+    const router = new MockRouter([
+      '{"kind":"extract","what":"titel van het artikel","ref":"e1"}',
+      '{"kind":"finish","summary":"klaar"}',
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    await loop.run("wat is de titel van het artikel?");
+    expect(hand.acts[0]).toEqual({ kind: "extract", what: "titel van het artikel", ref: "e1" });
+  });
 });
