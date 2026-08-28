@@ -5,6 +5,12 @@
 
 Built by [Abdellah Ouadoudi](https://github.com/holistis)
 
+## Demo
+
+https://yadagent.com/yad-invoice-demo-en.mp4
+
+Unedited recording, not a mockup: Yad reads an invoice on one screen and types the data into the other, using your own logged-in session and no API integration between the two systems.
+
 ## Website / homepage / live URL
 
 - **The YAD website (live landing page): https://yadagent.com**, own domain, purchased 2026-08-25, migrated live 2026-08-26. Also live in Dutch as a second language, every page has an `-nl` counterpart (for example `/yad-nl`, `/yad-business-nl`). Served from the same server as before (nginx vhost proxies `/` to the `/yad` route on the x402 server). The old https://wazir-x402.duckdns.org/yad URL still works and serves the same content, but yadagent.com is now the canonical one.
@@ -18,6 +24,14 @@ Built by [Abdellah Ouadoudi](https://github.com/holistis)
 > **Benchmark results** (gpt-4o-mini, July 2025):
 > 92% fully correct on 25-task open benchmark · 100% on 5 authenticated tasks · 100% pass+partial · avg 2.7 steps · avg 8.7s per task
 > → See [Benchmark](#benchmark) section below.
+
+## Architecture
+
+- `packages/shared`: shared types/protocol between Hand and Brain.
+- `packages/companion`: the Brain. Native-messaging host, agent-loop, engine (LLM-router), memory (action-cache, recovery-store), key (session/vault), gate (guardrails).
+- `packages/extension`: the Hand. MV3 extension (WXT), keeps native-messaging port open, executes actions. Chrome and Brave live today, Edge submitted and in review.
+- `packages/dashboard`: v1 orchestrator UI in front of `main-server.ts`, an in-memory job-queue, worker-pool and a single polling page (single-tenant, no auth/billing yet, multi-tenant control and billing is a later phase, not built).
+- `packages/desktop-app`: an early, working prototype of Yad as a standalone program window, no browser extension needed. Real and tested, not a mockup, but not yet a one-click installer. Requires building from source.
 
 ## Benchmark
 
@@ -53,10 +67,9 @@ Results by difficulty (main suite):
 
 ### How to run
 
-```bash
-# Install deps
-pnpm install
+Dependencies must be installed first, see [Install](#install).
 
+```bash
 # Run full 25-task benchmark (requires YAD companion on localhost:3747 + Chrome extension)
 pnpm benchmark
 
@@ -91,6 +104,8 @@ The agent loop runs a multi-step plan-execute cycle with:
 
 The benchmark measures whether the agent completes the goal and puts the correct data in its finish summary.
 
+Full result files are in `data/benchmark-results-*.json`.
+
 ---
 
 ## Comparison with other web agents
@@ -121,21 +136,43 @@ YAD's 25-task suite is intentionally smaller than WebVoyager's 643-task benchmar
 
 YAD's 92% is not a proven win over browser-use's 89.1%. Different task count, different sites, different scoring harness, no head-to-head run. What the numbers do support: YAD shows strong results on a small, fully reproducible, open benchmark, and it has real architectural advantages for persistent, logged-in browser automation that the other systems structurally do not have (they start a fresh browser per task by design). A direct head-to-head run on the full WebVoyager set is the only thing that would make a real comparison claim, and that has not happened yet.
 
-Full result files are in `data/benchmark-results-*.json`.
-
 ---
 
-## Architecture
+## Install
 
-- `packages/shared`: shared types/protocol between Hand and Brain.
-- `packages/companion`: the Brain. Native-messaging host, agent-loop, engine (LLM-router), memory (action-cache, recovery-store), key (session/vault), gate (guardrails).
-- `packages/extension`: the Hand. MV3 extension (WXT), keeps native-messaging port open, executes actions. Chrome and Brave live today, Edge submitted and in review.
-- `packages/dashboard`: v1 orchestrator UI in front of `main-server.ts`, an in-memory job-queue, worker-pool and a single polling page (single-tenant, no auth/billing yet, multi-tenant control and billing is a later phase, not built).
-- `packages/desktop-app`: an early, working prototype of Yad as a standalone program window, no browser extension needed. Real and tested, not a mockup, but not yet a one-click installer. Requires building from source.
+```bash
+pnpm install
+```
 
-## Status
+Yad is a pnpm monorepo. Run this once before [Benchmark](#benchmark) or any of the [Development](#development) commands.
 
-Live and installable on the Chrome Web Store and via Brave today. Edge Add-ons submission is in review. The website (yadagent.com) is live in English and Dutch, with a security writeup, a blog, and a hosted-teams offering. The desktop-app package is an early prototype, not yet packaged for non-technical users. Firefox and Safari are not built. This section is kept current, not left on an old milestone.
+## Security
+
+Full writeup: https://yadagent.com/yad-security
+
+Yad runs local-first: a Chrome extension (the Hand) talks to a Companion app on your own machine (the Brain). Passwords and card numbers never pass through the AI, and the agent is blocked from acting autonomously on payment/checkout pages.
+
+API keys are encrypted at rest with Windows DPAPI, scoped to your Windows user account, the moment you paste them in. The plaintext is discarded after that; decryption only happens in memory during an actual AI call. Keys go straight to your chosen provider (Groq, Gemini, OpenRouter, or a custom endpoint), Yad's developers never see them. The one thing that does phone home is the recovery-store's "recovery brain," and it only sends bare hostnames and reason codes, never keys, page content, or full URLs.
+
+Every AI call passes through a single choke point with a user-configurable daily cap (default 1000 calls) and a one-click stop switch, both fail closed if their saved state is corrupted or missing.
+
+The security code went through an 18-agent adversarial review that found and fixed 12 issues, plus manual testing: 11 payment-page bypass attempts blocked, 5 malicious-link types refused, DNS-rebinding and wire-protocol fuzzing covered.
+
+What this is not: no SOC 2 or ISO 27001 certification, no third-party audit, no paid penetration test. The page says so itself, and avoids claims like "100% secure" or "unhackable."
+
+## Roadmap
+
+Live today: Chrome Web Store and Brave (Brave installs the same Chrome Web Store extension directly). Edge Add-ons is submitted and in review. The website (yadagent.com) is live in English and Dutch, with a security writeup, a blog, and a hosted-teams offering.
+
+Not yet built: Firefox and Safari extensions. The desktop-app is an early, working prototype, not yet packaged for non-technical users.
+
+Open to help with right now: Firefox support (different extension format, not started), macOS support for the Companion (the key-encryption layer uses Windows DPAPI today and would need a Keychain equivalent), and the desktop-app installer (currently requires building from source). See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+This section is kept current, not left on an old milestone.
+
+## Research
+
+A growing list of short technical write-ups on concrete things found while building Yad, real bugs, root causes, and the fixes that came out of them. Nothing linked here yet, the first one is in progress.
 
 ## License discipline
 
@@ -153,3 +190,4 @@ pnpm test
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, package layout, and what's genuinely open to help with right now (Firefox support, macOS support, the desktop-app installer).
+</content>
