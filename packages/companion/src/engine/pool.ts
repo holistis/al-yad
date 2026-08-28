@@ -128,7 +128,7 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
   // Halal-discipline: KEY + KEY_2 zijn gratis (AI Studio); KEY_3..9 zijn uit een
   // betaald GCP-project en doen mee als ALLOW_PAID_GEMINI=true (settingsToEnv
   // zet dat automatisch als de gebruiker ze inschakelt in het paneel).
-  const geminiModel = env.GEMINI_MODEL ?? "gemini-2.0-flash";
+  const geminiModel = env.GEMINI_MODEL ?? "gemini-3.6-flash";
   const geminiKeys: Array<{ key: string; name: string }> = [];
   if ((env.ALLOW_PAID_GEMINI ?? "").toLowerCase() === "true") {
     // Betaalde sleutels gaan EERST (de gebruiker koos ze bewust als primair)
@@ -157,7 +157,7 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
         name: "groq",
         baseUrl: "https://api.groq.com/openai/v1",
         apiKey: env.GROQ_API_KEY,
-        model: env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+        model: env.GROQ_MODEL ?? "openai/gpt-oss-120b",
         tier: tierFor("groq", 0),
       }),
     );
@@ -168,7 +168,7 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
         name: "cerebras",
         baseUrl: "https://api.cerebras.ai/v1",
         apiKey: env.CEREBRAS_API_KEY,
-        model: env.CEREBRAS_MODEL ?? "llama3.1-8b",
+        model: env.CEREBRAS_MODEL ?? "gpt-oss-120b",
         tier: tierFor("cerebras", 0),
       }),
     );
@@ -179,7 +179,7 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
         name: "openrouter",
         baseUrl: "https://openrouter.ai/api/v1",
         apiKey: env.OPENROUTER_API_KEY,
-        model: env.OPENROUTER_MODEL ?? "meta-llama/llama-3.3-70b-instruct:free",
+        model: env.OPENROUTER_MODEL ?? "minimax/minimax-m3:free",
         tier: tierFor("openrouter", 0),
       }),
     );
