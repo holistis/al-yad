@@ -73,6 +73,8 @@ interface TaskResult {
   durationMs: number;
   failReason?: string;
   matchedKeywords: string[];
+  /** Welk provider:model daadwerkelijk antwoordde (leeg = niet vastgesteld, bijv. bij nav-failed/exception). */
+  providersUsed: string[];
 }
 
 interface BenchmarkReport {
@@ -250,6 +252,7 @@ async function runTask(
         durationMs: Date.now() - startedAt,
         failReason: navResult.detail,
         matchedKeywords: [],
+        providersUsed: [],
       };
     }
 
@@ -273,6 +276,7 @@ async function runTask(
       durationMs,
       failReason: verdict === "fail" ? `status=${status}` : undefined,
       matchedKeywords,
+      providersUsed: [...loop.providersUsed],
     };
   } catch (e) {
     return {
@@ -288,6 +292,7 @@ async function runTask(
       durationMs: Date.now() - startedAt,
       failReason: (e as Error).message,
       matchedKeywords: [],
+      providersUsed: [],
     };
   } finally {
     await hand.close().catch(() => {});

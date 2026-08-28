@@ -20,7 +20,7 @@ import { generatePredicates, type PredicateChat } from "./predicate-generator.js
 const MAX_RECOVERY_ATTEMPTS = 3;
 
 export interface ChatLike {
-  chat(req: ChatRequest): Promise<{ content: string; provider: string }>;
+  chat(req: ChatRequest): Promise<{ content: string; provider: string; model?: string }>;
 }
 
 export interface HandBridge {
@@ -277,10 +277,20 @@ export class AgentLoop {
   /** Bewezen herstel-events van deze run — voor flush naar recovery-store na "klaar". */
   private _provenRecoveries: Array<{ sitePattern: string; failureCategory: string; failureClass?: string; hint: string }> = [];
 
+  /** Naam van elke provider die minstens 1 succesvolle chat-call deed deze run, in volgorde van eerste gebruik.
+   * Ontbrak eerder: een benchmark-run kon niet zeggen welk model een taak echt deed, alleen dat de pool
+   * ooit een antwoord teruggaf. router.chat() geeft dit al terug via ChatResponse.provider, alleen niemand
+   * las het uit. Zelfde patroon als hadRecovery/lastStuckSignalId hierboven: bijhouden op de instantie,
+   * na run() uitlezen via de getter, geen enkel return-pad in run() hoeft aangepast te worden. */
+  private readonly _providersUsed: string[] = [];
+
   /** Voor RunRecord-substraat: het signaal dat de run liet stoppen via escalatie (undefined bij klaar/max-steps). */
   get lastStuckSignalId(): string | undefined { return this._lastStuckSignalId; }
   /** Voor RunRecord-substraat: had deze run minstens één succesvolle escalatie-herstelpoging? */
   get hadRecovery(): boolean { return this._hadRecovery; }
+  /** Provider:model-combinaties die deze run daadwerkelijk antwoord gaven ("groq:llama-3.3-70b-versatile"),
+   * in volgorde van eerste gebruik (leeg als run() nog niet klaar is). */
+  get providersUsed(): readonly string[] { return this._providersUsed; }
   /** Bewezen recovery-events van deze run (voor flush naar recovery-store na "klaar"). */
   get provenRecoveries(): ReadonlyArray<{ sitePattern: string; failureCategory: string; failureClass?: string; hint: string }> {
     return this._provenRecoveries;
@@ -1332,6 +1342,8 @@ export class AgentLoop {
           json: true,
           maxTokens: 400,
         });
+        const used = res.provider ? `${res.provider}:${res.model ?? "?"}` : undefined;
+        if (used && !this._providersUsed.includes(used)) this._providersUsed.push(used);
         return res.content;
       } catch (e) {
         lastErr = e;
