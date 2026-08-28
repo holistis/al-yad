@@ -1,9 +1,13 @@
-# Mijlpalen Yad, 28 augustus 2026
+# Mijlpalen Yad
 
-Overzicht van wat er op deze datum echt is gebouwd en vastgelegd, met bewijs erbij zodat dit
-navolgbaar blijft.
+Eén doorlopend logboek van wat er echt gebouwd en vastgelegd is, met bewijs erbij (commit-hash,
+bestandspad, of URL) zodat dit navolgbaar blijft. Nieuwe datum eronder toevoegen, dit bestand
+niet vervangen of hernoemen. Dit is de ene afgesproken plek voor Yad-mijlpalen, ongeacht welke
+sessie het werk deed.
 
-## README herstructurering
+## 2026-08-28
+
+### README herstructurering
 
 Volgorde omgegooid naar een bewijs-eerst opbouw: Demo, Architecture, Benchmark, Install,
 Security, Roadmap, Research. Demo-sectie verwijst nu naar de echte, al bestaande video
@@ -13,7 +17,7 @@ gecorrigeerd voor er een dode link in de README kon komen).
 
 Commit: `5538a80` op branch `feat/yad-onboarding-copy`.
 
-## Provider/model-logging in de benchmark
+### Provider/model-logging in de benchmark
 
 `AgentLoop` hield nooit bij welk provider:model een taak echt beantwoordde, alleen dat de pool
 ooit iets teruggaf. Toegevoegd via `providersUsed` (zelfde patroon als de bestaande
@@ -27,7 +31,7 @@ site), niet door een zwak gratis model. Dat verlegt de echte bug naar hoe Yad ee
 op de pagina kiest om te lezen (ref-selectie), niet naar modelkwaliteit. Nog niet gefixt, wacht
 op meer data uit de bredere testronde.
 
-## Benchmark, eerste echte metingen
+### Benchmark, eerste echte metingen
 
 Klein testje (3 taken, daarna nog 2 extra) op de bestaande 25-taken-set, met de gratis
 standaardrouting van Yad zelf:
@@ -44,7 +48,7 @@ testronde (12 nieuwe taken) liep nog op het moment van schrijven.
 Resultaatbestanden: `data/benchmark-results-2026-08-28T20-33-28.json`,
 `data/benchmark-results-2026-08-28T20-47-51.json`.
 
-## Voorbereide, nog niet uitgevoerde stukken
+### Voorbereide, nog niet uitgevoerde stukken
 
 - Eerlijk testplan tegen browser-use (metrics, twee testmodi, aparte sectie "waar Yad
   verliest"), nog niet gedraaid, kost echte tijd en geld, wacht op akkoord.
@@ -52,7 +56,7 @@ Resultaatbestanden: `data/benchmark-results-2026-08-28T20-33-28.json`,
 - Eerste "Yad Research Log"-artikel over een Power BI dropdown-bug, in een parallelle sessie
   geschreven, niet in dit bestand, zie `site/blog-stuck-in-loops.html` als die daar al staat.
 
-## Wat hier bewust niet in staat
+### Wat hier bewust niet in staat
 
 Distributiewerk voor het andere product (DeFi Signal API / Execution Stress Index) staat niet
 hier, dat is een ander project (`wazir-al-ghanima`), niet Yad. Zie daar het eigen geheugen voor
