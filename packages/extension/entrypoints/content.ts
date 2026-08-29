@@ -20,6 +20,10 @@ export default defineContentScript({
 
     // Eén ref->element map per pagina, gedeeld tussen perceptie en uitvoerder.
     const refMap = new Map<string, Element>();
+    // Laatst bekende rol+naam per ref — nodig zodat de uitvoerder een verouderde ref
+    // opnieuw kan opzoeken op zijn tekst als het knooppunt zelf al vervangen is
+    // (zie findFresh in perception.ts).
+    const labelMap = new Map<string, { role: string; name: string }>();
 
     chrome.runtime.onMessage.addListener(
       (msg: { type?: string; action?: Action }, _sender, sendResponse) => {
@@ -45,7 +49,12 @@ export default defineContentScript({
         }
         if (msg?.type === "YAD_SNAPSHOT") {
           try {
-            sendResponse(buildSnapshot(refMap));
+            const snapshot = buildSnapshot(refMap);
+            labelMap.clear();
+            for (const node of snapshot.nodes) {
+              labelMap.set(node.ref, { role: node.role, name: node.name });
+            }
+            sendResponse(snapshot);
           } catch (e) {
             sendResponse({
               url: location.href,
@@ -57,7 +66,7 @@ export default defineContentScript({
           return true;
         }
         if (msg?.type === "YAD_ACT" && msg.action) {
-          executeAction(msg.action, refMap)
+          executeAction(msg.action, refMap, labelMap)
             .then(sendResponse)
             .catch((e: Error) => sendResponse({ ok: false, detail: e.message }));
           return true;
