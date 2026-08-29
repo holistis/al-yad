@@ -73,6 +73,8 @@ interface TaskResult {
   durationMs: number;
   failReason?: string;
   matchedKeywords: string[];
+  /** Welk provider:model daadwerkelijk antwoordde (leeg = niet vastgesteld, bijv. bij nav-failed/exception). */
+  providersUsed: string[];
 }
 
 interface BenchmarkReport {
@@ -210,7 +212,7 @@ async function runTask(
 
     const guard = new ScopeGuard(hand, assignment, opts.log);
     const pool = buildPool();
-    const router = new LlmRouter(pool, { log: () => {} });
+    const router = new LlmRouter(pool, { log: (m) => opts.log(`[motor] ${m}`) });
     const cacheStore = new CacheStore(resolve(repoRoot, "data"));
     const recoveryStore = new RecoveryStore(resolve(repoRoot, "data"));
 
@@ -250,6 +252,7 @@ async function runTask(
         durationMs: Date.now() - startedAt,
         failReason: navResult.detail,
         matchedKeywords: [],
+        providersUsed: [],
       };
     }
 
@@ -271,8 +274,9 @@ async function runTask(
       summary,
       steps: result.steps,
       durationMs,
-      failReason: verdict === "fail" ? `status=${status}` : undefined,
+      failReason: verdict === "fail" ? (summary ? `status=${status} — ${summary}` : `status=${status}`) : undefined,
       matchedKeywords,
+      providersUsed: [...loop.providersUsed],
     };
   } catch (e) {
     return {
@@ -288,6 +292,7 @@ async function runTask(
       durationMs: Date.now() - startedAt,
       failReason: (e as Error).message,
       matchedKeywords: [],
+      providersUsed: [],
     };
   } finally {
     await hand.close().catch(() => {});
@@ -389,8 +394,13 @@ const RATE_LIMIT_SIGNALS = [
 ];
 
 function isRateLimitError(r: TaskResult): boolean {
-  const text = (r.failReason ?? r.summary ?? "").toLowerCase();
-  return r.verdict === "error" && RATE_LIMIT_SIGNALS.some((s) => text.includes(s));
+  // Een rate-limit-fout komt terug als verdict "fail" (status="fout"), NIET als
+  // verdict "error" — dat laatste is alleen voor een echte crash/exception. Deze
+  // check op verdict "error" liet de retry hieronder dus nooit afgaan bij een
+  // rate-limit, precies de fout die de solo-benchmark van 2026-08-28 verstopte
+  // (11 van de 12 taken faalden stil, geen enkele retry vuurde af).
+  const text = (r.summary ?? r.failReason ?? "").toLowerCase();
+  return RATE_LIMIT_SIGNALS.some((s) => text.includes(s));
 }
 
 async function sleep(ms: number): Promise<void> {
