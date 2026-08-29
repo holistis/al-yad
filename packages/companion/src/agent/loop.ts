@@ -884,8 +884,9 @@ export class AgentLoop {
             : undefined;
           content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint, tracker.toHint() ?? undefined, screenshot, selectorHint);
         } catch (e) {
-          this.hand.update({ status: "fout", step, message: friendlyLlmError(e) });
-          return { status: "fout", steps: step - 1 };
+          const message = friendlyLlmError(e);
+          this.hand.update({ status: "fout", step, message });
+          return { status: "fout", steps: step - 1, summary: message };
         }
 
         const planResult = parseMicroPlan(content);
