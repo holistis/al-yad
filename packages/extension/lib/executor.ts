@@ -1,4 +1,5 @@
 import { DENY_WORDS, type Action, type ActResult } from "@yad/shared";
+import { findFresh } from "./perception";
 
 /**
  * De uitvoerder (in de pagina-context): voert een Action deterministisch uit op
@@ -233,13 +234,45 @@ async function clickAtViewportPoint(
 
   const clickTarget =
     fallbackEl && target !== fallbackEl && fallbackEl.contains(target) ? target : (fallbackEl as HTMLElement) ?? target;
-  clickTarget.click();
+  fireClick(clickTarget);
   return { ok: true };
+}
+
+/**
+ * Klikt een element, met een terugval naar synthetische muisgebeurtenissen als
+ * `.click()` zelf niet bruikbaar is.
+ *
+ * Ontdekt op Cloudflare's dashboard (2026-08-29): een doelwit dat volgens
+ * `document.elementFromPoint` een gewone `<button>` was ("X.click is not a
+ * function" in de foutmelding), faalde toch op de kale `.click()`-aanroep. De
+ * meest waarschijnlijke oorzaak is een overgangsmoment waarop React het element
+ * net vervangt of tijdelijk zonder afmeting zet — precies het soort race dat
+ * findFresh() al oplost voor de refMap zelf, maar hier gebeurt tussen het
+ * *vinden* van het doelwit en het *klikken* erop, één functie verderop. Een
+ * synthetische mousedown/mouseup/click-reeks werkt op elk EventTarget, ongeacht
+ * of de native `.click()`-methode op dat moment bruikbaar is — hetzelfde principe
+ * dat de bestaande "right-click"-actie hieronder al gebruikt.
+ */
+function fireClick(el: HTMLElement): void {
+  if (typeof el.click === "function") {
+    try {
+      el.click();
+      return;
+    } catch {
+      // val door naar de synthetische reeks hieronder
+    }
+  }
+  const rect = el.getBoundingClientRect();
+  const p = { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2, bubbles: true, cancelable: true };
+  el.dispatchEvent(new MouseEvent("mousedown", p));
+  el.dispatchEvent(new MouseEvent("mouseup", p));
+  el.dispatchEvent(new MouseEvent("click", p));
 }
 
 export async function executeAction(
   action: Action,
   refMap: Map<string, Element>,
+  labelMap?: Map<string, { role: string; name: string }>,
 ): Promise<ActResult> {
   switch (action.kind) {
     case "wait":
@@ -357,7 +390,16 @@ export async function executeAction(
     }
 
     case "click": {
-      const el = refMap.get(action.ref);
+      let el = refMap.get(action.ref);
+      // Herstel bij een verouderde ref: op een snel her-renderende pagina kan het
+      // knooppunt tussen snapshot en klik al vervangen zijn (zie findFresh hierboven).
+      // Alleen relevant als we ooit wisten hoe het doelwit heette — zonder naam is er
+      // niets om op te zoeken.
+      if ((!el || !(el as HTMLElement).isConnected) && labelMap) {
+        const known = labelMap.get(action.ref);
+        const fresh = known ? findFresh(document, known.role, known.name) : null;
+        if (fresh) el = fresh;
+      }
       if (!el) return { ok: false, detail: `ref ${action.ref} niet gevonden` };
       const scrollPause = action.scrollPause ?? 0;
       // Stealth-sites: smooth scrollen + wachten zodat het eruitziet als menselijk
