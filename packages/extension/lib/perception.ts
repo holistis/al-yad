@@ -45,7 +45,7 @@ const INTERACTIVE_SELECTOR = [
 ].join(",");
 
 
-function isVisible(el: Element): boolean {
+export function isVisible(el: Element): boolean {
   // input[type=file] is vrijwel altijd via CSS verborgen (opacity:0, width:0, position:absolute)
   // maar is wél interactief via DataTransfer — altijd opnemen zodat upload-local het kan vinden.
   if (el instanceof HTMLInputElement && el.type.toLowerCase() === "file") return true;
@@ -75,7 +75,7 @@ function collectInteractive(
   }
 }
 
-function roleOf(el: Element): string {
+export function roleOf(el: Element): string {
   const explicit = el.getAttribute("role");
   if (explicit) return explicit;
   const tag = el.tagName.toLowerCase();
@@ -130,7 +130,7 @@ function labelFor(el: Element): string {
   return "";
 }
 
-function nameOf(el: Element): string {
+export function nameOf(el: Element): string {
   const aria = el.getAttribute("aria-label");
   if (aria) return aria.trim();
   const labelled = el.getAttribute("aria-labelledby");
@@ -232,4 +232,33 @@ export function buildSnapshot(refMap: Map<string, Element>, maxNodes = SNAPSHOT_
     nodes,
     textDigest,
   };
+}
+
+/**
+ * Zoekt een element opnieuw op zijn rol+naam in de levende pagina, in plaats van op
+ * een (mogelijk verouderde) refMap-verwijzing te vertrouwen.
+ *
+ * Op snel her-renderende pagina's (React/Vue-SPA's) kan het knooppunt achter een ref
+ * tussen het maken van de snapshot en het uitvoeren van de actie al vervangen zijn
+ * door een nieuw DOM-element met dezelfde tekst. De oude refMap-verwijzing bestaat
+ * dan niet meer, of wijst naar een losgekoppeld knooppunt dat een actie accepteert
+ * zonder enig zichtbaar effect. Ontdekt tijdens een echte Power BI-sessie (Research
+ * Log #1, 2026-08-28) en opnieuw op Cloudflare's dashboard (2026-08-29) — beide keren
+ * meldde de actie "ok:true" terwijl de pagina niet veranderde. Toen een handmatige
+ * ingreep; dit maakt het een automatische stap.
+ */
+export function findFresh(root: Document | ShadowRoot, role: string, name: string): Element | null {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const elements: Element[] = [];
+  collectInteractive(root, INTERACTIVE_SELECTOR, elements, { n: 4000 });
+  const target = trimmed.toLowerCase();
+  let roleMismatch: Element | null = null;
+  for (const el of elements) {
+    if (!isVisible(el)) continue;
+    if (nameOf(el).trim().toLowerCase() !== target) continue;
+    if (roleOf(el) === role) return el; // exacte match op rol EN naam
+    if (!roleMismatch) roleMismatch = el; // bewaar als reserve — rol kan legitiem licht afwijken
+  }
+  return roleMismatch;
 }
