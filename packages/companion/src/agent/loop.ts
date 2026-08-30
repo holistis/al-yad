@@ -34,7 +34,7 @@ function isCompareRankCountGoal(goal: string): boolean {
 }
 
 export interface ChatLike {
-  chat(req: ChatRequest): Promise<{ content: string; provider: string }>;
+  chat(req: ChatRequest): Promise<{ content: string; provider: string; model: string }>;
 }
 
 export interface HandBridge {
@@ -291,10 +291,17 @@ export class AgentLoop {
   /** Bewezen herstel-events van deze run — voor flush naar recovery-store na "klaar". */
   private _provenRecoveries: Array<{ sitePattern: string; failureCategory: string; failureClass?: string; hint: string }> = [];
 
+  /** Provider:model-combinaties die deze run daadwerkelijk antwoord gaven ("groq:llama-3.3-70b-versatile"),
+   * in volgorde van eerste gebruik. Ontbrak eerder: een benchmark-run kon niet zeggen welk model een taak
+   * echt deed, alleen dat de pool ooit een antwoord teruggaf. */
+  private readonly _providersUsed: string[] = [];
+
   /** Voor RunRecord-substraat: het signaal dat de run liet stoppen via escalatie (undefined bij klaar/max-steps). */
   get lastStuckSignalId(): string | undefined { return this._lastStuckSignalId; }
   /** Voor RunRecord-substraat: had deze run minstens één succesvolle escalatie-herstelpoging? */
   get hadRecovery(): boolean { return this._hadRecovery; }
+  /** Provider:model-combinaties die deze run daadwerkelijk antwoord gaven, in volgorde van eerste gebruik. */
+  get providersUsed(): readonly string[] { return this._providersUsed; }
   /** Bewezen recovery-events van deze run (voor flush naar recovery-store na "klaar"). */
   get provenRecoveries(): ReadonlyArray<{ sitePattern: string; failureCategory: string; failureClass?: string; hint: string }> {
     return this._provenRecoveries;
@@ -500,6 +507,7 @@ export class AgentLoop {
     this._lastStuckSignalId = undefined; // reset per run
     this._hadRecovery = false; // reset per run
     this._provenRecoveries = []; // reset per run
+    this._providersUsed.length = 0; // reset per run — readonly array-ref, dus leegmaken i.p.v. herbinden
     let parseFails = 0;
     let cleanRun = true; // false zodra er een parse-fout is geweest; vuile runs worden niet gecached.
     let lastActionSig = "";
@@ -1355,6 +1363,8 @@ export class AgentLoop {
           json: true,
           maxTokens: 400,
         });
+        const used = `${res.provider}:${res.model}`;
+        if (!this._providersUsed.includes(used)) this._providersUsed.push(used);
         return res.content;
       } catch (e) {
         lastErr = e;

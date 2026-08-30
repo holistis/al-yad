@@ -15,11 +15,14 @@ const SNAP: Snapshot = {
 
 class MockRouter implements ChatLike {
   private i = 0;
-  constructor(private readonly queue: string[]) {}
-  async chat(_req: ChatRequest): Promise<{ content: string; provider: string }> {
+  constructor(
+    private readonly queue: string[],
+    private readonly model: string = "mock-model",
+  ) {}
+  async chat(_req: ChatRequest): Promise<{ content: string; provider: string; model: string }> {
     const c = this.queue[this.i] ?? '{"kind":"finish","summary":"klaar"}';
     this.i++;
-    return { content: c, provider: "mock" };
+    return { content: c, provider: "mock", model: this.model };
   }
 }
 
@@ -445,6 +448,37 @@ describe("AgentLoop — RunRecord-getters", () => {
     const out = await loop.run("klik eindeloos");
     expect(out.status).toBe("gestopt");
     expect(loop.lastStuckSignalId).toBe("repeat");
+  });
+
+  it("providersUsed bevat provider:model van elke echte chat-call, gededupliceerd", async () => {
+    const hand = new MockHand();
+    const router = new MockRouter([
+      '{"kind":"click","ref":"e1"}',
+      '{"kind":"finish","summary":"klaar"}',
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    await loop.run("simpele taak");
+    expect(loop.providersUsed).toEqual(["mock:mock-model"]);
+  });
+
+  it("providersUsed wordt geleegd bij een tweede run() op DEZELFDE loop-instantie, niet opgestapeld", async () => {
+    // Verschillend model per run, anders verbergt de dedup (includes()) een ontbrekende reset
+    // stil — beide runs zouden toevallig dezelfde string pushen en de test zou niets bewijzen.
+    const modelBox = { current: "model-a" };
+    const router: ChatLike = {
+      async chat() {
+        return { content: '{"kind":"finish","summary":"klaar"}', provider: "mock", model: modelBox.current };
+      },
+    };
+    const hand = new MockHand();
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+
+    await loop.run("eerste taak");
+    expect(loop.providersUsed).toEqual(["mock:model-a"]);
+
+    modelBox.current = "model-b";
+    await loop.run("tweede taak");
+    expect(loop.providersUsed).toEqual(["mock:model-b"]);
   });
 
   it("getters worden gereset bij een nieuwe run op dezelfde loop-instantie", async () => {
