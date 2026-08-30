@@ -29,6 +29,7 @@
     "benchmark:full": "tsx scripts/benchmark.ts --delay 90",
     "benchmark:batch1": "tsx scripts/benchmark.ts --limit 8 --delay 60",
     "benchmark:batch2": "tsx scripts/benchmark.ts --from 9 --limit 8 --delay 60",
+    "robustness-nav-hijack": "tsx scripts/robustness-nav-hijack.ts",
     "benchmark:batch3": "tsx scripts/benchmark.ts --from 17 --delay 60",
     "benchmark:auth": "tsx scripts/benchmark.ts --tasks data/benchmark-tasks-auth.jsonl --delay 30",
     "benchmark:extended": "tsx scripts/benchmark.ts --tasks data/benchmark-tasks-extended.jsonl --delay 30",

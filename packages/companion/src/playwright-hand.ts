@@ -393,6 +393,13 @@ export class PlaywrightHand implements HandBridge {
     this.options.log(`[${u.status}]${stepStr} ${u.message}`);
   }
 
+  /** Uitsluitend voor robuustheidstests: forceert een navigatie op de lopende pagina, buiten
+   * de agent-lus om, om een "onverwachte paginawisseling" te simuleren (zie
+   * scripts/robustness-nav-hijack.ts). Niet bedoeld voor productiegebruik. */
+  async forceNavigateForTest(url: string): Promise<void> {
+    await this.requirePage().goto(url, { waitUntil: "domcontentloaded" });
+  }
+
   private requirePage(): Page {
     if (!this.page) throw new Error("PlaywrightHand niet geïnitialiseerd — roep init() aan.");
     return this.page;
