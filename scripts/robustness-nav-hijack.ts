@@ -138,6 +138,17 @@ async function runOnce(attempt: number, headless: boolean): Promise<RunOutcome> 
         cacheStore,
         recoveryStore,
         isAborted: () => guard.violated,
+        // Zonder deze hint-functie krijgt de lus NOOIT een herstelplan bij een stuck-signaal
+        // (zoals de "onverwachte navigatie" die de kaping hieronder expres veroorzaakt) en geeft
+        // hij meteen op — dat test dan alleen "heeft Yad geen herstelmechanisme", niet "werkt
+        // Yad's herstelmechanisme". Zelfde functie als benchmark.ts's runTask gebruikt.
+        onStuck: async (reason) => {
+          log(`[stuck] ${reason.why} op ${reason.url} — LLM-herstelplan aanvragen`);
+          const { generateRecoveryHint } = await import("../packages/companion/src/agent/recovery.js");
+          const hint = await generateRecoveryHint({ chat: (req) => router.chat(req) }, reason);
+          if (hint) log(`[stuck] herstelplan: ${hint.slice(0, 120)}`);
+          return hint;
+        },
         // De kaping zelf: bij de EERSTE afgeronde stap (echt bewijs dat de agent al
         // gehandeld heeft, niet een gok op verstreken tijd) navigeren we buiten de lus
         // om weg. `void` bewust: de lus mag niet wachten op deze navigatie, dat zou het
