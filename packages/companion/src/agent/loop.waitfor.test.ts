@@ -38,10 +38,10 @@ const MET_KNOP: Snapshot = {
 class Router implements ChatLike {
   private i = 0;
   constructor(private readonly queue: string[]) {}
-  async chat(_req: ChatRequest): Promise<{ content: string; provider: string }> {
+  async chat(_req: ChatRequest): Promise<{ content: string; provider: string; model: string }> {
     const c = this.queue[this.i] ?? '{"kind":"finish","summary":"klaar"}';
     this.i++;
-    return { content: c, provider: "mock" };
+    return { content: c, provider: "mock", model: "mock-model" };
   }
 }
 
