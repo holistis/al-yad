@@ -53,7 +53,22 @@ const SNAPSHOT_SCRIPT = `(() => {
   for (const el of els) {
     const ref = 'e' + idx++;
     el.setAttribute('data-yad-ref', ref);
-    const role = el.getAttribute('role') || el.tagName.toLowerCase();
+    const explicitRole = el.getAttribute('role');
+    const tag = el.tagName.toLowerCase();
+    let role;
+    if (explicitRole) role = explicitRole;
+    else if (tag === 'a') role = 'link';
+    else if (tag === 'button' || tag === 'summary') role = 'button';
+    else if (tag === 'select') role = 'combobox';
+    else if (tag === 'textarea') role = 'textbox';
+    else if (tag === 'input') {
+      const t = (el.getAttribute('type') || 'text').toLowerCase();
+      if (t === 'checkbox') role = 'checkbox';
+      else if (t === 'radio') role = 'radio';
+      else if (t === 'button' || t === 'submit' || t === 'reset') role = 'button';
+      else if (t === 'file') role = 'file-input';
+      else role = 'textbox';
+    } else role = tag;
     const name = (
       el.getAttribute('aria-label') ||
       el.textContent?.trim().slice(0, 120) ||
