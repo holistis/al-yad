@@ -532,7 +532,10 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
         }
         const result = await session.cdp({
           command: "evaluate",
-          expression: parsed.expression.slice(0, 20_000),
+          // 50.000 om gelijk te lopen met de grens in cdp-manager.ts (evaluateInPage
+          // en de scripting-fallback) — een lagere grens hier zou stilzwijgend
+          // hetzelfde afkap-probleem terugbrengen op een andere laag.
+          expression: parsed.expression.slice(0, 50_000),
           tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
         }, 60_000);
         json(res, result.ok ? 200 : 500, result);

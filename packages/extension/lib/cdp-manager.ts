@@ -334,7 +334,12 @@ async function evalueerViaScripting(
     const [uitslag] = await chrome.scripting.executeScript({
       target: { tabId },
       world: "MAIN",
-      args: [expression.slice(0, 4_000)],
+      // 4.000 tekens was te krap voor realistische content (een artikel-body van een
+      // paar duizend tekens JSON-stringified in een fill-expressie loopt hier al
+      // overheen) — de afkap sneed dan halverwege een string-literal, wat een kale
+      // "Uncaught" SyntaxError gaf zonder bruikbare foutmelding. 50.000 komt overeen
+      // met de bovengrens die /cdp/evaluate op de companion al toestond.
+      args: [expression.slice(0, 50_000)],
       func: (expr: string) => {
         try {
           // eslint-disable-next-line no-new-func
@@ -373,7 +378,11 @@ export async function evaluateInPage(
       { tabId },
       "Runtime.evaluate",
       {
-        expression: expression.slice(0, 4_000),
+        // Zelfde reden en zelfde grens als de scripting-fallback hierboven — zie
+        // die comment. Beide paden moeten dezelfde grens hanteren, anders krijgt de
+        // aanroeper een ander stilzwijgend afgekapt resultaat afhankelijk van welk
+        // pad (CDP-debugger vs chrome.scripting) er die keer gebruikt werd.
+        expression: expression.slice(0, 50_000),
         returnByValue: true,
         awaitPromise: true,
         timeout: 10_000,
