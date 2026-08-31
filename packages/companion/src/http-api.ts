@@ -83,7 +83,7 @@ async function cleanWithGroq(goal: string, rawParts: string[], fallbackSummary?:
       method: "POST",
       headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120b",
         messages: [
           {
             role: "system",
@@ -1021,12 +1021,43 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
         const doSubmit = parsed.submit === true;
         // Bouw een JS-expressie die:
         // 1. Het element opzoekt via de CSS-selector
-        // 2. De waarde instelt via de native prototype-setter (React-compatibel)
-        // 3. 'input' en 'change' events stuurt
-        // 4. Optioneel Enter-events stuurt (keydown + keypress + keyup)
+        // 2. Voor <input>/<textarea>: waarde instellen via de native prototype-setter (React-compatibel)
+        //    Voor contenteditable-velden (rich-text-editors zoals Outlook/Gmail-compose, die GEEN
+        //    .value hebben): focussen + document.execCommand('insertText', ...), want dat is de
+        //    enige aanpak die zowel de zichtbare tekst zet ALS de beforeinput/input-events triggert
+        //    die React-gebaseerde editors (Fluent UI, Slate, Draft.js) nodig hebben om hun eigen
+        //    state bij te werken — direct .textContent zetten wordt door die editors genegeerd.
+        // 3. 'input' en 'change' events stuurt (voor het <input>-pad)
+        // 4. Optioneel Enter-events stuurt (keydown + keypress + keyup) — bv. om een getypt
+        //    e-mailadres in een recipient-picker als geldige ontvanger te bevestigen
         const jsExpr = `(function() {
   const el = document.querySelector(${JSON.stringify(parsed.selector)});
   if (!el) return { ok: false, detail: 'element niet gevonden: ' + ${JSON.stringify(parsed.selector)} };
+  const isContentEditable = el.isContentEditable || el.getAttribute('contenteditable') === 'true';
+  if (isContentEditable) {
+    el.focus();
+    try {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      document.execCommand('delete', false, undefined);
+    } catch(e) {}
+    const inserted = document.execCommand('insertText', false, ${JSON.stringify(parsed.value)});
+    if (!inserted) {
+      // Terugval als execCommand geweigerd wordt (zeldzaam, maar niet uitgesloten)
+      el.textContent = ${JSON.stringify(parsed.value)};
+      el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: ${JSON.stringify(parsed.value)} }));
+    }
+    ${doSubmit ? `
+    const opts = { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true };
+    el.dispatchEvent(new KeyboardEvent('keydown',  opts));
+    el.dispatchEvent(new KeyboardEvent('keypress', opts));
+    el.dispatchEvent(new KeyboardEvent('keyup',    opts));
+    ` : ""}
+    return { ok: true, filledValue: el.textContent, mode: 'contenteditable' };
+  }
   const proto = Object.getPrototypeOf(el);
   const desc = Object.getOwnPropertyDescriptor(proto, 'value');
   try {
@@ -1043,7 +1074,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
   el.dispatchEvent(new KeyboardEvent('keypress', opts));
   el.dispatchEvent(new KeyboardEvent('keyup',    opts));
   ` : ""}
-  return { ok: true, filledValue: el.value };
+  return { ok: true, filledValue: el.value, mode: 'input' };
 })()`;
         const evalResult = await session.cdp({
           command: "evaluate",

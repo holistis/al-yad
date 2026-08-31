@@ -39,6 +39,34 @@ const confirmPending = new Set<string>();
 const confirmTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /**
+ * MV3 service workers worden door Chrome afgesloten na een periode zonder activiteit,
+ * ook als de native-poort open staat (de aanname in de comment bovenaan dit bestand
+ * bleek niet altijd waar bij trage lokale modellen die minutenlang stil zijn tussen
+ * stappen). Bij afsluiten verliest de worker runTabId/lastWebTabId/stickyTabId, wat
+ * zich uit als "No tab with id: X" op de eerstvolgende actie na een lange stap.
+ * chrome.alarms is de door Google aanbevolen manier om een MV3 worker actief te
+ * houden tijdens een lopende taak: elke keer dat de alarm afgaat, wordt de worker
+ * (opnieuw) gestart en reset dat de idle-klok.
+ */
+const KEEPALIVE_ALARM = "yad-keepalive";
+function startKeepAlive(): void {
+  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.4 }); // ~24s
+}
+function stopKeepAlive(): void {
+  chrome.alarms.clear(KEEPALIVE_ALARM);
+}
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== KEEPALIVE_ALARM) return;
+  if (!runInProgress) {
+    stopKeepAlive();
+    return;
+  }
+  // Enkel het ontvangen van dit event houdt de worker actief; een lichte, onschuldige
+  // API-call ernaast maakt het effect betrouwbaarder op alle Chrome-versies.
+  void chrome.tabs.query({}).catch(() => {});
+});
+
+/**
  * Taal voor de meldingen die de gebruiker in het side-panel ziet (run-status en
  * capture-resultaten). Deze module is een service worker zonder eigen currentLanguage,
  * dus we cachen de opgeslagen taalkeuze en verversen hem telkens als we de instellingen
@@ -207,6 +235,7 @@ function toSidepanel(msg: unknown): void {
 
 function endRun(): void {
   runInProgress = false;
+  stopKeepAlive();
   // Onthoud de tab waarop deze run plaatsvond — volgende run start hier ook.
   if (runTabId != null) stickyTabId = runTabId;
   runTabId = null;
@@ -309,9 +338,11 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
   // binnenkomende GOAL-berichten allebei de guard passeren en elk een tab aanmaken
   // (TOCTOU-race -> ongelimiteerd tabs). JS is single-threaded, dus dit blok is atomair.
   runInProgress = true;
+  startKeepAlive();
 
   if (!(await isAccepted())) {
     runInProgress = false;
+    stopKeepAlive();
     toSidepanel({
       type: "YAD_RUN_UPDATE",
       status: "geweigerd",
@@ -323,6 +354,7 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
   const tabId = await resolveRunTab();
   if (tabId == null) {
     runInProgress = false;
+    stopKeepAlive();
     toSidepanel({
       type: "YAD_RUN_UPDATE",
       status: "geweigerd",
@@ -561,7 +593,7 @@ function onMessage(raw: unknown): void {
     }
     case "INJECT_LOCALSTORAGE": {
       const p = raw.payload as { items: Record<string, string> };
-      const tabId = runTabId ?? lastWebTabId;
+      const tabId = runTabId ?? stickyTabId ?? lastWebTabId;
       if (tabId == null) {
         replyToBrain("INJECT_LOCALSTORAGE_RESULT", { ok: false, count: 0 }, raw.id);
         break;
@@ -575,7 +607,7 @@ function onMessage(raw: unknown): void {
     }
     case "REQUEST_SCREENSHOT": {
       void (async () => {
-        const tabId = runTabId ?? lastWebTabId;
+        const tabId = runTabId ?? stickyTabId ?? lastWebTabId;
         try {
           if (tabId == null) throw new Error("geen run-tab");
           const tab = await chrome.tabs.get(tabId);
@@ -660,8 +692,14 @@ function onMessage(raw: unknown): void {
           return;
         }
 
-        // Bepaal de doeltab: expliciet opgegeven, anders run-tab of laatste web-tab.
-        const tabId = p.tabId ?? runTabId ?? lastWebTabId;
+        // Bepaal de doeltab: expliciet opgegeven, anders run-tab, anders de tab waar YAD
+        // laatst op werkte (stickyTabId — zelfde bron als /navigate en /goal gebruiken),
+        // pas als laatste terugval de losstaand bijgehouden laatste-web-tab. Vóór deze fix
+        // vielen /cdp/*-commando's zonder tabId direct terug op lastWebTabId, wat kon
+        // wijzen naar een inmiddels gesloten/vervangen tab terwijl stickyTabId (de tab
+        // waar /navigate en /goal wél naar keken) nog gewoon geldig was — "No tab with
+        // given id" terwijl de site zichtbaar open stond.
+        const tabId = p.tabId ?? runTabId ?? stickyTabId ?? lastWebTabId;
         if (tabId == null) {
           replyToBrain("CDP_RESULT", { ok: false, command: p.command, detail: "geen actieve tab" }, raw.id);
           return;
@@ -890,6 +928,7 @@ async function handleSnapshot(corr: string): Promise<void> {
     }
     runTabId = adopted;
     runInProgress = true;
+    startKeepAlive();
   }
   // Niet-inspecteerbare pagina (about:blank, chrome://, verse tab): geef een schone
   // LEGE snapshot i.p.v. een fout, zodat het model gewoon kan navigeren.
@@ -1014,6 +1053,7 @@ async function handleAct(corr: string, action: Action): Promise<void> {
     }
     runTabId = adopted;
     runInProgress = true;
+    startKeepAlive();
   }
   try {
     if (action.kind === "navigate") {
@@ -1024,6 +1064,15 @@ async function handleAct(corr: string, action: Action): Promise<void> {
         completed ? { ok: true } : { ok: false, detail: "navigatie niet voltooid binnen de tijd" },
         corr,
       );
+      return;
+    }
+    if (action.kind === "wait") {
+      // Een wacht-actie heeft geen paginatoegang nodig. Voorheen liep dit alsnog via
+      // ensureContentScript(), wat hard faalde op about:blank/chrome:// (een pagina die
+      // tijdens navigatie kortstondig actief kan zijn) met een verwarrende foutmelding
+      // die het model op een dwaalspoor zette. Nu een pure achtergrond-timer.
+      await new Promise<void>((resolve) => setTimeout(resolve, action.ms));
+      replyToBrain("ACT_RESULT", { ok: true }, corr);
       return;
     }
     await ensureContentScript(runTabId);
