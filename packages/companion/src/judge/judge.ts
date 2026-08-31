@@ -42,7 +42,15 @@ Output ONLY valid JSON: {"verdict":"match"|"mismatch"|"unknown","evidence":"one 
 
 match — evidence clearly confirms the expected outcome
 mismatch — evidence clearly contradicts the expected outcome
-unknown — evidence is absent, unclear, or too ambiguous to decide`;
+unknown — evidence is absent, unclear, or too ambiguous to decide
+
+HARD RULE, check this FIRST before anything else: if "extracted" is null or empty,
+you have NO evidence — output "unknown", never "match" or "mismatch", no matter
+what the URL looks like or how confident you feel. A URL alone does not prove or
+disprove a specific expected outcome (e.g. the URL can stay the same even when
+content changed, or look "wrong" even when the action actually succeeded). Guessing
+from the URL when there is no extracted text is exactly the mistake this rule exists
+to prevent — when in doubt with thin evidence, "unknown" is always the safe answer.`;
 
 const VALID_VERDICTS: readonly string[] = ["match", "mismatch", "unknown"];
 

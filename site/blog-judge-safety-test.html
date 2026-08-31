@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Yad Research Log #4: the free judge that guessed instead of saying "I don't know"</title>
+<meta name="description" content="Yad's LLM pool grew to 10+ free providers, including a free local model as the step verifier. Before trusting it, we tested whether it fails safely or dangerously. First result: it guessed. One paragraph of prompt fixed it, verified before and after.">
+<meta name="theme-color" content="#0B0A12">
+<meta property="og:title" content="Yad Research Log #4: the free judge that guessed instead of saying &quot;I don&#39;t know&quot;">
+<meta property="og:description" content="Yad's LLM pool grew to 10+ free providers, including a free local model as the step verifier. Before trusting it, we tested whether it fails safely or dangerously. First result: it guessed. One paragraph of prompt fixed it, verified before and after.">
+<meta property="og:type" content="article">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%E2%9C%8B</text></svg>">
+<link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-judge-safety-test">
+<link rel="alternate" hreflang="x-default" href="https://yadagent.com/yad-blog-judge-safety-test">
+<style>
+:root{
+  --bg:#0B0A12; --surf-1:#141221; --surf-2:#1C1830;
+  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.14);
+  --text:rgba(255,255,255,.92); --text-dim:rgba(255,255,255,.60); --text-faint:rgba(255,255,255,.38);
+  --accent:#6d5cf0; --accent-2:#7c3aed; --accent-glow:#9333ea; --on-accent:#fff;
+  --grad:linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#9333ea 100%);
+  --s2:8px; --s3:16px; --s4:24px; --s5:32px; --s6:48px; --s7:64px;
+  --step-0:16px; --step-1:18px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:var(--step-0); line-height:1.55; letter-spacing:-.006em;
+  overflow-x:hidden; -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+::selection{background:color-mix(in srgb,var(--accent) 40%,transparent)}
+.container{width:min(880px,92vw);margin-inline:auto}
+.narrow{width:min(680px,92vw);margin-inline:auto}
+h1,h2,h3{font-weight:700;text-wrap:balance;letter-spacing:-.025em;line-height:1.15;margin:0}
+.mono{font-family:ui-monospace,Consolas,monospace}
+
+.bg{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.mesh{position:absolute;inset:-20%;filter:blur(60px);opacity:.9;
+  background:
+    radial-gradient(38% 44% at 18% 22%,rgba(109,92,240,.28),transparent 70%),
+    radial-gradient(34% 40% at 82% 18%,rgba(124,58,237,.22),transparent 68%),
+    radial-gradient(46% 50% at 68% 82%,rgba(147,51,234,.20),transparent 72%);
+}
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(14px);
+  background:color-mix(in srgb,var(--bg) 72%,transparent);border-bottom:1px solid var(--border)}
+.nav-in{display:flex;align-items:center;gap:var(--s4);height:64px}
+.wordmark{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;letter-spacing:-.02em}
+.wordmark .glyph{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--grad);color:#fff;font-size:14px;box-shadow:0 2px 10px -2px var(--accent-glow)}
+.nav-links{display:flex;gap:var(--s4);margin-left:var(--s4);font-size:14.5px;color:var(--text-dim)}
+.nav-links a{transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:var(--s3)}
+.icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;display:grid;place-items:center;transition:.2s}
+.icon-btn:hover{color:var(--text);border-color:var(--border-strong)}
+.btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:15px;padding:11px 20px;border-radius:11px;border:1px solid transparent;cursor:pointer;transition:transform .22s,box-shadow .22s,border-color .2s,background .2s;white-space:nowrap}
+.btn-primary{background:var(--grad);color:#fff;box-shadow:0 6px 24px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.25)}
+.btn-primary:hover{box-shadow:0 10px 34px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn-sm{padding:9px 16px;font-size:14px;border-radius:10px}
+.btn-short{display:none}
+@media (max-width:400px){.btn-sm{padding:9px 12px;font-size:13.5px}.btn-full{display:none}.btn-short{display:inline}}
+.nav-burger{display:none}
+.mobile-menu{display:none}
+@media (max-width:820px){
+  .nav-links{display:none}
+  .nav-burger{display:grid}
+  .mobile-menu{display:block;position:fixed;left:0;right:0;top:64px;z-index:49;background:var(--bg);border-bottom:1px solid var(--border);
+    max-height:0;overflow:hidden;transition:max-height .25s ease}
+  .mobile-menu.open{max-height:80vh;overflow-y:auto}
+  .mobile-menu-in{display:flex;flex-direction:column;padding:var(--s3) var(--s4) var(--s5)}
+  .mobile-menu a{padding:13px 4px;font-size:15.5px;color:var(--text-dim);border-bottom:1px solid var(--border)}
+  .mobile-menu a:last-child{border-bottom:none}
+}
+
+.back{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--text-dim);margin-top:var(--s6)}
+.back:hover{color:var(--text)}
+
+article{padding-block:var(--s4) var(--s7)}
+.art-date{font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-top:var(--s4)}
+.art-tag{display:inline-block;font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid var(--border-strong);border-radius:999px;padding:4px 10px;margin-top:var(--s4)}
+article h1{font-size:clamp(28px,4.4vw,42px);margin-top:14px}
+article .lede{font-size:var(--step-1);color:var(--text-dim);margin-top:18px}
+.prose{margin-top:var(--s6)}
+.prose h3{font-size:20px;margin-top:var(--s6);margin-bottom:2px}
+.prose p{color:var(--text-dim);margin-top:16px;font-size:16px;line-height:1.7}
+.prose a{color:var(--accent);text-decoration:underline}
+.prose code{font-family:ui-monospace,Consolas,monospace;font-size:14px;background:var(--surf-2);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
+.prose blockquote{border-left:2px solid var(--border-strong);margin:20px 0 0;padding-left:16px;color:var(--text-faint);font-size:14.5px}
+.prose table{width:100%;border-collapse:collapse;margin-top:16px;font-size:14.5px}
+.prose th,.prose td{border:1px solid var(--border);padding:8px 10px;text-align:left;color:var(--text-dim)}
+.prose th{color:var(--text);font-weight:600}
+
+footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-dim)}
+.foot-in{display:flex;flex-wrap:wrap;gap:18px 30px;justify-content:space-between;align-items:baseline}
+.foot-brand{color:var(--text)}
+.foot-links{display:flex;flex-wrap:wrap;gap:22px;font-size:13px}
+.foot-links a{color:var(--text-dim);transition:color .2s}
+.foot-links a:hover{color:var(--text)}
+.foot-built{width:100%;font-size:13px;color:var(--text-faint);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="bg"><div class="mesh"></div></div>
+<div class="grain"></div>
+
+<header class="nav">
+  <div class="container nav-in">
+    <a class="wordmark" href="/yad#top"><span class="glyph">✋</span> yad</a>
+    <nav class="nav-links">
+      <a href="/yad#features">Features</a>
+      <a href="/yad-security">Security</a>
+      <a href="/yad-business">For Teams</a>
+      <a href="/yad-blog">Blog</a>
+      <a href="/yad#faq">FAQ</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn nav-burger" id="burger" aria-label="Open menu" title="Open menu" aria-expanded="false">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
+      </button>
+      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea"><span class="btn-full">Add to Chrome</span><span class="btn-short">Chrome</span></a>
+    </div>
+  </div>
+</header>
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-in">
+    <a href="/yad#features">Features</a>
+    <a href="/yad-security">Security</a>
+    <a href="/yad-business">For Teams</a>
+    <a href="/yad-blog">Blog</a>
+    <a href="/yad#faq">FAQ</a>
+  </div>
+</div>
+
+<main id="top">
+  <article class="narrow">
+    <a class="back" href="/yad-blog">← All posts</a>
+    <div class="art-tag">Research Log #4</div>
+    <div class="art-date">August 31, 2026</div>
+    <h1>The free judge that guessed instead of saying "I don't know"</h1>
+    <p class="lede">Yad's free-provider pool just grew to 10+, including a free local model that can now act as the "judge" that checks whether each browser step actually did what it was supposed to. Before trusting it, we asked a blunt question: when it doesn't have enough evidence, does it admit that, or does it guess? First answer: it guessed. Here's the test, the guess, and the one-paragraph fix, verified before and after.</p>
+
+    <div class="prose">
+      <p>Every action Yad takes gets checked by a small second opinion, the "judge": given what the step was supposed to accomplish and what evidence came back, classify the outcome as match, mismatch, or unknown. Unknown is the safe answer when there isn't enough evidence to decide either way &mdash; it's supposed to make the agent pause and ask for help rather than plow ahead on a guess. That check used to always go to a paid-tier-quality cloud model. It now can run on a small, free, local model instead, which matters because it means the check can happen far more often without burning through the free quota the actual planning needs.</p>
+      <p>A cheaper judge is only worth using if it's still an honest one. So before turning it on more broadly, we built a side-by-side test: run Yad's real benchmark tasks, and every time the judge actually gets invoked, send the exact same evidence to both the cheap local model and a strong cloud model, then log both verdicts next to each other. No synthetic test cases &mdash; only real judge calls that happened during real runs.</p>
+
+      <h3>First run: 2 out of 7 agreed</h3>
+      <p>Twenty-five tasks, but only seven produced a real judge call &mdash; most of this benchmark set is pure reading (extract this, count that), which doesn't need step verification. Of those seven, the cheap and strong model agreed on two. Not once did the cheap model say "match" while the strong model said "mismatch" &mdash; the worst possible failure never happened. But a clear pattern did: in five of the seven cases, the action had returned no extracted evidence at all, just an unchanged URL. The strong model correctly said "unknown" every time &mdash; nothing to go on, so no verdict. The cheap model, given that same nothing, still said "mismatch" four times and, once, "match." A guess dressed up as a verdict.</p>
+
+      <h3>The fix was one paragraph</h3>
+      <p>The judge's instructions already said, in prose, that unknown is the answer when evidence is "absent, unclear, or too ambiguous." A strong model reliably applies that. A small model, it turned out, did not &mdash; it needed the rule spelled out as a mechanical check rather than left to its own judgment call. The fix in <code>packages/companion/src/judge/judge.ts</code> adds one hard rule ahead of everything else: if there's no extracted evidence, the answer is unknown, full stop, regardless of what the URL looks like. No new infrastructure, no new model, one paragraph of prompt.</p>
+
+      <h3>Second run, same tasks: 6 out of 7</h3>
+      <p>Same benchmark set, same real judge moments, after the fix. Agreement went from 2/7 to 6/7. The one remaining disagreement leans safe, not dangerous: the cheap model said unknown where the strong model was confident enough to say match &mdash; overly cautious, never overconfident. Zero dangerous disagreements in either run.</p>
+
+      <table>
+        <tr><th>Run</th><th>Agreement</th><th>Dangerous (cheap=match, strong=mismatch)</th></tr>
+        <tr><td>Before fix</td><td>2/7 (28.6%)</td><td>0</td></tr>
+        <tr><td>After fix</td><td>6/7 (85.7%)</td><td>0</td></tr>
+      </table>
+
+      <h3>What this does and doesn't prove</h3>
+      <p>Seven comparisons is a real number, not a big one &mdash; it's what this particular task set actually produced, not a number we picked. It's enough to catch and fix a genuine overconfidence pattern, and enough to say the free local judge is no longer guessing on thin evidence in this sample. It is not enough to call the free judge equivalent to the paid one across every situation Yad runs into. The honest next step, if this becomes a broader default, is a larger run specifically on tasks that produce rich extracted evidence, not just this set's mostly-read, mostly-thin-evidence mix &mdash; that's a deliberately separate test from this one, not a reason to hold back what got fixed here.</p>
+    </div>
+
+    <a class="back" href="/yad-blog">← All posts</a>
+  </article>
+</main>
+
+<footer>
+  <div class="container foot-in">
+    <div class="foot-brand mono">yad ✋ your own hand in the browser</div>
+    <div class="foot-links">
+      <a href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Chrome Web Store</a>
+      <a href="https://github.com/holistis/al-yad">GitHub</a>
+      <a href="/yad-privacy">Privacy</a>
+      <a href="/yad-security">Security</a>
+      <a href="mailto:info@mergefix.com">Contact</a>
+    </div>
+    <p class="foot-built">Built by <a href="https://github.com/holistis" style="color:inherit;text-decoration:underline">Abdellah Ouadoudi</a>. Questions? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var burger=document.getElementById("burger");
+  var mmenu=document.getElementById("mobileMenu");
+  if(burger&&mmenu){
+    burger.addEventListener("click",function(){
+      var open=mmenu.classList.toggle("open");
+      burger.setAttribute("aria-expanded",open?"true":"false");
+    });
+    mmenu.addEventListener("click",function(e){
+      if(e.target.tagName==="A"){mmenu.classList.remove("open");burger.setAttribute("aria-expanded","false");}
+    });
+  }
+})();
+</script>
+</body>
+</html>
