@@ -12,6 +12,12 @@ export interface PoolEnv {
   TOGETHER_API_KEY?: string;
   MISTRAL_API_KEY?: string;
   HYPERBOLIC_API_KEY?: string;
+  SAMBANOVA_API_KEY?: string;
+  DEEPSEEK_API_KEY?: string;
+  QWEN_API_KEY?: string;
+  OLLAMA_CLOUD_API_KEY?: string;
+  CLOUDFLARE_API_KEY?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
   ALLOW_PAID_GEMINI?: string;
   YAD_PAID_API_KEY?: string;
   YAD_PAID_BASE_URL?: string;
@@ -33,6 +39,12 @@ export interface PoolEnv {
   TOGETHER_MODEL?: string;
   MISTRAL_MODEL?: string;
   HYPERBOLIC_MODEL?: string;
+  SAMBANOVA_MODEL?: string;
+  DEEPSEEK_MODEL?: string;
+  QWEN_MODEL?: string;
+  OLLAMA_CLOUD_MODEL?: string;
+  CLOUDFLARE_MODEL?: string;
+  OLLAMA_JUDGE_MODEL?: string;
   [key: string]: string | undefined;
 }
 
@@ -60,9 +72,191 @@ export function isLokaleUrl(url: string): boolean {
   }
 }
 
-export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] {
+/**
+ * Bouwt de gratis-cloud-providers, ZONDER de 'primary'-voorkeur (tierFor is een
+ * meegegeven functie zodat buildPool() en buildCheapPool() elk hun eigen tier-logica
+ * kunnen toepassen op dezelfde onderliggende lijst — geen dubbele providerdefinities
+ * die uit elkaar kunnen groeien).
+ */
+function buildFreeCloudProviders(
+  env: PoolEnv,
+  tierFor: (name: string, base: number) => number,
+): LlmProvider[] {
   const providers: LlmProvider[] = [];
 
+  // Gemini staat EERST in de pool (laagste insertie-index binnen tier 0) zodat
+  // KEY_3 → KEY_4 → KEY_1 → KEY_2 worden geprobeerd vóór Groq/Cerebras.
+  // Halal-discipline: KEY + KEY_2 zijn gratis (AI Studio); KEY_3..9 zijn uit een
+  // betaald GCP-project en doen mee als ALLOW_PAID_GEMINI=true (settingsToEnv
+  // zet dat automatisch als de gebruiker ze inschakelt in het paneel).
+  const geminiModel = env.GEMINI_MODEL ?? "gemini-3.6-flash";
+  const geminiKeys: Array<{ key: string; name: string }> = [];
+  if ((env.ALLOW_PAID_GEMINI ?? "").toLowerCase() === "true") {
+    // Betaalde sleutels gaan EERST (de gebruiker koos ze bewust als primair)
+    for (let i = 3; i <= 9; i++) {
+      const k = env[`GEMINI_API_KEY_${i}`];
+      if (k) geminiKeys.push({ key: k, name: `gemini${i}` });
+    }
+  }
+  if (env.GEMINI_API_KEY) geminiKeys.push({ key: env.GEMINI_API_KEY, name: "gemini" });
+  if (env.GEMINI_API_KEY_2) geminiKeys.push({ key: env.GEMINI_API_KEY_2, name: "gemini2" });
+  for (const g of geminiKeys) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: g.name,
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+        apiKey: g.key,
+        model: geminiModel,
+        tier: tierFor(g.name, 0),
+      }),
+    );
+  }
+
+  if (env.GROQ_API_KEY) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "groq",
+        baseUrl: "https://api.groq.com/openai/v1",
+        apiKey: env.GROQ_API_KEY,
+        model: env.GROQ_MODEL ?? "openai/gpt-oss-120b",
+        tier: tierFor("groq", 0),
+      }),
+    );
+  }
+  if (env.CEREBRAS_API_KEY) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "cerebras",
+        baseUrl: "https://api.cerebras.ai/v1",
+        apiKey: env.CEREBRAS_API_KEY,
+        model: env.CEREBRAS_MODEL ?? "gpt-oss-120b",
+        tier: tierFor("cerebras", 0),
+      }),
+    );
+  }
+  if (env.OPENROUTER_API_KEY) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "openrouter",
+        baseUrl: "https://openrouter.ai/api/v1",
+        apiKey: env.OPENROUTER_API_KEY,
+        model: env.OPENROUTER_MODEL ?? "minimax/minimax-m3:free",
+        tier: tierFor("openrouter", 0),
+      }),
+    );
+  }
+  // GitHub Models: aparte gratis pool voor GitHub-gebruikers (OpenAI-compatibel,
+  // auth met GITHUB_TOKEN). Geeft extra ademruimte als de andere tier-0 vol zitten.
+  if (env.GITHUB_TOKEN) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "github-models",
+        baseUrl: (env.GITHUB_MODELS_URL ?? "https://models.github.ai/inference").replace(/\/+$/, ""),
+        apiKey: env.GITHUB_TOKEN,
+        model: env.GITHUB_MODELS_MODEL ?? "openai/gpt-4o-mini",
+        tier: tierFor("github-models", 0),
+      }),
+    );
+  }
+  if (env.TOGETHER_API_KEY) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "together",
+        baseUrl: "https://api.together.xyz/v1",
+        apiKey: env.TOGETHER_API_KEY,
+        model: env.TOGETHER_MODEL ?? "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+        tier: tierFor("together", 0),
+      }),
+    );
+  }
+  if (env.MISTRAL_API_KEY) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "mistral",
+        baseUrl: "https://api.mistral.ai/v1",
+        apiKey: env.MISTRAL_API_KEY,
+        model: env.MISTRAL_MODEL ?? "open-mistral-nemo",
+        tier: tierFor("mistral", 0),
+      }),
+    );
+  }
+  if (env.HYPERBOLIC_API_KEY) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "hyperbolic",
+        baseUrl: "https://api.hyperbolic.xyz/v1",
+        apiKey: env.HYPERBOLIC_API_KEY,
+        model: env.HYPERBOLIC_MODEL ?? "meta-llama/Llama-3.3-70B-Instruct",
+        tier: tierFor("hyperbolic", 0),
+      }),
+    );
+  }
+  if (env.SAMBANOVA_API_KEY) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "sambanova",
+        baseUrl: "https://api.sambanova.ai/v1",
+        apiKey: env.SAMBANOVA_API_KEY,
+        model: env.SAMBANOVA_MODEL ?? "Meta-Llama-3.3-70B-Instruct",
+        tier: tierFor("sambanova", 0),
+      }),
+    );
+  }
+  if (env.DEEPSEEK_API_KEY) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "deepseek",
+        baseUrl: "https://api.deepseek.com/v1",
+        apiKey: env.DEEPSEEK_API_KEY,
+        model: env.DEEPSEEK_MODEL ?? "deepseek-chat",
+        tier: tierFor("deepseek", 0),
+      }),
+    );
+  }
+  if (env.QWEN_API_KEY) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "qwen-dashscope",
+        baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        apiKey: env.QWEN_API_KEY,
+        model: env.QWEN_MODEL ?? "qwen-turbo",
+        tier: tierFor("qwen-dashscope", 0),
+      }),
+    );
+  }
+  // Ollama Cloud: ollama.com's eigen gehoste modellen, apart van de lokale Ollama-bodem
+  // hieronder. Lost het CPU-snelheidsplafond van de lokale bodem op (3.5-5 tok/s) zonder
+  // dat er iets betaald hoeft te worden — alleen een gratis account met e-mail.
+  if (env.OLLAMA_CLOUD_API_KEY) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "ollama-cloud",
+        baseUrl: "https://ollama.com/v1",
+        apiKey: env.OLLAMA_CLOUD_API_KEY,
+        model: env.OLLAMA_CLOUD_MODEL ?? "gpt-oss:120b-cloud",
+        tier: tierFor("ollama-cloud", 0),
+      }),
+    );
+  }
+  // Cloudflare Workers AI: 10.000 gratis neurons/dag, reset elke dag 00:00 UTC, geen
+  // creditcard. Het account-ID is geen geheim (staat gewoon in de URL), alleen de token
+  // is gevoelig. Token is bewust scoped tot alleen Workers AI:Edit, geen DNS/zone-toegang.
+  if (env.CLOUDFLARE_API_KEY && env.CLOUDFLARE_ACCOUNT_ID) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "cloudflare-workers-ai",
+        baseUrl: `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`,
+        apiKey: env.CLOUDFLARE_API_KEY,
+        model: env.CLOUDFLARE_MODEL ?? "@cf/openai/gpt-oss-120b",
+        tier: tierFor("cloudflare-workers-ai", 0),
+      }),
+    );
+  }
+
+  return providers;
+}
+
+export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] {
   /**
    * LOKALE STAND: niets van de pagina verlaat deze machine.
    *
@@ -123,113 +317,8 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
   const tierFor = (name: string, base: number): number =>
     primaryName && name === primaryName ? -1 : base;
 
-  // Gemini staat EERST in de pool (laagste insertie-index binnen tier 0) zodat
-  // KEY_3 → KEY_4 → KEY_1 → KEY_2 worden geprobeerd vóór Groq/Cerebras.
-  // Halal-discipline: KEY + KEY_2 zijn gratis (AI Studio); KEY_3..9 zijn uit een
-  // betaald GCP-project en doen mee als ALLOW_PAID_GEMINI=true (settingsToEnv
-  // zet dat automatisch als de gebruiker ze inschakelt in het paneel).
-  const geminiModel = env.GEMINI_MODEL ?? "gemini-2.0-flash";
-  const geminiKeys: Array<{ key: string; name: string }> = [];
-  if ((env.ALLOW_PAID_GEMINI ?? "").toLowerCase() === "true") {
-    // Betaalde sleutels gaan EERST (de gebruiker koos ze bewust als primair)
-    for (let i = 3; i <= 9; i++) {
-      const k = env[`GEMINI_API_KEY_${i}`];
-      if (k) geminiKeys.push({ key: k, name: `gemini${i}` });
-    }
-  }
-  if (env.GEMINI_API_KEY) geminiKeys.push({ key: env.GEMINI_API_KEY, name: "gemini" });
-  if (env.GEMINI_API_KEY_2) geminiKeys.push({ key: env.GEMINI_API_KEY_2, name: "gemini2" });
-  for (const g of geminiKeys) {
-    providers.push(
-      new OpenAICompatibleProvider({
-        name: g.name,
-        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-        apiKey: g.key,
-        model: geminiModel,
-        tier: tierFor(g.name, 0),
-      }),
-    );
-  }
+  const providers: LlmProvider[] = buildFreeCloudProviders(env, tierFor);
 
-  if (env.GROQ_API_KEY) {
-    providers.push(
-      new OpenAICompatibleProvider({
-        name: "groq",
-        baseUrl: "https://api.groq.com/openai/v1",
-        apiKey: env.GROQ_API_KEY,
-        model: env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
-        tier: tierFor("groq", 0),
-      }),
-    );
-  }
-  if (env.CEREBRAS_API_KEY) {
-    providers.push(
-      new OpenAICompatibleProvider({
-        name: "cerebras",
-        baseUrl: "https://api.cerebras.ai/v1",
-        apiKey: env.CEREBRAS_API_KEY,
-        model: env.CEREBRAS_MODEL ?? "llama3.1-8b",
-        tier: tierFor("cerebras", 0),
-      }),
-    );
-  }
-  if (env.OPENROUTER_API_KEY) {
-    providers.push(
-      new OpenAICompatibleProvider({
-        name: "openrouter",
-        baseUrl: "https://openrouter.ai/api/v1",
-        apiKey: env.OPENROUTER_API_KEY,
-        model: env.OPENROUTER_MODEL ?? "meta-llama/llama-3.3-70b-instruct:free",
-        tier: tierFor("openrouter", 0),
-      }),
-    );
-  }
-  // GitHub Models: aparte gratis pool voor GitHub-gebruikers (OpenAI-compatibel,
-  // auth met GITHUB_TOKEN). Geeft extra ademruimte als de andere tier-0 vol zitten.
-  if (env.GITHUB_TOKEN) {
-    providers.push(
-      new OpenAICompatibleProvider({
-        name: "github-models",
-        baseUrl: (env.GITHUB_MODELS_URL ?? "https://models.github.ai/inference").replace(/\/+$/, ""),
-        apiKey: env.GITHUB_TOKEN,
-        model: env.GITHUB_MODELS_MODEL ?? "openai/gpt-4o-mini",
-        tier: tierFor("github-models", 0),
-      }),
-    );
-  }
-  if (env.TOGETHER_API_KEY) {
-    providers.push(
-      new OpenAICompatibleProvider({
-        name: "together",
-        baseUrl: "https://api.together.xyz/v1",
-        apiKey: env.TOGETHER_API_KEY,
-        model: env.TOGETHER_MODEL ?? "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-        tier: tierFor("together", 0),
-      }),
-    );
-  }
-  if (env.MISTRAL_API_KEY) {
-    providers.push(
-      new OpenAICompatibleProvider({
-        name: "mistral",
-        baseUrl: "https://api.mistral.ai/v1",
-        apiKey: env.MISTRAL_API_KEY,
-        model: env.MISTRAL_MODEL ?? "open-mistral-nemo",
-        tier: tierFor("mistral", 0),
-      }),
-    );
-  }
-  if (env.HYPERBOLIC_API_KEY) {
-    providers.push(
-      new OpenAICompatibleProvider({
-        name: "hyperbolic",
-        baseUrl: "https://api.hyperbolic.xyz/v1",
-        apiKey: env.HYPERBOLIC_API_KEY,
-        model: env.HYPERBOLIC_MODEL ?? "meta-llama/Llama-3.3-70B-Instruct",
-        tier: tierFor("hyperbolic", 0),
-      }),
-    );
-  }
   // Eigen / andere provider: elke OpenAI-compatibele API (door de gebruiker
   // ingevoerd). Alleen http/https als doel (geen file:/localhost-only-eis, want
   // het kan een eigen LAN-endpoint zijn). Halal/veilig: dit is de eigen sleutel
@@ -261,6 +350,56 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
   }
 
   // Ollama als bodem (alleen nuttig als lokaal geinstalleerd, maar nooit "op").
+  providers.push(
+    new OpenAICompatibleProvider({
+      name: "ollama",
+      baseUrl: env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+      model: env.OLLAMA_MODEL ?? "qwen2.5:7b-instruct",
+      apiKey: env.OLLAMA_API_KEY,
+      tier: 2,
+    }),
+  );
+
+  return providers;
+}
+
+/**
+ * "Cheap pool" voor Judge-verificatie en predicaat-generatie: kleine, begrensde
+ * classificatietaken (ternair match/mismatch/unknown, of een paar DONE-predicaten)
+ * die geen zware redenering nodig hebben. Deze calls concurreerden voorheen met het
+ * echte plan-werk om dezelfde gratis cloud-quota's — juist tijdens 24/7-piekbelasting
+ * het moment waarop die quota's als eerst opraken.
+ *
+ * Bewust een aparte pool i.p.v. tierFor()-trucs op buildPool(): de 'sterkste-eerst'-
+ * voorkeur van de gebruiker (YAD_PRIMARY_PROVIDER) is een keuze voor het PLAN-werk,
+ * die hoort hier niet automatisch in mee te lopen — cheap-werk gaat altijd eerst naar
+ * het kleine lokale model, ongeacht wat er voor het hoofd-plan als primair is gekozen.
+ *
+ * In YAD_LOKAAL-stand blijft de belofte hetzelfde als bij buildPool(): geen cloud-
+ * providers, punt (vandaar de herbruik van buildPool() zelf in dat geval).
+ */
+export function buildCheapPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] {
+  if (staatOpAlleenLokaal(env)) return buildPool(env);
+
+  const providers: LlmProvider[] = [
+    // Klein, snel lokaal model EERST: kost geen enkele gratis cloud-quota.
+    new OpenAICompatibleProvider({
+      name: "ollama-cheap",
+      baseUrl: env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+      model: env.OLLAMA_JUDGE_MODEL ?? "qwen2.5:3b-instruct",
+      apiKey: env.OLLAMA_API_KEY,
+      tier: -1,
+      // Ruimer dan een normale cheap-call zou moeten kosten (klein model, kort antwoord),
+      // maar lokaal draaien op CPU blijft onvoorspelbaar traag onder belasting.
+      timeoutMs: 90_000,
+    }),
+  ];
+
+  // Cloud-tiers als vangnet, uniform op tier 0 (geen primary-voorkeur hier, zie hierboven).
+  providers.push(...buildFreeCloudProviders(env, () => 0));
+
+  // Laatste bodem: hetzelfde grotere lokale model als de hoofd-pool, voor het geval zowel
+  // het kleine cheap-model als alle cloud-tiers falen. Nooit "op".
   providers.push(
     new OpenAICompatibleProvider({
       name: "ollama",

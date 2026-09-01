@@ -19,8 +19,22 @@ import { generatePredicates, type PredicateChat } from "./predicate-generator.js
  *  Voorkomt een meta-lus: YAD vraagt hulp → plan faalt → vraagt opnieuw → etc. */
 const MAX_RECOVERY_ATTEMPTS = 3;
 
+/** Trefwoorden die een vergelijk/rangschik/tel-vraag aanduiden (NL+EN) — zelfde categorie als
+ *  prompt.ts's "COMPARE/RANK/COUNT TASKS"-regel ("gebruik ALTIJD extract zonder ref"). Gebruikt
+ *  door de code-niveau bewaker in run() die een ref-gerichte extract op zo'n vraag corrigeert
+ *  naar een volledige-pagina-extract. Ontdekt op 2026-08-28 (benchmark bk-002/bk-003): het model
+ *  volgt deze prompt-regel niet altijd — koos een ref die naar een navigatie-link wees ("Home")
+ *  i.p.v. de daadwerkelijke prijslijst, en gaf dat letterlijk terug als antwoord. Zelfde soort
+ *  vangnet als de bestaande extract-lus-bewaker verderop in run(). */
+const COMPARE_RANK_COUNT_PATTERN =
+  /goedkoopste|duurste|meeste|minste|beste|slechtste|hoogste|laagste|populairste|hoeveel|aantal|cheapest|most expensive|highest|lowest|most popular|least popular|how many|count of|number of/i;
+
+function isCompareRankCountGoal(goal: string): boolean {
+  return COMPARE_RANK_COUNT_PATTERN.test(goal);
+}
+
 export interface ChatLike {
-  chat(req: ChatRequest): Promise<{ content: string; provider: string; model?: string }>;
+  chat(req: ChatRequest): Promise<{ content: string; provider: string }>;
 }
 
 export interface HandBridge {
@@ -117,6 +131,16 @@ export interface LoopOptions {
   language?: "nl" | "en";
   /** Action-cache voor deterministisch hergebruik zonder LLM-calls. */
   cacheStore?: CacheStore;
+  /**
+   * Losse, goedkope router voor Judge-verificatie en predicaat-generatie: kleine,
+   * begrensde classificatietaken die geen zware redenering nodig hebben en anders
+   * meeconcurreren met het echte plan-werk om dezelfde gratis cloud-quota's. Standaard
+   * (niet meegegeven) = dezelfde router als het hoofd-plan, dus bestaand gedrag blijft
+   * ongewijzigd als de aanroeper geen aparte cheap-pool aanbiedt.
+   * NIET gebruikt voor generateRecoveryHint (session.ts) — dat vraagt wél echte diagnose
+   * bij een vastgelopen run en hoort bij de sterkste beschikbare tier te blijven.
+   */
+  judgeRouter?: ChatLike;
   /**
    * Schrijft objectief bewijs (URL, actie, resultaat) per stap naar een bestand.
    * Geeft de buitenste Planner inzicht zonder de loop-logica te wijzigen.
@@ -277,20 +301,10 @@ export class AgentLoop {
   /** Bewezen herstel-events van deze run — voor flush naar recovery-store na "klaar". */
   private _provenRecoveries: Array<{ sitePattern: string; failureCategory: string; failureClass?: string; hint: string }> = [];
 
-  /** Naam van elke provider die minstens 1 succesvolle chat-call deed deze run, in volgorde van eerste gebruik.
-   * Ontbrak eerder: een benchmark-run kon niet zeggen welk model een taak echt deed, alleen dat de pool
-   * ooit een antwoord teruggaf. router.chat() geeft dit al terug via ChatResponse.provider, alleen niemand
-   * las het uit. Zelfde patroon als hadRecovery/lastStuckSignalId hierboven: bijhouden op de instantie,
-   * na run() uitlezen via de getter, geen enkel return-pad in run() hoeft aangepast te worden. */
-  private readonly _providersUsed: string[] = [];
-
   /** Voor RunRecord-substraat: het signaal dat de run liet stoppen via escalatie (undefined bij klaar/max-steps). */
   get lastStuckSignalId(): string | undefined { return this._lastStuckSignalId; }
   /** Voor RunRecord-substraat: had deze run minstens één succesvolle escalatie-herstelpoging? */
   get hadRecovery(): boolean { return this._hadRecovery; }
-  /** Provider:model-combinaties die deze run daadwerkelijk antwoord gaven ("groq:llama-3.3-70b-versatile"),
-   * in volgorde van eerste gebruik (leeg als run() nog niet klaar is). */
-  get providersUsed(): readonly string[] { return this._providersUsed; }
   /** Bewezen recovery-events van deze run (voor flush naar recovery-store na "klaar"). */
   get provenRecoveries(): ReadonlyArray<{ sitePattern: string; failureCategory: string; failureClass?: string; hint: string }> {
     return this._provenRecoveries;
@@ -318,12 +332,14 @@ export class AgentLoop {
     this.recoveryStore = opts.recoveryStore;
     this.selectorStore = opts.selectorStore;
     this.enablePredicateGen = opts.generatePredicates ?? false;
+    this.judgeRouter = opts.judgeRouter ?? router;
   }
 
   private readonly substates: Substate[];
   private readonly recoveryStore: RecoveryStore | undefined;
   private readonly selectorStore: SelectorStore | undefined;
   private readonly enablePredicateGen: boolean;
+  private readonly judgeRouter: ChatLike;
 
   private readonly isAborted: () => boolean;
 
@@ -564,20 +580,9 @@ export class AgentLoop {
       startingUrl = initSnap.url;
     } catch { /* snapshot mislukt → gewoon zonder cache */ }
 
-    // Predicate-generator: genereer DONE-predicaten via LLM als substates leeg zijn (opt-in).
-    // Eén extra LLM-aanroep per run, maar produceert sterkere done-checks (url-contains ipv text-present).
-    const effectiveSubstates: Substate[] = [...this.substates];
-    if (effectiveSubstates.length === 0 && this.enablePredicateGen && initSnap) {
-      try {
-        const generated = await generatePredicates(this.router as PredicateChat, goal, initSnap);
-        if (generated.length > 0) {
-          effectiveSubstates.push(...generated);
-          this.log(`predicate-gen: ${generated.length} substate(s) aangemaakt → "${effectiveSubstates[0]?.label}"`);
-        }
-      } catch { /* graceful degradation — geen predicaten is ok, run gaat gewoon door */ }
-    }
-    const tracker = new SubstateTracker(effectiveSubstates);
-
+    // Cache-check EERST: bij een volledige cache-hit is er geen enkele LLM-call nodig,
+    // dus ook geen predicate-gen-call. Volgorde is bewust: predicate-gen (hieronder) alleen
+    // draaien als we daadwerkelijk de LLM-loop in gaan (geen hit, of hit met drift).
     if (this.cacheStore && startingUrl) {
       const cacheKey = makeCacheKey(goal, startingUrl);
       const cached = this.cacheStore.get(cacheKey);
@@ -609,6 +614,20 @@ export class AgentLoop {
         this.hand.update({ status: "bezig", message: `Site veranderd op stap ${loopStartStep} — AI neemt het over.` });
       }
     }
+
+    // Predicate-generator: genereer DONE-predicaten via LLM als substates leeg zijn (opt-in).
+    // Eén extra LLM-aanroep per run, maar produceert sterkere done-checks (url-contains ipv text-present).
+    const effectiveSubstates: Substate[] = [...this.substates];
+    if (effectiveSubstates.length === 0 && this.enablePredicateGen && initSnap) {
+      try {
+        const generated = await generatePredicates(this.judgeRouter as PredicateChat, goal, initSnap);
+        if (generated.length > 0) {
+          effectiveSubstates.push(...generated);
+          this.log(`predicate-gen: ${generated.length} substate(s) aangemaakt → "${effectiveSubstates[0]?.label}"`);
+        }
+      } catch { /* graceful degradation — geen predicaten is ok, run gaat gewoon door */ }
+    }
+    const tracker = new SubstateTracker(effectiveSubstates);
 
     for (let step = loopStartStep; step <= maxSteps; step++) {
       let snapshot: Snapshot;
@@ -807,119 +826,150 @@ export class AgentLoop {
       // Bevat het plan nog stappen? Volgende pakken zonder model-aanroep.
       // Dit is de kern van microPlan: 1 LLM-call dekt 1-3 browser-acties.
       if (this.currentPlan.length === 0) {
-        // Goal Drift detectie (Layer 2 — state correctness):
-        // Na 5 opeenvolgende LLM-aanroepen op hetzelfde URL-pad vraagt de Judge of
-        // de agent nog richting het doel gaat. Goedkoop: maxTokens=80, temperature=0,
-        // alleen bij "mismatch" (niet bij "unknown") → weinig noise-risico.
-        // Drempel 5 (was 3): echte sites hebben setup nodig (cookie-banner, Cloudflare,
-        // popup sluiten, eerste scroll) vóór de taak zelf begint.
-        if (snapshot.url === lastLlmCallUrl) {
-          consecutiveSameUrlLlmCalls++;
-        } else {
-          consecutiveSameUrlLlmCalls = 0;
-          lastLlmCallUrl = snapshot.url;
+        // Consent-banner kortsluiting (code-niveau, geen LLM-call): "Accept"/"Accept all"/
+        // "I agree"/"Akkoord" op de allereerste stap is vrijwel ondubbelzinnig een cookie-
+        // consent-knop — dat is precies waarom de prompt (zie "OBSTACLES FIRST" in prompt.ts)
+        // 'm als eerste in de prioriteitsvolgorde zet ("accept is safer, never leaves modal open").
+        // Bewust NIET "Close"/"Reject all" hier meenemen: die bewoording is generieker en kan op
+        // een pagina ook iets anders betekenen dan een consent-banner sluiten (bijv. een willekeurig
+        // "Close" op een niet-cookie-gerelateerde dialoog) — dat risico is niet de moeite van het
+        // besparen van één cheap-ish call, dus die twee blijven bij het model.
+        let consentShortcut = false;
+        if (history.length === 0) {
+          const acceptPattern = /^(accept( all)?|i agree|akkoord|alles accepteren|allow all)$/i;
+          const hit = snapshot.nodes.find((n) => n.role === "button" && acceptPattern.test((n.name ?? "").trim()));
+          if (hit) {
+            // Geen `expected` meesturen: dat zou de Judge-verificatie triggeren (regel ~1235),
+            // en dat is zelf weer een LLM-call — precies wat deze kortsluiting wil vermijden.
+            this.currentPlan = [{ action: { kind: "click", ref: hit.ref } }];
+            this.log(`consent-banner kortsluiting: "${hit.name}" (${hit.ref}) — LLM-call overgeslagen`);
+            consentShortcut = true;
+          }
         }
-        if (consecutiveSameUrlLlmCalls >= 5) {
-          // Stuur de werkelijke acties naar de judge — niet alleen de lege "detail"-string.
-          const recentActions = history
-            .slice(-6)
-            .map((h) => `${JSON.stringify(h.action)} -> ${h.ok ? "ok" : "FAILED"}`)
-            .join("\n");
-          const driftCheck = await callJudge(this.router, {
-            expected: `The agent is making legitimate progress toward: "${goal.slice(0, 120)}". NOTE: All of the following count as valid progress — NOT drift: (1) setup actions (accepting cookie banners, closing popups, scrolling, handling Cloudflare/consent screens), (2) filling form fields (successful type/paste/select actions when the goal involves submitting a form), (3) reading/extracting page content when the goal requires specific information.`,
-            url: snapshot.url,
-            extracted: recentActions || undefined,
-            hadEffect: history.slice(-6).some((h) => h.ok),
-          });
-          this.log(`goal-drift check (${consecutiveSameUrlLlmCalls} calls op ${snapshot.url}): ${driftCheck.verdict} — ${driftCheck.evidence.slice(0, 120)}`);
-          if (driftCheck.verdict === "mismatch") {
+        if (!consentShortcut) {
+          // Goal Drift detectie (Layer 2 — state correctness):
+          // Na 5 opeenvolgende LLM-aanroepen op hetzelfde URL-pad vraagt de Judge of
+          // de agent nog richting het doel gaat. Goedkoop: maxTokens=80, temperature=0,
+          // alleen bij "mismatch" (niet bij "unknown") → weinig noise-risico.
+          // Drempel 5 (was 3): echte sites hebben setup nodig (cookie-banner, Cloudflare,
+          // popup sluiten, eerste scroll) vóór de taak zelf begint.
+          if (snapshot.url === lastLlmCallUrl) {
+            consecutiveSameUrlLlmCalls++;
+          } else {
+            consecutiveSameUrlLlmCalls = 0;
+            lastLlmCallUrl = snapshot.url;
+          }
+          if (consecutiveSameUrlLlmCalls >= 5) {
+            // Stuur de werkelijke acties naar de judge — niet alleen de lege "detail"-string.
+            const recentActions = history
+              .slice(-6)
+              .map((h) => `${JSON.stringify(h.action)} -> ${h.ok ? "ok" : "FAILED"}`)
+              .join("\n");
+            const driftCheck = await callJudge(this.judgeRouter, {
+              expected: `The agent is making legitimate progress toward: "${goal.slice(0, 120)}". NOTE: All of the following count as valid progress — NOT drift: (1) setup actions (accepting cookie banners, closing popups, scrolling, handling Cloudflare/consent screens), (2) filling form fields (successful type/paste/select actions when the goal involves submitting a form), (3) reading/extracting page content when the goal requires specific information.`,
+              url: snapshot.url,
+              extracted: recentActions || undefined,
+              hadEffect: history.slice(-6).some((h) => h.ok),
+            });
+            this.log(`goal-drift check (${consecutiveSameUrlLlmCalls} calls op ${snapshot.url}): ${driftCheck.verdict} — ${driftCheck.evidence.slice(0, 120)}`);
+            if (driftCheck.verdict === "mismatch") {
+              const r = await this.escalateOrStop({
+                signal: makeSignal("goal-drift", `Goal drift: ${consecutiveSameUrlLlmCalls} AI-aanroepen op ${snapshot.url} zonder aantoonbare doelvoortgang`),
+                step, url: snapshot.url,
+                lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
+                goal, history,
+                reset: () => { consecutiveSameUrlLlmCalls = 0; lastLlmCallUrl = ""; urlRegressionCount = 0; uniquePathsSeen.clear(); },
+              });
+              if (r === "give-up") {
+                this.hand.update({ status: "gestopt", step, message: "Run gestopt — goal drift, geen herstelplan." });
+                return { status: "gestopt", steps: step };
+              }
+            }
+            // "unknown" = twijfel → geen escalatie, gewoon doorgaan (anti-noise)
+            // "match" = voortgang bevestigd → reset counter
+            if (driftCheck.verdict === "match") consecutiveSameUrlLlmCalls = 0;
+          }
+          lastLlmCallUrl = snapshot.url;
+
+          // No Progress detectie: als we 6+ LLM-aanroepen hebben gedaan zonder dat de
+          // judge ooit "match" zei, maakt YAD geld en tokens op zonder richting het doel te gaan.
+          llmCallsSinceProgress++;
+          if (llmCallsSinceProgress >= 6) {
+            this.log(`no-progress: ${llmCallsSinceProgress} LLM-aanroepen zonder voortgang`);
             const r = await this.escalateOrStop({
-              signal: makeSignal("goal-drift", `Goal drift: ${consecutiveSameUrlLlmCalls} AI-aanroepen op ${snapshot.url} zonder aantoonbare doelvoortgang`),
+              signal: makeSignal("no-progress", `Geen meetbare voortgang na ${llmCallsSinceProgress} AI-aanroepen`),
               step, url: snapshot.url,
               lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
               goal, history,
-              reset: () => { consecutiveSameUrlLlmCalls = 0; lastLlmCallUrl = ""; urlRegressionCount = 0; uniquePathsSeen.clear(); },
+              reset: () => { llmCallsSinceProgress = 0; urlRegressionCount = 0; uniquePathsSeen.clear(); },
             });
             if (r === "give-up") {
-              this.hand.update({ status: "gestopt", step, message: "Run gestopt — goal drift, geen herstelplan." });
+              this.hand.update({ status: "gestopt", step, message: `Run gestopt — ${llmCallsSinceProgress} aanroepen zonder voortgang.` });
               return { status: "gestopt", steps: step };
             }
           }
-          // "unknown" = twijfel → geen escalatie, gewoon doorgaan (anti-noise)
-          // "match" = voortgang bevestigd → reset counter
-          if (driftCheck.verdict === "match") consecutiveSameUrlLlmCalls = 0;
-        }
-        lastLlmCallUrl = snapshot.url;
 
-        // No Progress detectie: als we 6+ LLM-aanroepen hebben gedaan zonder dat de
-        // judge ooit "match" zei, maakt YAD geld en tokens op zonder richting het doel te gaan.
-        llmCallsSinceProgress++;
-        if (llmCallsSinceProgress >= 6) {
-          this.log(`no-progress: ${llmCallsSinceProgress} LLM-aanroepen zonder voortgang`);
-          const r = await this.escalateOrStop({
-            signal: makeSignal("no-progress", `Geen meetbare voortgang na ${llmCallsSinceProgress} AI-aanroepen`),
-            step, url: snapshot.url,
-            lastAction: (history.at(-1) ?? { action: { kind: "wait", ms: 0 } }).action,
-            goal, history,
-            reset: () => { llmCallsSinceProgress = 0; urlRegressionCount = 0; uniquePathsSeen.clear(); },
-          });
-          if (r === "give-up") {
-            this.hand.update({ status: "gestopt", step, message: `Run gestopt — ${llmCallsSinceProgress} aanroepen zonder voortgang.` });
-            return { status: "gestopt", steps: step };
+          let content: string;
+          let sawScreenshotThisTurn = false;
+          try {
+            const screenshot = this.failedHintScreenshot;
+            sawScreenshotThisTurn = !!screenshot;
+            this.failedHintScreenshot = undefined; // eenmalig gebruik — na deze aanroep niet meer meesturen
+            const selectorHint = this.selectorStore
+              ? (this.selectorStore.getHints(hostnameOf(snapshot.url), pathOf(snapshot.url), snapshot) ?? undefined)
+              : undefined;
+            content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint, tracker.toHint() ?? undefined, screenshot, selectorHint);
+          } catch (e) {
+            const message = friendlyLlmError(e);
+            this.hand.update({ status: "fout", step, message });
+            return { status: "fout", steps: step - 1, summary: message };
           }
-        }
 
-        let content: string;
-        let sawScreenshotThisTurn = false;
-        try {
-          const screenshot = this.failedHintScreenshot;
-          sawScreenshotThisTurn = !!screenshot;
-          this.failedHintScreenshot = undefined; // eenmalig gebruik — na deze aanroep niet meer meesturen
-          const selectorHint = this.selectorStore
-            ? (this.selectorStore.getHints(hostnameOf(snapshot.url), pathOf(snapshot.url), snapshot) ?? undefined)
-            : undefined;
-          content = await this.chatWithRetry(goal, snapshot, history, step, attachments, this.failedHint, tracker.toHint() ?? undefined, screenshot, selectorHint);
-        } catch (e) {
-          this.hand.update({ status: "fout", step, message: friendlyLlmError(e) });
-          return { status: "fout", steps: step - 1 };
-        }
-
-        const planResult = parseMicroPlan(content);
-        if (!planResult.ok) {
-          parseFails++;
-          cleanRun = false;
-          this.log(`plan parse-fout: ${planResult.error}`);
-          history.push({ action: { kind: "wait", ms: 0 }, ok: false, detail: `plan parse-fout (${planResult.error})` });
-          if (parseFails >= 3) {
-            this.hand.update({ status: "fout", step, message: "Model bleef onleesbare plannen geven." });
-            return { status: "fout", steps: step };
+          const planResult = parseMicroPlan(content);
+          if (!planResult.ok) {
+            parseFails++;
+            cleanRun = false;
+            this.log(`plan parse-fout: ${planResult.error}`);
+            history.push({ action: { kind: "wait", ms: 0 }, ok: false, detail: `plan parse-fout (${planResult.error})` });
+            if (parseFails >= 3) {
+              this.hand.update({ status: "fout", step, message: "Model bleef onleesbare plannen geven." });
+              return { status: "fout", steps: step };
+            }
+            continue;
           }
-          continue;
-        }
-        // click-at is een vision-fallback: alleen geldig op de beurt waarin het model
-        // ZELF net een screenshot kreeg. Zonder screenshot heeft het model geen
-        // gegronde basis voor pixel-coordinaten — code-niveau afgedwongen, niet
-        // alleen via prompt-instructie, want dit moet ook in "auto"-modus gelden.
-        if (!sawScreenshotThisTurn && planResult.plan.steps.some((s) => s.action.kind === "click-at")) {
-          parseFails++;
-          cleanRun = false;
-          this.log("plan geweigerd: click-at zonder screenshot deze beurt");
-          history.push({ action: { kind: "wait", ms: 0 }, ok: false, detail: "click-at geweigerd — geen screenshot deze beurt" });
-          if (parseFails >= 3) {
-            this.hand.update({ status: "fout", step, message: "Model bleef click-at proberen zonder screenshot." });
-            return { status: "fout", steps: step };
+          // click-at is een vision-fallback: alleen geldig op de beurt waarin het model
+          // ZELF net een screenshot kreeg. Zonder screenshot heeft het model geen
+          // gegronde basis voor pixel-coordinaten — code-niveau afgedwongen, niet
+          // alleen via prompt-instructie, want dit moet ook in "auto"-modus gelden.
+          if (!sawScreenshotThisTurn && planResult.plan.steps.some((s) => s.action.kind === "click-at")) {
+            parseFails++;
+            cleanRun = false;
+            this.log("plan geweigerd: click-at zonder screenshot deze beurt");
+            history.push({ action: { kind: "wait", ms: 0 }, ok: false, detail: "click-at geweigerd — geen screenshot deze beurt" });
+            if (parseFails >= 3) {
+              this.hand.update({ status: "fout", step, message: "Model bleef click-at proberen zonder screenshot." });
+              return { status: "fout", steps: step };
+            }
+            continue;
           }
-          continue;
+          parseFails = 0;
+          this.currentPlan = [...planResult.plan.steps];
+          this.log(`microPlan (${this.currentPlan.length} stap${this.currentPlan.length !== 1 ? "pen" : ""}): ${planResult.plan.rationale.slice(0, 80)}`);
         }
-        parseFails = 0;
-        this.currentPlan = [...planResult.plan.steps];
-        this.log(`microPlan (${this.currentPlan.length} stap${this.currentPlan.length !== 1 ? "pen" : ""}): ${planResult.plan.rationale.slice(0, 80)}`);
       }
 
       const planned = this.currentPlan.shift();
       if (!planned) continue; // defensief — zou nooit mogen
-      const action = planned.action;
+      let action = planned.action;
       const expectedOutcome = planned.expected;
+
+      // Compare/rank/count-bewaker (code-niveau): zie COMPARE_RANK_COUNT_PATTERN hierboven.
+      // Strip een meegegeven ref zodat de Hand de volledige paginatekst leest i.p.v. één
+      // (mogelijk verkeerd) element — de veilige aanpak die de prompt al voorschrijft.
+      if (action.kind === "extract" && action.ref && isCompareRankCountGoal(goal)) {
+        this.log(`compare/rank/count-bewaker: extract met ref ${action.ref} op vergelijk-vraag — ref verwijderd, volledige pagina lezen`);
+        action = { kind: "extract", what: action.what };
+      }
 
       if (action.kind === "finish") {
         // DONE-predicaat check (Stap 4): weiger de finish als de snapshot het doel
@@ -1193,7 +1243,7 @@ export class AgentLoop {
       const judgeApplies = action.kind !== "navigate" && action.kind !== "wait";
       let judgeDetail = "";
       if (expectedOutcome && result.ok && judgeApplies) {
-        const jResult = await callJudge(this.router, {
+        const jResult = await callJudge(this.judgeRouter, {
           expected: expectedOutcome,
           url: snapshot.url,
           extracted: result.extracted,
@@ -1342,8 +1392,6 @@ export class AgentLoop {
           json: true,
           maxTokens: 400,
         });
-        const used = res.provider ? `${res.provider}:${res.model ?? "?"}` : undefined;
-        if (used && !this._providersUsed.includes(used)) this._providersUsed.push(used);
         return res.content;
       } catch (e) {
         lastErr = e;

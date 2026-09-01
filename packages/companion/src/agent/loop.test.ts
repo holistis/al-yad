@@ -1,7 +1,16 @@
 import { describe, it, expect } from "vitest";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { mkdtempSync } from "node:fs";
 import { AgentLoop, type ChatLike, type HandBridge } from "./loop.js";
 import type { Action, ActResult, RunStatus, Snapshot } from "@yad/shared";
 import type { ChatRequest } from "../engine/types.js";
+import { CacheStore, makeCacheKey, urlToPattern } from "../memory/cache-store.js";
+
+function tempCacheStore(now = () => 1_000_000): CacheStore {
+  const dir = mkdtempSync(join(tmpdir(), "yad-loop-cache-"));
+  return new CacheStore(dir, now);
+}
 
 const SNAP: Snapshot = {
   url: "https://shop.nl/",
@@ -15,8 +24,10 @@ const SNAP: Snapshot = {
 
 class MockRouter implements ChatLike {
   private i = 0;
+  calls = 0;
   constructor(private readonly queue: string[]) {}
   async chat(_req: ChatRequest): Promise<{ content: string; provider: string }> {
+    this.calls++;
     const c = this.queue[this.i] ?? '{"kind":"finish","summary":"klaar"}';
     this.i++;
     return { content: c, provider: "mock" };
@@ -62,6 +73,128 @@ describe("AgentLoop", () => {
     expect(out.summary).toBe("gevonden");
     expect(hand.acts).toHaveLength(1);
     expect(hand.acts[0]).toEqual({ kind: "navigate", url: "https://shop.nl/producten" });
+  });
+
+  it("gebruikt de aparte judgeRouter voor Judge-verificatie, niet de hoofd-router (cheap-pool-scheiding)", async () => {
+    const snap: Snapshot = {
+      url: "https://shop.nl/",
+      title: "Shop",
+      nodes: [{ ref: "e1", role: "button", name: "Opslaan" }],
+      textDigest: "",
+    };
+    const hand = new MockHand(snap);
+    const mainRouter = new MockRouter([
+      '{"steps":[{"kind":"click","ref":"e1","expected":"opgeslagen bevestiging zichtbaar"}],"rationale":"klik opslaan"}',
+      '{"kind":"finish","summary":"klaar"}',
+    ]);
+    const judgeRouter = new MockRouter(['{"verdict":"match","evidence":"bevestiging zichtbaar"}']);
+    const loop = new AgentLoop(mainRouter, hand, { sleep: noSleep, judgeRouter });
+    const out = await loop.run("sla op");
+    expect(hand.acts).toEqual([{ kind: "click", ref: "e1" }]);
+    expect(judgeRouter.calls).toBe(1); // de Judge-verificatie ging naar de cheap-router
+    expect(mainRouter.calls).toBe(2); // hoofd-router deed alleen het plan-werk, geen Judge-call erbij
+    expect(out.status).toBe("klaar");
+  });
+
+  it("valt terug op de hoofd-router voor Judge-werk als er geen judgeRouter is meegegeven (bestaand gedrag ongewijzigd)", async () => {
+    const snap: Snapshot = {
+      url: "https://shop.nl/",
+      title: "Shop",
+      nodes: [{ ref: "e1", role: "button", name: "Opslaan" }],
+      textDigest: "",
+    };
+    const hand = new MockHand(snap);
+    const mainRouter = new MockRouter([
+      '{"steps":[{"kind":"click","ref":"e1","expected":"opgeslagen bevestiging zichtbaar"}],"rationale":"klik opslaan"}',
+      '{"verdict":"match","evidence":"bevestiging zichtbaar"}',
+      '{"kind":"finish","summary":"klaar"}',
+    ]);
+    const loop = new AgentLoop(mainRouter, hand, { sleep: noSleep });
+    const out = await loop.run("sla op");
+    expect(hand.acts).toEqual([{ kind: "click", ref: "e1" }]);
+    expect(mainRouter.calls).toBe(3); // plan + judge + follow-up, allemaal op dezelfde router
+    expect(out.status).toBe("klaar");
+  });
+
+  it("slaat de predicate-gen-call over bij een volledige cache-hit (cache-check gaat nu vóór predicate-gen)", async () => {
+    const snap: Snapshot = {
+      url: "https://shop.nl/",
+      title: "Shop",
+      nodes: [{ ref: "e1", role: "button", name: "Opslaan" }],
+      textDigest: "",
+    };
+    const hand = new MockHand(snap);
+    const goal = "sla op";
+    const cache = tempCacheStore();
+    cache.set({
+      key: makeCacheKey(goal, snap.url),
+      goalPreview: goal,
+      urlPattern: urlToPattern(snap.url),
+      // checkDenied weigert muterende acties (fail-safe) zolang currentUrl onbekend is —
+      // een gecachte reeks begint daarom altijd met een navigate om die vast te leggen,
+      // net als een echte crawl.
+      actions: [{ kind: "navigate", url: snap.url }, { kind: "click", ref: "e1" }],
+      summary: "opgeslagen via cache",
+      savedAt: 1_000_000,
+      totalRuns: 1,
+    });
+    class ThrowingRouter implements ChatLike {
+      async chat(): Promise<{ content: string; provider: string }> {
+        throw new Error("router.chat mag niet aangeroepen worden bij een volledige cache-hit");
+      }
+    }
+    const loop = new AgentLoop(new ThrowingRouter(), hand, {
+      sleep: noSleep,
+      cacheStore: cache,
+      generatePredicates: true,
+    });
+    const out = await loop.run(goal);
+    expect(out.status).toBe("klaar");
+    expect(out.summary).toBe("opgeslagen via cache");
+    expect(hand.acts).toEqual([{ kind: "navigate", url: snap.url }, { kind: "click", ref: "e1" }]);
+  });
+
+  it("klikt een cookie-banner weg zonder LLM-call (consent-banner kortsluiting)", async () => {
+    const snap: Snapshot = {
+      url: "https://shop.nl/",
+      title: "Shop",
+      nodes: [
+        { ref: "e1", role: "button", name: "Accept all" },
+        { ref: "e2", role: "link", name: "Producten" },
+      ],
+      textDigest: "",
+    };
+    const hand = new MockHand(snap);
+    const router = new MockRouter(['{"kind":"finish","summary":"klaar"}']);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    const out = await loop.run("zoek producten");
+    expect(hand.acts[0]).toEqual({ kind: "click", ref: "e1" });
+    expect(router.calls).toBe(1); // alleen de call ná de banner-klik, niet ervoor
+    expect(out.status).toBe("klaar");
+  });
+
+  it("gebruikt de consent-kortsluiting niet voor een generieke 'Close'-knop (te ambigu, blijft bij het model)", async () => {
+    const snap: Snapshot = {
+      url: "https://shop.nl/",
+      title: "Shop",
+      nodes: [
+        { ref: "e1", role: "button", name: "Opslaan" },
+        { ref: "e2", role: "button", name: "Close" },
+      ],
+      textDigest: "",
+    };
+    const hand = new MockHand(snap);
+    const router = new MockRouter(['{"kind":"click","ref":"e1"}']); // geen "expected" -> gevolgd door 1 normale follow-up-call
+    hand.confirmReturn = true;
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    const out = await loop.run("sla op");
+    // Geen "Accept"-achtige knop aanwezig, dus de kortsluiting mag niet vuren — de "Close"-knop
+    // kan op een willekeurige pagina iets heel anders betekenen dan een cookie-banner sluiten.
+    // Stap 1 komt van het model (niet de kortsluiting); stap 2 is de normale follow-up-call
+    // nadat de queue leeg is (zelfde patroon als de eerste test in dit bestand).
+    expect(hand.acts).toEqual([{ kind: "click", ref: "e1" }]);
+    expect(router.calls).toBe(2);
+    expect(out.status).toBe("klaar");
   });
 
   it("weigert een actie naar /checkout en voert hem niet uit", async () => {

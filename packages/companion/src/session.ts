@@ -20,7 +20,7 @@ import { AgentLoop, type HandBridge, type StuckReason } from "./agent/loop.js";
 import { generateRecoveryHint } from "./agent/recovery.js";
 import { StepLogger } from "./history/step-log.js";
 import { LlmRouter } from "./engine/router.js";
-import { buildPool } from "./engine/pool.js";
+import { buildPool, buildCheapPool } from "./engine/pool.js";
 import type { SpendGuard } from "./engine/spend-guard.js";
 import type { KeyVault } from "./key-vault.js";
 import { createHandshakeHandler, type CompanionInfo } from "./handshake.js";
@@ -112,6 +112,8 @@ export class BrainSession implements HandBridge {
   private laatsteBreinHint: { host: string; why: string } | null = null;
   // router is niet readonly: UPDATE_CONFIG kan de pool vervangen
   private router: LlmRouter;
+  // Cheap-pool voor Judge/predicaat-werk — zelfde reden als router: UPDATE_CONFIG bouwt 'm opnieuw.
+  private cheapRouter: LlmRouter | undefined;
   private readonly cacheStore = new CacheStore();
   private readonly runHistory = new RunHistoryStore();
   private readonly recoveryStore = new RecoveryStore();
@@ -124,8 +126,10 @@ export class BrainSession implements HandBridge {
     private readonly log: (m: string) => void = () => {},
     private readonly guard?: SpendGuard,
     private readonly keyVault?: KeyVault,
+    cheapRouter?: LlmRouter,
   ) {
     this.router = router;
+    this.cheapRouter = cheapRouter;
     this.handshake = createHandshakeHandler(info, send, log);
   }
 
@@ -410,6 +414,8 @@ export class BrainSession implements HandBridge {
         const newPool = buildPool();
         // Guard behouden: zonder dit valt de poort weg bij elke config-update.
         this.router = new LlmRouter(newPool, { log: (m) => this.log(`[motor] ${m}`), guard: this.guard });
+        const newCheapPool = buildCheapPool();
+        this.cheapRouter = new LlmRouter(newCheapPool, { log: (m) => this.log(`[motor-cheap] ${m}`), guard: this.guard });
         this.log(`config bijgewerkt: ${newPool.map((pr) => pr.name).join(",")} (${newPool.length} providers)`);
         // Stuur actieve providers + eventueel de versleutelde blobs terug (NOOIT platte sleutels),
         // zodat de extensie haar platte kopie kan vervangen door het DPAPI-slot.
@@ -516,6 +522,11 @@ export class BrainSession implements HandBridge {
     }
 
     const activeRouter = routerOverride ?? this.router;
+    // Cheap-pool NOOIT gebruiken bij een routerOverride (extern/klant-verkeer): dat pad
+    // mag nooit de eigen gratis/betaalde sleutels van de koning aanspreken, en de cheap-
+    // pool heeft die als vangnet. Zonder override valt Judge/predicaat-werk terug op het
+    // kleine lokale model in plaats van mee te concurreren om de gratis cloud-quota's.
+    const activeCheapRouter = routerOverride ? undefined : this.cheapRouter;
     const loop = new AgentLoop({ chat: (req) => activeRouter.chat(req) }, this, {
       log: this.log,
       isAborted: () => this.aborted,
@@ -527,6 +538,7 @@ export class BrainSession implements HandBridge {
       runId,
       onStuck: (r) => this.handleStuck(r),
       recoveryStore: this.recoveryStore,
+      judgeRouter: activeCheapRouter ? { chat: (req) => activeCheapRouter.chat(req) } : undefined,
       selectorStore: this.selectorStore,
       generatePredicates: true,
       substates: substates ?? [],

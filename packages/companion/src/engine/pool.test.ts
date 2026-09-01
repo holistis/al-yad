@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPool } from "./pool.js";
+import { buildPool, buildCheapPool } from "./pool.js";
 
 describe("buildPool — primary (sterkste eerst)", () => {
   it("zonder primary krijgt een gratis provider tier 0", () => {
@@ -43,5 +43,65 @@ describe("buildPool — primary (sterkste eerst)", () => {
   it("Ollama zit er altijd in als bodem (tier 2)", () => {
     const pool = buildPool({});
     expect(pool.find((p) => p.name === "ollama")?.tier).toBe(2);
+  });
+
+  it("SambaNova, DeepSeek, Qwen DashScope en Ollama Cloud doen mee bij een sleutel", () => {
+    // Regressietest: deze vier stonden ooit alleen hand-gepatcht in dist/, niet in src/,
+    // en verdwenen stilletjes bij de volgende `npm run build`. Nu in de bron zelf.
+    const pool = buildPool({
+      SAMBANOVA_API_KEY: "a",
+      DEEPSEEK_API_KEY: "b",
+      QWEN_API_KEY: "c",
+      OLLAMA_CLOUD_API_KEY: "d",
+    });
+    expect(pool.some((p) => p.name === "sambanova")).toBe(true);
+    expect(pool.some((p) => p.name === "deepseek")).toBe(true);
+    expect(pool.some((p) => p.name === "qwen-dashscope")).toBe(true);
+    expect(pool.some((p) => p.name === "ollama-cloud")).toBe(true);
+  });
+
+  it("Cloudflare Workers AI doet mee zodra zowel de sleutel als het account-ID gezet zijn", () => {
+    const pool = buildPool({ CLOUDFLARE_API_KEY: "t", CLOUDFLARE_ACCOUNT_ID: "acc123" });
+    const cf = pool.find((p) => p.name === "cloudflare-workers-ai");
+    expect(cf).toBeDefined();
+  });
+
+  it("Cloudflare Workers AI doet NIET mee zonder account-ID (baseUrl zou anders ongeldig zijn)", () => {
+    const pool = buildPool({ CLOUDFLARE_API_KEY: "t" });
+    expect(pool.some((p) => p.name === "cloudflare-workers-ai")).toBe(false);
+  });
+});
+
+describe("buildCheapPool — klein lokaal model eerst voor Judge/predicaat-werk", () => {
+  it("het kleine ollama-cheap-model staat vóór alle cloud-providers", () => {
+    const pool = buildCheapPool({ GROQ_API_KEY: "x", GEMINI_API_KEY: "y" });
+    const cheap = pool.find((p) => p.name === "ollama-cheap");
+    expect(cheap).toBeDefined();
+    expect(cheap?.tier).toBeLessThan(pool.find((p) => p.name === "groq")!.tier);
+    expect(cheap?.tier).toBeLessThan(pool.find((p) => p.name === "gemini")!.tier);
+  });
+
+  it("negeert YAD_PRIMARY_PROVIDER — dat is een keuze voor het hoofd-plan, niet voor cheap-werk", () => {
+    const pool = buildCheapPool({ GROQ_API_KEY: "x", YAD_PRIMARY_PROVIDER: "groq" });
+    // groq zou in buildPool() tier -1 krijgen door de primary-voorkeur; hier niet.
+    expect(pool.find((p) => p.name === "groq")?.tier).toBe(0);
+    // het cheap-model blijft alsnog vóór groq, ongeacht de (genegeerde) primary-voorkeur.
+    expect(pool.find((p) => p.name === "ollama-cheap")!.tier).toBeLessThan(0);
+  });
+
+  it("cloud-providers uit buildPool() zitten ook in de cheap-pool als vangnet", () => {
+    const pool = buildCheapPool({ SAMBANOVA_API_KEY: "a", CLOUDFLARE_API_KEY: "t", CLOUDFLARE_ACCOUNT_ID: "acc" });
+    expect(pool.some((p) => p.name === "sambanova")).toBe(true);
+    expect(pool.some((p) => p.name === "cloudflare-workers-ai")).toBe(true);
+  });
+
+  it("de grotere lokale ollama-bodem (tier 2) zit er ook in als allerlaatste vangnet", () => {
+    const pool = buildCheapPool({});
+    expect(pool.find((p) => p.name === "ollama")?.tier).toBe(2);
+  });
+
+  it("respecteert YAD_LOKAAL net zo streng als buildPool() — geen cloud-providers in lokale stand", () => {
+    const pool = buildCheapPool({ YAD_LOKAAL: "1", GROQ_API_KEY: "x", OLLAMA_BASE_URL: "http://localhost:11434/v1" });
+    expect(pool.every((p) => p.name === "ollama")).toBe(true);
   });
 });
