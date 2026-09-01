@@ -2,7 +2,7 @@ import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, s
 import { isAccepted } from "./acceptance";
 import { getSettings, saveSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { injectCookies, injectLocalStorage } from "./session-inject";
-import { startCapture, stopCapture, evaluateInPage, insertRealTextInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
+import { startCapture, stopCapture, evaluateInPage, insertRealTextInPage, trustedClickInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
 
 /**
  * Beheert de native-messaging-poort naar het Brein (companion) EN vertaalt de
@@ -744,6 +744,19 @@ function onMessage(raw: unknown): void {
                 ok: insertRes.ok,
                 command: "insert_text",
                 ...(insertRes.detail ? { detail: insertRes.detail } : {}),
+              }, raw.id);
+              break;
+            }
+            case "trusted_click": {
+              if (!p.selector) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "trusted_click", detail: "selector ontbreekt" }, raw.id);
+                break;
+              }
+              const clickRes = await trustedClickInPage(tabId, p.selector);
+              replyToBrain("CDP_RESULT", {
+                ok: clickRes.ok,
+                command: "trusted_click",
+                ...(clickRes.detail ? { detail: clickRes.detail } : {}),
               }, raw.id);
               break;
             }

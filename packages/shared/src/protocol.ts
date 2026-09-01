@@ -200,6 +200,8 @@ export interface BrainPayloads {
       | "insert_text"           // Input.insertText + Input.dispatchKeyEvent: voegt ECHTE, vertrouwde
                                  // tekst in (i.p.v. via JS), voor editors die JS-niveau invoer negeren
                                  // (Draft.js — X/Twitter, Medium). Focust eerst het element via selector.
+      | "trusted_click"         // Input.dispatchMouseEvent: klikt ECHT, vertrouwd (i.p.v. el.click()),
+                                 // voor knoppen waarvan de handler een echte klik lijkt te vereisen.
       | "get_response_body"     // Network.getResponseBody: haal response-body op voor een requestId
       | "intercept_enable"      // Fetch.enable: onderschep requests vóór verzending
       | "intercept_disable"     // Fetch.disable: stop request-interceptie

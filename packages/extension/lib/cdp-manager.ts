@@ -491,6 +491,59 @@ export async function insertRealTextInPage(
   }
 }
 
+/**
+ * Klikt ECHT, vertrouwd via CDP's Input-domein (Input.dispatchMouseEvent), in plaats
+ * van een JS-niveau `el.click()`. Voor knoppen waarvan de handler zelf controleert of
+ * de klik "echt" was (of waarvan de effecten daarvan afhangen) — hetzelfde soort
+ * onderscheid als bij insertRealTextInPage, nu voor klikken i.p.v. typen. Zoekt eerst
+ * de zichtbare middelpunt-coördinaten van het element op via JS (dat deel is niet
+ * vertrouwens-gevoelig), en dispatcht daarna een echte mousePressed+mouseReleased
+ * op die coördinaten.
+ */
+export async function trustedClickInPage(
+  tabId: number,
+  selector: string,
+): Promise<{ ok: boolean; detail?: string }> {
+  if (!heeftCdp()) {
+    return { ok: false, detail: "Echte klik vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
+  }
+  await ensureAttached(tabId);
+  try {
+    const rectExpr = `(function() {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (!el) return { ok: false, detail: 'element niet gevonden: ' + ${JSON.stringify(selector)} };
+      el.scrollIntoView({ block: 'center', inline: 'center' });
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return { ok: false, detail: 'element heeft geen zichtbare afmeting (verborgen?)' };
+      return { ok: true, x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    })()`;
+    const rectResult = (await chrome.debugger.sendCommand(
+      { tabId },
+      "Runtime.evaluate",
+      { expression: rectExpr, returnByValue: true, awaitPromise: true, timeout: 10_000 },
+    )) as { result?: { value?: { ok: boolean; detail?: string; x?: number; y?: number } }; exceptionDetails?: { text?: string } };
+    const rect = rectResult.result?.value;
+    if (rectResult.exceptionDetails || !rect?.ok) {
+      return { ok: false, detail: rect?.detail ?? rectResult.exceptionDetails?.text ?? "kon element-positie niet bepalen" };
+    }
+    const { x, y } = rect;
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
+      type: "mouseMoved", x, y,
+    });
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
+      type: "mousePressed", x, y, button: "left", clickCount: 1,
+    });
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
+      type: "mouseReleased", x, y, button: "left", clickCount: 1,
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, detail: String(e) };
+  } finally {
+    if (tabId !== captureTabId) await safeDetach(tabId);
+  }
+}
+
 export async function getResponseBody(
   tabId: number,
   requestId: string,

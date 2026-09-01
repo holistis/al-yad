@@ -586,6 +586,37 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       return;
     }
 
+    // ── /cdp/trusted-click : klikt ECHT, vertrouwd via CDP's Input-domein ──────────
+    // Body: { selector, tabId? }
+    // Voor knoppen waarvan de handler zelf lijkt te controleren of de klik "echt" was
+    // (of waarvan onduidelijk is of dat het geval is) — zelfde soort probleem als
+    // insert-text, nu voor klikken i.p.v. typen. Probeer dit als een gewone /cdp/evaluate
+    // met el.click() geen zichtbaar effect heeft terwijl alle voorwaarden (zichtbaar,
+    // niet disabled) kloppen.
+    if (url === "/cdp/trusted-click" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { selector?: string; tabId?: number };
+        if (typeof parsed.selector !== "string" || !parsed.selector.trim()) {
+          json(res, 400, { ok: false, detail: "selector is verplicht" });
+          return;
+        }
+        const result = await session.cdp({
+          command: "trusted_click",
+          selector: parsed.selector,
+          tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
+        }, 60_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
     if (url === "/cdp/response-body" && method === "POST") {
       if (!session.isConnected()) {
         json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
@@ -1226,7 +1257,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
     json(res, 404, { error: "Not found", endpoints: [
       "GET /status", "POST /capture", "POST /goal", "POST /navigate", "POST /adopt-tab", "GET /result",
       "POST /verify", "GET /assist", "POST /assist",
-      "POST /cdp/capture/start", "POST /cdp/capture/stop", "POST /cdp/evaluate", "POST /cdp/insert-text",
+      "POST /cdp/capture/start", "POST /cdp/capture/stop", "POST /cdp/evaluate", "POST /cdp/insert-text", "POST /cdp/trusted-click",
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
       "POST /cdp/idor-compare", "POST /cdp/intercept/start", "POST /cdp/intercept/stop",
       "POST /cdp/intercept/continue", "GET /cdp/cookies", "POST /cdp/cookies/set",
