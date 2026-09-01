@@ -1,5 +1,5 @@
 {
-  "ts": "2026-08-16T11:44:13.749Z",
+  "ts": "2026-08-25T17:20:17.269Z",
   "totaalScore": 14,
   "aantal": 14,
   "percentage": 100,
@@ -23,7 +23,7 @@
       "categorie": "waarneming",
       "score": 1,
       "bewijs": "9 elementen",
-      "ms": 9
+      "ms": 45
     },
     {
       "competentie": "shadow DOM",
@@ -43,7 +43,7 @@
       "competentie": "cross-origin iframe",
       "categorie": "waarneming",
       "score": 1,
-      "bewijs": "f15:e1",
+      "bewijs": "f377:e1",
       "ms": 0
     },
     {
@@ -65,56 +65,56 @@
       "categorie": "handeling",
       "score": 1,
       "bewijs": "tab reageert nog",
-      "ms": 10
+      "ms": 27
     },
     {
       "competentie": "slepen",
       "categorie": "handeling",
       "score": 1,
       "bewijs": "ontving-lading",
-      "ms": 201
+      "ms": 2598
     },
     {
       "competentie": "rechtermuisknop",
       "categorie": "handeling",
       "score": 1,
       "bewijs": "rechtsklik-ok",
-      "ms": 101
+      "ms": 996
     },
     {
       "competentie": "kopieren",
       "categorie": "handeling",
       "score": 1,
       "bewijs": "klik rechts op mij",
-      "ms": 1210
+      "ms": 9
     },
     {
       "competentie": "typen in vreemd frame",
       "categorie": "handeling",
       "score": 1,
       "bewijs": "ok",
-      "ms": 367
+      "ms": 980
     },
     {
       "competentie": "downloaden",
       "categorie": "handeling",
       "score": 1,
-      "bewijs": "C:\\Users\\hp\\Downloads\\bench (2).txt",
-      "ms": 3020
+      "bewijs": "C:\\Users\\hp\\Downloads\\bench (16).txt",
+      "ms": 3034
     },
     {
       "competentie": "terug-navigatie",
       "categorie": "handeling",
       "score": 1,
       "bewijs": "terug-ok",
-      "ms": 1021
+      "ms": 1683
     },
     {
       "competentie": "statusmeter meet echt",
       "categorie": "betrouwbaarheid",
       "score": 1,
-      "bewijs": "responsive=true gezond=true reactie=7ms",
-      "ms": 10
+      "bewijs": "responsive=true gezond=true reactie=12ms",
+      "ms": 17
     }
   ]
 }

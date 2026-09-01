@@ -229,8 +229,8 @@
         "nameSubstring": "continue as holistis",
         "urlPathPattern": "login/device/select_account",
         "actionKind": "click",
-        "successCount": 5,
-        "lastSeen": "2026-07-26",
+        "successCount": 16,
+        "lastSeen": "2026-08-31",
         "schemaVersion": 1
       },
       {
@@ -238,8 +238,8 @@
         "nameSubstring": "user code 0",
         "urlPathPattern": "login/device",
         "actionKind": "paste",
-        "successCount": 11,
-        "lastSeen": "2026-07-26",
+        "successCount": 27,
+        "lastSeen": "2026-08-31",
         "schemaVersion": 1
       },
       {
@@ -247,8 +247,8 @@
         "nameSubstring": "commit",
         "urlPathPattern": "login/device",
         "actionKind": "click",
-        "successCount": 9,
-        "lastSeen": "2026-07-26",
+        "successCount": 18,
+        "lastSeen": "2026-08-31",
         "schemaVersion": 1
       },
       {
@@ -256,8 +256,8 @@
         "nameSubstring": "user code 1",
         "urlPathPattern": "login/device",
         "actionKind": "click",
-        "successCount": 3,
-        "lastSeen": "2026-07-26",
+        "successCount": 9,
+        "lastSeen": "2026-08-31",
         "schemaVersion": 1
       },
       {
@@ -384,6 +384,123 @@
         "actionKind": "click",
         "successCount": 4,
         "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "holistis",
+        "urlPathPattern": "apps/cloudflare-workers-and-pages/installations",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "radio",
+        "nameSubstring": "only select repositories",
+        "urlPathPattern": "apps/cloudflare-workers-and-pages/installations",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "select repositories",
+        "urlPathPattern": "apps/cloudflare-workers-and-pages/installations",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "search for a repository",
+        "urlPathPattern": "apps/cloudflare-workers-and-pages/installations",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "menuitem",
+        "nameSubstring": "holistis/tokenizen open infrastructuur d",
+        "urlPathPattern": "apps/cloudflare-workers-and-pages/installations",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "install & authorize",
+        "urlPathPattern": "apps/cloudflare-workers-and-pages/installations",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "use your password",
+        "urlPathPattern": "apps/cloudflare-workers-and-pages/installations",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "user code 2",
+        "urlPathPattern": "login/device",
+        "actionKind": "click",
+        "successCount": 6,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "user code 3",
+        "urlPathPattern": "login/device",
+        "actionKind": "click",
+        "successCount": 7,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "user code 5",
+        "urlPathPattern": "login/device",
+        "actionKind": "click",
+        "successCount": 7,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "user code 6",
+        "urlPathPattern": "login/device",
+        "actionKind": "click",
+        "successCount": 7,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "user code 7",
+        "urlPathPattern": "login/device",
+        "actionKind": "click",
+        "successCount": 7,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "user code 8",
+        "urlPathPattern": "login/device",
+        "actionKind": "click",
+        "successCount": 6,
+        "lastSeen": "2026-08-31",
         "schemaVersion": 1
       }
     ],
@@ -631,6 +748,33 @@
         "actionKind": "click",
         "successCount": 16,
         "lastSeen": "2026-08-11",
+        "schemaVersion": 1
+      },
+      {
+        "role": "combobox",
+        "nameSubstring": "search for email, meetings, files and mo",
+        "urlPathPattern": "mail",
+        "actionKind": "type",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "toolbar",
+        "nameSubstring": "new mailcreate a new email message. (n)",
+        "urlPathPattern": "mail",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "div",
+        "nameSubstring": "sent items",
+        "urlPathPattern": "mail",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
         "schemaVersion": 1
       }
     ],
@@ -3187,8 +3331,8 @@
         "nameSubstring": "mail",
         "urlPathPattern": "roundcube",
         "actionKind": "click",
-        "successCount": 10,
-        "lastSeen": "2026-07-25",
+        "successCount": 12,
+        "lastSeen": "2026-08-25",
         "schemaVersion": 1
       },
       {
@@ -3196,8 +3340,8 @@
         "nameSubstring": "search terms",
         "urlPathPattern": "roundcube",
         "actionKind": "click",
-        "successCount": 38,
-        "lastSeen": "2026-07-25",
+        "successCount": 39,
+        "lastSeen": "2026-08-25",
         "schemaVersion": 1
       },
       {
@@ -3358,8 +3502,8 @@
         "nameSubstring": "settings",
         "urlPathPattern": "roundcube",
         "actionKind": "click",
-        "successCount": 5,
-        "lastSeen": "2026-07-21",
+        "successCount": 6,
+        "lastSeen": "2026-08-25",
         "schemaVersion": 1
       },
       {
@@ -3394,8 +3538,8 @@
         "nameSubstring": "gebruikersnaam",
         "urlPathPattern": "roundcube",
         "actionKind": "type",
-        "successCount": 23,
-        "lastSeen": "2026-07-25",
+        "successCount": 24,
+        "lastSeen": "2026-08-25",
         "schemaVersion": 1
       },
       {
@@ -3403,8 +3547,8 @@
         "nameSubstring": "wachtwoord",
         "urlPathPattern": "roundcube",
         "actionKind": "type",
-        "successCount": 11,
-        "lastSeen": "2026-07-25",
+        "successCount": 12,
+        "lastSeen": "2026-08-25",
         "schemaVersion": 1
       },
       {
@@ -3412,8 +3556,8 @@
         "nameSubstring": "inloggen",
         "urlPathPattern": "roundcube",
         "actionKind": "click",
-        "successCount": 9,
-        "lastSeen": "2026-07-25",
+        "successCount": 10,
+        "lastSeen": "2026-08-25",
         "schemaVersion": 1
       },
       {
@@ -4982,6 +5126,15 @@
         "successCount": 1,
         "lastSeen": "2026-08-07",
         "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "learn more",
+        "urlPathPattern": "search",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
       }
     ],
     "immunefi.com": [
@@ -5445,8 +5598,8 @@
         "nameSubstring": "disable",
         "urlPathPattern": "project/service",
         "actionKind": "click",
-        "successCount": 7,
-        "lastSeen": "2026-07-28",
+        "successCount": 8,
+        "lastSeen": "2026-08-26",
         "schemaVersion": 1
       },
       {
@@ -5546,6 +5699,150 @@
         "actionKind": "click",
         "successCount": 1,
         "lastSeen": "2026-08-21",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "show breakdown",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "hide breakdown",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "set limits",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "save limits",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "update limits",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "hard limit",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "soft limit",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "saving",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "remove compute limits",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "cancel",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "longevityai↗",
+        "urlPathPattern": "workspace/usage",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "longevityai",
+        "urlPathPattern": "project",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "general",
+        "urlPathPattern": "project/settings",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "usage",
+        "urlPathPattern": "project/settings",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "longevityai",
+        "urlPathPattern": "project/settings",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "serverless",
+        "urlPathPattern": "project/service",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
         "schemaVersion": 1
       }
     ],
@@ -5651,8 +5948,8 @@
         "nameSubstring": "post title",
         "urlPathPattern": "new",
         "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-08-04",
+        "successCount": 8,
+        "lastSeen": "2026-08-28",
         "schemaVersion": 1
       },
       {
@@ -5660,8 +5957,17 @@
         "nameSubstring": "post content",
         "urlPathPattern": "new",
         "actionKind": "click",
-        "successCount": 2,
-        "lastSeen": "2026-08-04",
+        "successCount": 5,
+        "lastSeen": "2026-08-28",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "add up to 4 tags...",
+        "urlPathPattern": "new",
+        "actionKind": "type",
+        "successCount": 4,
+        "lastSeen": "2026-08-25",
         "schemaVersion": 1
       }
     ],
@@ -5745,8 +6051,8 @@
         "nameSubstring": "next step: makers",
         "urlPathPattern": "posts/new/submission",
         "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-08-09",
+        "successCount": 2,
+        "lastSeen": "2026-08-28",
         "schemaVersion": 1
       },
       {
@@ -5754,8 +6060,8 @@
         "nameSubstring": "next step: extras",
         "urlPathPattern": "posts/new/submission",
         "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-08-09",
+        "successCount": 2,
+        "lastSeen": "2026-08-28",
         "schemaVersion": 1
       },
       {
@@ -5763,8 +6069,8 @@
         "nameSubstring": "next step: launch checklist",
         "urlPathPattern": "posts/new/submission",
         "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-08-09",
+        "successCount": 2,
+        "lastSeen": "2026-08-28",
         "schemaVersion": 1
       },
       {
@@ -5772,8 +6078,17 @@
         "nameSubstring": "schedule launch for later",
         "urlPathPattern": "posts/new/submission",
         "actionKind": "click",
-        "successCount": 16,
-        "lastSeen": "2026-08-09",
+        "successCount": 17,
+        "lastSeen": "2026-08-28",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "schedule launch",
+        "urlPathPattern": "posts/yad/edit",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-28",
         "schemaVersion": 1
       }
     ],
@@ -5980,8 +6295,17 @@
         "nameSubstring": "publicadd a website",
         "urlPathPattern": "search-console/welcome",
         "actionKind": "click",
-        "successCount": 1,
-        "lastSeen": "2026-08-21",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "admin, row 1 of 3 and column 2 of 3 in t",
+        "urlPathPattern": "search-console",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-29",
         "schemaVersion": 1
       }
     ],
@@ -6724,6 +7048,1393 @@
         "actionKind": "click",
         "successCount": 4,
         "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      }
+    ],
+    "console.truelayer.com": [
+      {
+        "role": "button",
+        "nameSubstring": "add public signing key",
+        "urlPathPattern": "org/app",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "application name",
+        "urlPathPattern": "apps",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "create application",
+        "urlPathPattern": "apps",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "get started",
+        "urlPathPattern": "apps",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "tab",
+        "nameSubstring": "overviewoverview",
+        "urlPathPattern": "org/app",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "add secret",
+        "urlPathPattern": "org/app",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "create secret",
+        "urlPathPattern": "org/app",
+        "actionKind": "click",
+        "successCount": 6,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      }
+    ],
+    "login.truelayer-sandbox.com": [
+      {
+        "role": "button",
+        "nameSubstring": "close page",
+        "urlPathPattern": "providers",
+        "actionKind": "click",
+        "successCount": 13,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      }
+    ],
+    "auth2.pdq.com": [
+      {
+        "role": "button",
+        "nameSubstring": "invite someone",
+        "urlPathPattern": "team",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-24",
+        "schemaVersion": 1
+      }
+    ],
+    "mijn.etheron.nl": [
+      {
+        "role": "link",
+        "nameSubstring": "yadagent.com",
+        "urlPathPattern": "clientarea.php",
+        "actionKind": "click",
+        "successCount": 5,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "meer...",
+        "urlPathPattern": "clientarea.php",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "row",
+        "nameSubstring": "yadagent.com automatische verlenging 202",
+        "urlPathPattern": "clientarea.php",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "de vergrendelingsstatus van de registrar",
+        "urlPathPattern": "clientarea.php",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "dnsrecordhost[]",
+        "urlPathPattern": "clientarea.php",
+        "actionKind": "type",
+        "successCount": 22,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "combobox",
+        "nameSubstring": "a (adres) aaaa (adres) mxe (mail makkeli",
+        "urlPathPattern": "clientarea.php",
+        "actionKind": "select",
+        "successCount": 17,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "dnsrecordaddress[]",
+        "urlPathPattern": "clientarea.php",
+        "actionKind": "type",
+        "successCount": 11,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "wijzigingen opslaan",
+        "urlPathPattern": "clientarea.php",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "de nameservers waar uw domein naar verwi",
+        "urlPathPattern": "clientarea.php",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      }
+    ],
+    "databazaar.io": [
+      {
+        "role": "textbox",
+        "nameSubstring": "explain how your data fulfills the bount",
+        "urlPathPattern": "bounties/submit",
+        "actionKind": "type",
+        "successCount": 4,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "submit data",
+        "urlPathPattern": "bounties/submit",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "uploading…",
+        "urlPathPattern": "bounties/submit",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "submit data",
+        "urlPathPattern": "bounties",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "w",
+        "urlPathPattern": "bounties",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "terms",
+        "urlPathPattern": "bounties",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "bounties",
+        "urlPathPattern": "legal/terms",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "your name",
+        "urlPathPattern": "onboarding",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "your-username",
+        "urlPathPattern": "onboarding",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "next",
+        "urlPathPattern": "onboarding",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "skip for now",
+        "urlPathPattern": "onboarding",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      }
+    ],
+    "challenge-center.community.innocentive.com": [
+      {
+        "role": "button",
+        "nameSubstring": "global prize for innovation in water (gp",
+        "urlPathPattern": "/",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      }
+    ],
+    "online-dfpr.micropact.com": [
+      {
+        "role": "button",
+        "nameSubstring": "begin",
+        "urlPathPattern": "lookup/licenselookup.aspx",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "bevestigen",
+        "urlPathPattern": "lookup/licenselookup.aspx",
+        "actionKind": "click",
+        "successCount": 6,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      },
+      {
+        "role": "combobox",
+        "nameSubstring": "select language",
+        "urlPathPattern": "lookup/licenselookup.aspx",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-26",
+        "schemaVersion": 1
+      }
+    ],
+    "gpiw.community.innocentive.com": [
+      {
+        "role": "button",
+        "nameSubstring": "add solution",
+        "urlPathPattern": "challenge/5d76889f492b4ef8a080a8e710123d2b",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "innovation management",
+        "urlPathPattern": "challenge/5d76889f492b4ef8a080a8e710123d2b/addidea",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "custom links",
+        "urlPathPattern": "challenge/5d76889f492b4ef8a080a8e710123d2b/addidea",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "solutions",
+        "urlPathPattern": "challenge/5d76889f492b4ef8a080a8e710123d2b/addidea",
+        "actionKind": "click",
+        "successCount": 5,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "challenges",
+        "urlPathPattern": "innovation-management/ideas",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "global prize for innovation in water (gp",
+        "urlPathPattern": "innovation-management/challenges",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "challenge",
+        "urlPathPattern": "challenge/5d76889f492b4ef8a080a8e710123d2b",
+        "actionKind": "click",
+        "successCount": 5,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "your submission",
+        "urlPathPattern": "challenge/5d76889f492b4ef8a080a8e710123d2b",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "innovation management",
+        "urlPathPattern": "challenge/5d76889f492b4ef8a080a8e710123d2b",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "card",
+        "urlPathPattern": "innovation-management/ideas",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "upload",
+        "urlPathPattern": "challenge/5d76889f492b4ef8a080a8e710123d2b/addidea",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      }
+    ],
+    "www.gpiw.org": [
+      {
+        "role": "link",
+        "nameSubstring": "skip to content",
+        "urlPathPattern": "inschrijfformulier",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      }
+    ],
+    "login.microsoftonline.com": [
+      {
+        "role": "button",
+        "nameSubstring": "aanmelden met het werk- of schoolaccount",
+        "urlPathPattern": "common/oauth2/v2.0",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "listitem",
+        "nameSubstring": "info@holistischadviseur.nl",
+        "urlPathPattern": "common/oauth2/v2.0",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      }
+    ],
+    "app.powerbi.com": [
+      {
+        "role": "link",
+        "nameSubstring": "nieuw rapport",
+        "urlPathPattern": "home",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "gridcell",
+        "nameSubstring": "autismewerk.nl b.v.",
+        "urlPathPattern": "groups/me/reports",
+        "actionKind": "click",
+        "successCount": 7,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "meer opties",
+        "urlPathPattern": "groups/me/list",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "menuitem",
+        "nameSubstring": "verwijderen",
+        "urlPathPattern": "groups/me/list",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "importeren",
+        "urlPathPattern": "groups/me/list",
+        "actionKind": "click",
+        "successCount": 5,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "menuitem",
+        "nameSubstring": "rapport, gepagineerd rapport of werkmap",
+        "urlPathPattern": "groups/me/list",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "menuitem",
+        "nameSubstring": "vanaf deze computer",
+        "urlPathPattern": "groups/me/list",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "annuleren",
+        "urlPathPattern": "groups/me/list",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "vervangen",
+        "urlPathPattern": "groups/me/list",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-27",
+        "schemaVersion": 1
+      }
+    ],
+    "studio.youtube.com": [
+      {
+        "role": "button",
+        "nameSubstring": "create",
+        "urlPathPattern": "channel/ucceboaaemdediiyixv0lamw/videos",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-28",
+        "schemaVersion": 1
+      },
+      {
+        "role": "menuitem",
+        "nameSubstring": "customization",
+        "urlPathPattern": "channel/ucceboaaemdediiyixv0lamw/videos",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-28",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "create",
+        "urlPathPattern": "channel/ucceboaaemdediiyixv0lamw/editing",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-28",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "yad demo: free, open-source ai browser a",
+        "urlPathPattern": "channel/ucceboaaemdediiyixv0lamw/videos",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-28",
+        "schemaVersion": 1
+      }
+    ],
+    "alternativeto.net": [
+      {
+        "role": "button",
+        "nameSubstring": "consent",
+        "urlPathPattern": "software/yad/about",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-28",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "cookie policy",
+        "urlPathPattern": "software/yad/about",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-28",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "cookie policy",
+        "urlPathPattern": "software/add",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-28",
+        "schemaVersion": 1
+      }
+    ],
+    "hashnode.com": [
+      {
+        "role": "button",
+        "nameSubstring": "write",
+        "urlPathPattern": "/",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "new",
+        "urlPathPattern": "draft/6a92935e7a8432136528e027",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "tab",
+        "nameSubstring": "markdown",
+        "urlPathPattern": "draft/6a92936dfbbedf52284f2e8c",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "tab",
+        "nameSubstring": "rich",
+        "urlPathPattern": "draft/6a92936dfbbedf52284f2e8c",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "new",
+        "urlPathPattern": "draft/6a92936dfbbedf52284f2e8c",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "publish",
+        "urlPathPattern": "draft/6a92956a8d9c2d49fbb5ef9e",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "publishing...",
+        "urlPathPattern": "draft/6a92956a8d9c2d49fbb5ef9e",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "li",
+        "nameSubstring": "article published successfully!",
+        "urlPathPattern": "edit/cmte3zz3v00000aht5bjy6rr2",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "update",
+        "urlPathPattern": "edit/cmte3zz3v00000aht5bjy6rr2",
+        "actionKind": "click",
+        "successCount": 5,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "publication",
+        "urlPathPattern": "edit/cmte3zz3v00000aht5bjy6rr2",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      }
+    ],
+    "www.npmjs.com": [
+      {
+        "role": "link",
+        "nameSubstring": "generate new token",
+        "urlPathPattern": "settings/alghanima/tokens",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      }
+    ],
+    "dash.cloudflare.com": [
+      {
+        "role": "button",
+        "nameSubstring": "cookie preferences",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/home",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "allow all",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/home",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "confirm my choices",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/home",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "domains",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/home",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "overview",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/home",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "add metric",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/domains/overview",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-29",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "add domain",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/domains/overview",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "create token",
+        "urlPathPattern": "profile/api-tokens",
+        "actionKind": "click",
+        "successCount": 7,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "use template",
+        "urlPathPattern": "profile/api-tokens",
+        "actionKind": "click",
+        "successCount": 5,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "continue to summary",
+        "urlPathPattern": "profile/api-tokens",
+        "actionKind": "click",
+        "successCount": 5,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "back to view all tokens",
+        "urlPathPattern": "profile/api-tokens",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "resources",
+        "urlPathPattern": "profile/api-tokens",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "connect a domainmake your site faster, m",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/add-site",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "example.com",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/add-site",
+        "actionKind": "type",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "domains",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/add-site",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "continue",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/add-site",
+        "actionKind": "click",
+        "successCount": 5,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "add record",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/tokenizen.nl/dns",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "combobox",
+        "nameSubstring": "type",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/tokenizen.nl/dns",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "option",
+        "nameSubstring": "cname",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/tokenizen.nl/dns",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "name",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/tokenizen.nl/dns",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "target",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/tokenizen.nl/dns",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "switch",
+        "nameSubstring": "proxy status",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/tokenizen.nl/dns",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "save",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/tokenizen.nl/dns",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "create application",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/workers-and-pages",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "connect github",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/workers-and-pages/create",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "option",
+        "nameSubstring": "tokenizen",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/workers-and-pages/create",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "builds",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/workers/services",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "permissions",
+        "urlPathPattern": "profile/api-tokens",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "authorize",
+        "urlPathPattern": "oauth/consent-form",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "actions",
+        "urlPathPattern": "profile/api-tokens",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "select ip addresses or ranges of ip addr",
+        "urlPathPattern": "profile/api-tokens",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "email address",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/email-service/routing",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "add address",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/email-service/routing",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "create routing rule",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/email-service/routing",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "email pattern",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/email-service/routing",
+        "actionKind": "type",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "combobox",
+        "nameSubstring": "action",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/email-service/routing",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "option",
+        "nameSubstring": "send to an email",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/email-service/routing",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "combobox",
+        "nameSubstring": "destination",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/email-service/routing",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "combobox",
+        "nameSubstring": "select a domain",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/email-service/routing",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      },
+      {
+        "role": "option",
+        "nameSubstring": "tokenizen.nl",
+        "urlPathPattern": "201b930dde71a5ca8b86b5fadd4cdd3d/email-service/routing",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-31",
+        "schemaVersion": 1
+      }
+    ],
+    "id.awin.com": [
+      {
+        "role": "textbox",
+        "nameSubstring": "email address *",
+        "urlPathPattern": "u/login/identifier",
+        "actionKind": "type",
+        "successCount": 7,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "continue",
+        "urlPathPattern": "u/login/identifier",
+        "actionKind": "click",
+        "successCount": 5,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "password *",
+        "urlPathPattern": "u/login/password",
+        "actionKind": "type",
+        "successCount": 4,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "sign in",
+        "urlPathPattern": "u/login/password",
+        "actionKind": "click",
+        "successCount": 4,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "aanmelden",
+        "urlPathPattern": "u/login/password",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "wachtwoord *",
+        "urlPathPattern": "u/login/password",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      }
+    ],
+    "www.awin.com": [
+      {
+        "role": "link",
+        "nameSubstring": "read success stories",
+        "urlPathPattern": "/",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "login",
+        "urlPathPattern": "login",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "doe de quiz",
+        "urlPathPattern": "nl/adverteerders",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "ik ben nieuw in affiliate-marketing",
+        "urlPathPattern": "nl/adverteerders",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      }
+    ],
+    "ui.awin.com": [
+      {
+        "role": "link",
+        "nameSubstring": "u kunt het hier afronden.",
+        "urlPathPattern": "dashboard/awin/publisher",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "account",
+        "urlPathPattern": "awin/affiliate",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "dashboard",
+        "urlPathPattern": "awin/affiliate",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "e-mailadres",
+        "urlPathPattern": "idp/nl/awin",
+        "actionKind": "type",
+        "successCount": 4,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "doorgaan",
+        "urlPathPattern": "idp/nl/awin",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "adverteerders zoeken",
+        "urlPathPattern": "dashboard/awin/publisher",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "adverteerders zoeken",
+        "urlPathPattern": "dashboard/awin/publisher",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "zoeken",
+        "urlPathPattern": "awin/affiliate",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "adverteerders zoeken",
+        "urlPathPattern": "awin/affiliate",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "fatbikeskopen nl",
+        "urlPathPattern": "awin/affiliate",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "aansluiten bij programma",
+        "urlPathPattern": "awin/affiliate",
+        "actionKind": "click",
+        "successCount": 11,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "combobox",
+        "nameSubstring": "promotie",
+        "urlPathPattern": "awin/affiliate",
+        "actionKind": "select",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "checkbox",
+        "nameSubstring": "accepted",
+        "urlPathPattern": "awin/affiliate",
+        "actionKind": "click",
+        "successCount": 10,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "aanmelden",
+        "urlPathPattern": "awin/affiliate",
+        "actionKind": "click",
+        "successCount": 20,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "aansluiten bij programma's",
+        "urlPathPattern": "awin/affiliate",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "problemen met inloggen?",
+        "urlPathPattern": "idp/nl/awin",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      }
+    ],
+    "arches.avantlink.com": [
+      {
+        "role": "textbox",
+        "nameSubstring": "email",
+        "urlPathPattern": "login",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      }
+    ],
+    "www.avantlink.com": [
+      {
+        "role": "textbox",
+        "nameSubstring": "your email",
+        "urlPathPattern": "/",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      }
+    ],
+    "www.pexels.com": [
+      {
+        "role": "button",
+        "nameSubstring": "alle cookies accepteren",
+        "urlPathPattern": "onboarding",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "link",
+        "nameSubstring": "i want to download",
+        "urlPathPattern": "onboarding",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "email",
+        "urlPathPattern": "join-consumer",
+        "actionKind": "type",
+        "successCount": 3,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "textbox",
+        "nameSubstring": "password",
+        "urlPathPattern": "join-consumer",
+        "actionKind": "type",
+        "successCount": 2,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "create an account",
+        "urlPathPattern": "join-consumer",
+        "actionKind": "click",
+        "successCount": 3,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      },
+      {
+        "role": "button",
+        "nameSubstring": "sign up with google",
+        "urlPathPattern": "join-consumer",
+        "actionKind": "click",
+        "successCount": 2,
+        "lastSeen": "2026-08-30",
+        "schemaVersion": 1
+      }
+    ],
+    "app.hyperbolic.ai": [
+      {
+        "role": "button",
+        "nameSubstring": "create api key",
+        "urlPathPattern": "settings/api-keys",
+        "actionKind": "click",
+        "successCount": 1,
+        "lastSeen": "2026-08-30",
         "schemaVersion": 1
       }
     ]
