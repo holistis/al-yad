@@ -2,7 +2,7 @@ import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, s
 import { isAccepted } from "./acceptance";
 import { getSettings, saveSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { injectCookies, injectLocalStorage } from "./session-inject";
-import { startCapture, stopCapture, evaluateInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
+import { startCapture, stopCapture, evaluateInPage, insertRealTextInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
 
 /**
  * Beheert de native-messaging-poort naar het Brein (companion) EN vertaalt de
@@ -626,6 +626,9 @@ function onMessage(raw: unknown): void {
         tabId?: number;
         urlFilter?: string;
         expression?: string;
+        selector?: string;
+        text?: string;
+        clearFirst?: boolean;
         requestId?: string;
         responseBody?: string;
         modifiedHeaders?: Array<{ name: string; value: string }>;
@@ -728,6 +731,19 @@ function onMessage(raw: unknown): void {
                 value: res.value,
                 valueType: res.valueType,
                 ...(res.error ? { detail: res.error } : {}),
+              }, raw.id);
+              break;
+            }
+            case "insert_text": {
+              if (!p.selector || typeof p.text !== "string") {
+                replyToBrain("CDP_RESULT", { ok: false, command: "insert_text", detail: "selector en text zijn verplicht" }, raw.id);
+                break;
+              }
+              const insertRes = await insertRealTextInPage(tabId, p.selector, p.text, { clearFirst: p.clearFirst === true });
+              replyToBrain("CDP_RESULT", {
+                ok: insertRes.ok,
+                command: "insert_text",
+                ...(insertRes.detail ? { detail: insertRes.detail } : {}),
               }, raw.id);
               break;
             }

@@ -16,6 +16,9 @@
  *   POST /cdp/capture/start     → begin netwerk vastleggen (body: { urlFilter?, tabId? })
  *   POST /cdp/capture/stop      → stop + geef alle verzoeken terug
  *   POST /cdp/evaluate          → voer JS uit in pagina (body: { expression, tabId? })
+ *   POST /cdp/insert-text       → typ ECHTE, vertrouwde tekst via CDP Input-domein, voor
+ *                                 editors (Draft.js: X/Twitter, Medium) die execCommand/
+ *                                 fill-spa negeren (body: { selector, text, tabId?, clearFirst? })
  *   POST /cdp/response-body     → response-body voor requestId (body: { requestId, tabId? })
  *   POST /cdp/dom-dump          → security-relevante DOM (hidden inputs, CSRF, data-attrs)
  *   POST /cdp/idor-compare      → test URL met sessie A (browser) + sessie B (cookie string), geeft diff
@@ -536,6 +539,44 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
           // en de scripting-fallback) — een lagere grens hier zou stilzwijgend
           // hetzelfde afkap-probleem terugbrengen op een andere laag.
           expression: parsed.expression.slice(0, 50_000),
+          tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
+        }, 60_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    // ── /cdp/insert-text : voegt ECHTE, vertrouwde tekst in via CDP's Input-domein ──
+    // Body: { selector, text, tabId?, clearFirst? }
+    // Voor editors die JS-niveau tekstinvoeging (execCommand, fill-spa) gewoon negeren
+    // omdat ze hun eigen interne state los van de DOM bijhouden — Draft.js (X/Twitter,
+    // Medium) is het bekendste voorbeeld. Focust eerst het element (via selector), en
+    // typt daarna écht via Input.insertText + Input.dispatchKeyEvent (voor Enter tussen
+    // regels), wat door de browser als een vertrouwde gebruikers-actie wordt gezien —
+    // in tegenstelling tot fill-spa's aanpak, die daarom hier NIET werkt.
+    if (url === "/cdp/insert-text" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { selector?: string; text?: string; tabId?: number; clearFirst?: boolean };
+        if (typeof parsed.selector !== "string" || !parsed.selector.trim()) {
+          json(res, 400, { ok: false, detail: "selector is verplicht" });
+          return;
+        }
+        if (typeof parsed.text !== "string") {
+          json(res, 400, { ok: false, detail: "text is verplicht" });
+          return;
+        }
+        const result = await session.cdp({
+          command: "insert_text",
+          selector: parsed.selector,
+          text: parsed.text,
+          clearFirst: parsed.clearFirst === true,
           tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
         }, 60_000);
         json(res, result.ok ? 200 : 500, result);
@@ -1185,7 +1226,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
     json(res, 404, { error: "Not found", endpoints: [
       "GET /status", "POST /capture", "POST /goal", "POST /navigate", "POST /adopt-tab", "GET /result",
       "POST /verify", "GET /assist", "POST /assist",
-      "POST /cdp/capture/start", "POST /cdp/capture/stop", "POST /cdp/evaluate",
+      "POST /cdp/capture/start", "POST /cdp/capture/stop", "POST /cdp/evaluate", "POST /cdp/insert-text",
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
       "POST /cdp/idor-compare", "POST /cdp/intercept/start", "POST /cdp/intercept/stop",
       "POST /cdp/intercept/continue", "GET /cdp/cookies", "POST /cdp/cookies/set",
