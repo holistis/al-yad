@@ -40,6 +40,7 @@ const basisRechten = [
   "scripting", // het content-script in de pagina zetten
   "webNavigation", // weten wanneer een pagina klaar is met laden
   "downloads", // zien of een bestand binnenkwam, en waar het staat
+  "alarms", // service worker wakker houden tijdens een lopende run (voorkomt MV3-idle-kill, zie keepAlive)
 ];
 
 export default defineConfig({
@@ -66,6 +67,9 @@ export default defineConfig({
       },
     },
     side_panel: { default_path: "sidepanel.html" },
-    ...(manifestKey ? { key: manifestKey } : {}),
+    // Alleen in de dev-build: de Chrome Web Store beheert zelf de sleutel die bij het
+    // gepubliceerde item hoort, en wijst een upload af (PKG_MANIFEST_KEY_NOT_MATCH) als
+    // het manifest een andere sleutel meestuurt.
+    ...(!winkel && manifestKey ? { key: manifestKey } : {}),
   },
 });
