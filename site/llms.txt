@@ -25,6 +25,14 @@ This is different from cloud browser agents (Manus, Genspark and similar): those
 - Cannot check out, pay, or place orders without you.
 - Built by Abdellah Ouadoudi.
 
+## How it benchmarks
+
+On August 29, 2026, Yad ran a controlled benchmark against browser-use, a well-known open-source browser agent, on 12 identical tasks (finding prices, counting results, navigating categories, extracting lists) across two public test sites, using free-tier AI models on both sides. Yad finished 11 of 12 tasks fully correct and gave one honest "I can't verify this" instead of a wrong answer, averaging 1.5 steps and 10.9 seconds per task. browser-use finished 12 of 12 by its own scoring, averaging 3.25 steps and 21.9 seconds per task, but one of those "passes" was a confidently stated wrong answer (a book rating it could not actually read from the page, checked directly against the site's HTML). Full methodology, raw data, and the specific example: https://yadagent.com/yad-blog-benchmark-browseruse. Small sample, one site pair, not a leaderboard claim, the first controlled measurement of its kind for this project.
+
+## For AI coding agents (Claude Code and similar)
+
+The local companion app exposes an HTTP trigger API on `127.0.0.1:3747`, meant for another AI agent running on the same machine (for example a coding assistant like Claude Code) to drive Yad programmatically instead of a human typing into the sidepanel. Key endpoints: `GET /status` (is Yad connected), `POST /navigate` (open a URL), `POST /capture` (read the current tab), `POST /goal` (run a plain-language browser task, with `sync:true` to wait for the result). This is local-only by design, it is not a public internet API, and it only works if Yad is already installed and running on that machine. It is how Yad itself was used to help write, test, and publish some of the content on this site and to control real logged-in sessions during its own benchmark runs.
+
 ## Links
 
 - Website: https://yadagent.com/
@@ -35,6 +43,7 @@ This is different from cloud browser agents (Manus, Genspark and similar): those
 - Security: https://yadagent.com/yad-security
 - Privacy: https://yadagent.com/yad-privacy
 - Blog: https://yadagent.com/yad-blog (also in Dutch: https://yadagent.com/yad-blog-nl)
+- Research Log: benchmark against browser-use, https://yadagent.com/yad-blog-benchmark-browseruse; a real failure and its fix, https://yadagent.com/yad-blog-stuck-in-loops; two clicks that reported success and did nothing, https://yadagent.com/yad-blog-two-clicks-that-lied
 - Contact: info@mergefix.com
 
 ## Languages
