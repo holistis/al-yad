@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Yad Research Log #3: two clicks that reported success and did nothing</title>
+<meta name="description" content="Found live, on Cloudflare's dashboard, while setting up real DNS. Two separate bugs where Yad's click reported ok:true and nothing actually happened. Both diagnosed, fixed, and re-verified on the exact page that failed.">
+<meta name="theme-color" content="#0B0A12">
+<meta property="og:title" content="Yad Research Log #3: two clicks that reported success and did nothing">
+<meta property="og:description" content="Found live, on Cloudflare's dashboard, while setting up real DNS. Two separate bugs where Yad's click reported ok:true and nothing actually happened. Both diagnosed, fixed, and re-verified on the exact page that failed.">
+<meta property="og:type" content="article">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>%E2%9C%8B</text></svg>">
+<link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-two-clicks-that-lied">
+<link rel="alternate" hreflang="x-default" href="https://yadagent.com/yad-blog-two-clicks-that-lied">
+<style>
+:root{
+  --bg:#0B0A12; --surf-1:#141221; --surf-2:#1C1830;
+  --border:rgba(255,255,255,.08); --border-strong:rgba(255,255,255,.14);
+  --text:rgba(255,255,255,.92); --text-dim:rgba(255,255,255,.60); --text-faint:rgba(255,255,255,.38);
+  --accent:#6d5cf0; --accent-2:#7c3aed; --accent-glow:#9333ea; --on-accent:#fff;
+  --grad:linear-gradient(135deg,#4f46e5 0%,#7c3aed 55%,#9333ea 100%);
+  --s2:8px; --s3:16px; --s4:24px; --s5:32px; --s6:48px; --s7:64px;
+  --step-0:16px; --step-1:18px;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:var(--step-0); line-height:1.55; letter-spacing:-.006em;
+  overflow-x:hidden; -webkit-font-smoothing:antialiased;
+}
+a{color:inherit;text-decoration:none}
+::selection{background:color-mix(in srgb,var(--accent) 40%,transparent)}
+.container{width:min(880px,92vw);margin-inline:auto}
+.narrow{width:min(680px,92vw);margin-inline:auto}
+h1,h2,h3{font-weight:700;text-wrap:balance;letter-spacing:-.025em;line-height:1.15;margin:0}
+.mono{font-family:ui-monospace,Consolas,monospace}
+
+.bg{position:fixed;inset:0;z-index:-2;overflow:hidden;pointer-events:none}
+.mesh{position:absolute;inset:-20%;filter:blur(60px);opacity:.9;
+  background:
+    radial-gradient(38% 44% at 18% 22%,rgba(109,92,240,.28),transparent 70%),
+    radial-gradient(34% 40% at 82% 18%,rgba(124,58,237,.22),transparent 68%),
+    radial-gradient(46% 50% at 68% 82%,rgba(147,51,234,.20),transparent 72%);
+}
+.grain{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+header.nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(1.4) blur(14px);
+  background:color-mix(in srgb,var(--bg) 72%,transparent);border-bottom:1px solid var(--border)}
+.nav-in{display:flex;align-items:center;gap:var(--s4);height:64px}
+.wordmark{display:flex;align-items:center;gap:9px;font-weight:700;font-size:16px;letter-spacing:-.02em}
+.wordmark .glyph{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--grad);color:#fff;font-size:14px;box-shadow:0 2px 10px -2px var(--accent-glow)}
+.nav-links{display:flex;gap:var(--s4);margin-left:var(--s4);font-size:14.5px;color:var(--text-dim)}
+.nav-links a{transition:color .2s}
+.nav-links a:hover{color:var(--text)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:var(--s3)}
+.icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;display:grid;place-items:center;transition:.2s}
+.icon-btn:hover{color:var(--text);border-color:var(--border-strong)}
+.btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:15px;padding:11px 20px;border-radius:11px;border:1px solid transparent;cursor:pointer;transition:transform .22s,box-shadow .22s,border-color .2s,background .2s;white-space:nowrap}
+.btn-primary{background:var(--grad);color:#fff;box-shadow:0 6px 24px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.25)}
+.btn-primary:hover{box-shadow:0 10px 34px -8px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn-sm{padding:9px 16px;font-size:14px;border-radius:10px}
+.btn-short{display:none}
+@media (max-width:400px){.btn-sm{padding:9px 12px;font-size:13.5px}.btn-full{display:none}.btn-short{display:inline}}
+.nav-burger{display:none}
+.mobile-menu{display:none}
+@media (max-width:820px){
+  .nav-links{display:none}
+  .nav-burger{display:grid}
+  .mobile-menu{display:block;position:fixed;left:0;right:0;top:64px;z-index:49;background:var(--bg);border-bottom:1px solid var(--border);
+    max-height:0;overflow:hidden;transition:max-height .25s ease}
+  .mobile-menu.open{max-height:80vh;overflow-y:auto}
+  .mobile-menu-in{display:flex;flex-direction:column;padding:var(--s3) var(--s4) var(--s5)}
+  .mobile-menu a{padding:13px 4px;font-size:15.5px;color:var(--text-dim);border-bottom:1px solid var(--border)}
+  .mobile-menu a:last-child{border-bottom:none}
+}
+
+.back{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--text-dim);margin-top:var(--s6)}
+.back:hover{color:var(--text)}
+
+article{padding-block:var(--s4) var(--s7)}
+.art-date{font-family:ui-monospace,Consolas,monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-top:var(--s4)}
+.art-tag{display:inline-block;font-family:ui-monospace,Consolas,monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid var(--border-strong);border-radius:999px;padding:4px 10px;margin-top:var(--s4)}
+article h1{font-size:clamp(28px,4.4vw,42px);margin-top:14px}
+article .lede{font-size:var(--step-1);color:var(--text-dim);margin-top:18px}
+.prose{margin-top:var(--s6)}
+.prose h3{font-size:20px;margin-top:var(--s6);margin-bottom:2px}
+.prose p{color:var(--text-dim);margin-top:16px;font-size:16px;line-height:1.7}
+.prose a{color:var(--accent);text-decoration:underline}
+.prose code{font-family:ui-monospace,Consolas,monospace;font-size:14px;background:var(--surf-2);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
+.prose blockquote{border-left:2px solid var(--border-strong);margin:20px 0 0;padding-left:16px;color:var(--text-faint);font-size:14.5px}
+
+footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-dim)}
+.foot-in{display:flex;flex-wrap:wrap;gap:18px 30px;justify-content:space-between;align-items:baseline}
+.foot-brand{color:var(--text)}
+.foot-links{display:flex;flex-wrap:wrap;gap:22px;font-size:13px}
+.foot-links a{color:var(--text-dim);transition:color .2s}
+.foot-links a:hover{color:var(--text)}
+.foot-built{width:100%;font-size:13px;color:var(--text-faint);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="bg"><div class="mesh"></div></div>
+<div class="grain"></div>
+
+<header class="nav">
+  <div class="container nav-in">
+    <a class="wordmark" href="/yad#top"><span class="glyph">✋</span> yad</a>
+    <nav class="nav-links">
+      <a href="/yad#features">Features</a>
+      <a href="/yad-security">Security</a>
+      <a href="/yad-business">For Teams</a>
+      <a href="/yad-blog">Blog</a>
+      <a href="/yad#faq">FAQ</a>
+    </nav>
+    <div class="nav-right">
+      <button class="icon-btn nav-burger" id="burger" aria-label="Open menu" title="Open menu" aria-expanded="false">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"></path></svg>
+      </button>
+      <a class="btn btn-primary btn-sm" href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea"><span class="btn-full">Add to Chrome</span><span class="btn-short">Chrome</span></a>
+    </div>
+  </div>
+</header>
+<div class="mobile-menu" id="mobileMenu">
+  <div class="mobile-menu-in">
+    <a href="/yad#features">Features</a>
+    <a href="/yad-security">Security</a>
+    <a href="/yad-business">For Teams</a>
+    <a href="/yad-blog">Blog</a>
+    <a href="/yad#faq">FAQ</a>
+  </div>
+</div>
+
+<main id="top">
+  <article class="narrow">
+    <a class="back" href="/yad-blog">← All posts</a>
+    <div class="art-tag">Research Log #3</div>
+    <div class="art-date">August 29, 2026</div>
+    <h1>Two clicks that reported success and did nothing</h1>
+    <p class="lede">Found live, mid-task, while setting up real DNS on Cloudflare's dashboard. Both bugs made Yad's click action return ok:true while nothing actually happened on the page. Both diagnosed from the real logs, fixed, and re-verified on the exact page that failed, not just a passing test.</p>
+
+    <div class="prose">
+      <p>This one happened in the middle of ordinary work, not a benchmark. We were pointing yadagent.com's DNS at Cloudflare, a normal task, using Yad the whole way through: log into the registrar, open Cloudflare, add the domain, fill in a form. Cloudflare's dashboard is a heavy, fast-rerendering single-page app, and it broke two separate things in a row.</p>
+
+      <h3>The first one: a target that wasn't there anymore</h3>
+      <p>Yad's perception takes a snapshot of the page and hands the model a set of numbered references to click, the same mechanism <a href="/yad-blog-stuck-in-loops">Research Log #1</a> already covered for a Power BI dropdown. That post named the fix as a known next step, "re-resolve the element fresh instead of trusting a reference taken from an earlier snapshot", but it was only ever applied by hand, that one time. It was never actually built into the product.</p>
+      <p>So the same failure came back, this time on Cloudflare. A click reference pointed at an element the page had already replaced. The reference lookup returned either nothing, or a detached node still sitting in memory. Clicking a detached node doesn't error, it just calls <code>getBoundingClientRect()</code>, gets an empty rectangle back, and the click lands at coordinate (0, 0), wherever that happens to be. The action reports <code>ok: true</code>. Nothing relevant happens.</p>
+      <p>This time the fix went into the product itself: when a reference is missing or disconnected, Yad now searches the live page for an element with the same role and visible name the reference used to point to, and clicks that instead. Automatic, not something a person has to notice and step in for.</p>
+
+      <h3>The second one: a click with nothing to call</h3>
+      <p>Right after fixing the first bug, a second one showed up on the same page: clicking Cloudflare's record-type dropdown (a styled button standing in for a real <code>&lt;select&gt;</code>) failed with a plain JavaScript error, "X.click is not a function". Checking the run log from earlier in the same evening, the identical error had already happened once before, on a completely different site. Not a one-off, a pattern.</p>
+      <p>The click code assumed the resolved element would always support a native <code>.click()</code> call. Most of the time it does. This time it didn't, likely a timing issue on an element mid-transition. The fix: try the native call first, and if that's not available, fall back to dispatching a synthetic mousedown, mouseup, and click in sequence, the same approach the existing right-click action in the codebase already used for a different reason. Now plain clicks get the same safety net.</p>
+
+      <h3>What actually proves this</h3>
+      <p>Both fixes shipped into the running browser extension mid-session, then got tested against the exact page that had just failed, not a fresh attempt somewhere else. The record-type dropdown that threw an error a few minutes earlier opened normally the second time, real options appeared, the record got created. Thirteen new automated tests cover both failure paths directly, since this package had no test coverage at all before tonight.</p>
+      <p>Neither of these fixes changes any accuracy number we've published. They fix a specific, common failure mode on modern web apps that re-render themselves constantly, the same category of site the benchmark in <a href="/yad-blog-benchmark-browseruse">Research Log #2</a> didn't happen to touch. What changed is that a category of "click reported success but nothing happened" failures on that kind of site should now recover on their own instead of needing a person to spot it and step in.</p>
+    </div>
+
+    <a class="back" href="/yad-blog">← All posts</a>
+  </article>
+</main>
+
+<footer>
+  <div class="container foot-in">
+    <div class="foot-brand mono">yad ✋ your own hand in the browser</div>
+    <div class="foot-links">
+      <a href="https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea">Chrome Web Store</a>
+      <a href="https://github.com/holistis/al-yad">GitHub</a>
+      <a href="/yad-privacy">Privacy</a>
+      <a href="/yad-security">Security</a>
+      <a href="mailto:info@mergefix.com">Contact</a>
+    </div>
+    <p class="foot-built">Built by <a href="https://github.com/holistis" style="color:inherit;text-decoration:underline">Abdellah Ouadoudi</a>. Questions? <a href="mailto:info@mergefix.com">info@mergefix.com</a></p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var burger=document.getElementById("burger");
+  var mmenu=document.getElementById("mobileMenu");
+  if(burger&&mmenu){
+    burger.addEventListener("click",function(){
+      var open=mmenu.classList.toggle("open");
+      burger.setAttribute("aria-expanded",open?"true":"false");
+    });
+    mmenu.addEventListener("click",function(e){
+      if(e.target.tagName==="A"){mmenu.classList.remove("open");burger.setAttribute("aria-expanded","false");}
+    });
+  }
+})();
+</script>
+</body>
+</html>
