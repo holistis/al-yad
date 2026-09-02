@@ -66,6 +66,9 @@ export default defineConfig({
       },
     },
     side_panel: { default_path: "sidepanel.html" },
-    ...(manifestKey ? { key: manifestKey } : {}),
+    // Alleen in de dev-build: de Chrome Web Store beheert zelf de sleutel die bij het
+    // gepubliceerde item hoort, en wijst een upload af (PKG_MANIFEST_KEY_NOT_MATCH) als
+    // het manifest een andere sleutel meestuurt.
+    ...(!winkel && manifestKey ? { key: manifestKey } : {}),
   },
 });

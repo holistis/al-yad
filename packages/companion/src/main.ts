@@ -2,7 +2,7 @@ import process, { stdin, stdout, stderr } from "node:process";
 import { newId, type BrainMessage } from "@yad/shared";
 import { NativeHost } from "./native-host.js";
 import { BrainSession } from "./session.js";
-import { buildPool, buildExternalOllamaPool } from "./engine/pool.js";
+import { buildPool, buildCheapPool, buildExternalOllamaPool } from "./engine/pool.js";
 import { LlmRouter } from "./engine/router.js";
 import { SpendGuard } from "./engine/spend-guard.js";
 import { KeyVault } from "./key-vault.js";
@@ -56,6 +56,13 @@ function main(): void {
   });
   const router = new LlmRouter(pool, { log: (m) => log(`[motor] ${m}`), guard: spendGuard });
 
+  // Cheap-pool: klein lokaal model eerst voor Judge-verificatie en predicaat-generatie,
+  // zodat dat werk niet meer meeconcurreert met het echte plan-werk om dezelfde gratis
+  // cloud-quota's. Zelfde spendGuard: één gedeeld dag-budget, geen verborgen tweede pot.
+  const cheapPool = buildCheapPool();
+  log(`cheap-pool: ${cheapPool.map((p) => `${p.name}(t${p.tier})`).join(", ")}`);
+  const cheapRouter = new LlmRouter(cheapPool, { log: (m) => log(`[motor-cheap] ${m}`), guard: spendGuard });
+
   // Aparte Ollama-only router voor extern/klant-verkeer (YAD_EXTERNAL_MODE) — nooit
   // de eigen gratis/betaalde sleutels van de koning. Leeg als Ollama niet geconfigureerd is.
   const externalPool = buildExternalOllamaPool();
@@ -66,7 +73,7 @@ function main(): void {
 
   let host!: NativeHost;
   const send = (msg: BrainMessage): void => host.send(msg);
-  const session = new BrainSession(send, router, info, log, spendGuard, keyVault);
+  const session = new BrainSession(send, router, info, log, spendGuard, keyVault, cheapRouter);
 
   host = new NativeHost(
     stdin,
