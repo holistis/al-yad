@@ -197,6 +197,9 @@ export interface BrainPayloads {
       | "start_capture"         // attach debugger + Network.enable, begin netwerkverkeer vastleggen
       | "stop_capture"          // stop vastleggen + return alle gevangen verzoeken + detach
       | "evaluate"              // Runtime.evaluate: voer JavaScript uit in de pagina-context
+      | "insert_text"           // Input.insertText + Input.dispatchKeyEvent: voegt ECHTE, vertrouwde
+                                 // tekst in (i.p.v. via JS), voor editors die JS-niveau invoer negeren
+                                 // (Draft.js — X/Twitter, Medium). Focust eerst het element via selector.
       | "get_response_body"     // Network.getResponseBody: haal response-body op voor een requestId
       | "intercept_enable"      // Fetch.enable: onderschep requests vóór verzending
       | "intercept_disable"     // Fetch.disable: stop request-interceptie
@@ -213,6 +216,12 @@ export interface BrainPayloads {
     urlFilter?: string;
     /** JavaScript-expressie (voor evaluate) */
     expression?: string;
+    /** CSS-selector van het doelveld (voor insert_text) */
+    selector?: string;
+    /** Tekst om echt te typen (voor insert_text) */
+    text?: string;
+    /** Als true: selecteer/wis de bestaande inhoud van het veld eerst (voor insert_text) */
+    clearFirst?: boolean;
     /** requestId van een gevangen verzoek (voor get_response_body / intercept_continue) */
     requestId?: string;
     /** Overschreven response-body (voor intercept_continue met modified=true) */
