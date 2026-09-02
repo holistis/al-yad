@@ -176,6 +176,13 @@ export interface LoopOptions {
    * Default: false (opt-in — kost tokens).
    */
   generatePredicates?: boolean;
+  /**
+   * Aparte router voor Judge-verificatie en predicaat-generatie (bv. een cheap-pool met
+   * een klein lokaal model eerst). Ontbreekt hij, dan valt de loop terug op de hoofd-router
+   * (`router`-argument), zoals voorheen. Houdt dat werk los van de gratis cloud-quota die het
+   * echte plan-werk nodig heeft.
+   */
+  judgeRouter?: ChatLike;
 }
 
 /** URL-patronen die duiden op een loginpagina (voor sessie-verloop detectie). */
@@ -329,12 +336,15 @@ export class AgentLoop {
     this.recoveryStore = opts.recoveryStore;
     this.selectorStore = opts.selectorStore;
     this.enablePredicateGen = opts.generatePredicates ?? false;
+    this.judgeRouter = opts.judgeRouter ?? router;
   }
 
   private readonly substates: Substate[];
   private readonly recoveryStore: RecoveryStore | undefined;
   private readonly selectorStore: SelectorStore | undefined;
   private readonly enablePredicateGen: boolean;
+  /** Judge-verificatie en predicaat-generatie: cheap-pool als meegegeven, anders de hoofd-router. */
+  private readonly judgeRouter: ChatLike;
 
   private readonly isAborted: () => boolean;
 
@@ -581,7 +591,7 @@ export class AgentLoop {
     const effectiveSubstates: Substate[] = [...this.substates];
     if (effectiveSubstates.length === 0 && this.enablePredicateGen && initSnap) {
       try {
-        const generated = await generatePredicates(this.router as PredicateChat, goal, initSnap);
+        const generated = await generatePredicates(this.judgeRouter as PredicateChat, goal, initSnap);
         if (generated.length > 0) {
           effectiveSubstates.push(...generated);
           this.log(`predicate-gen: ${generated.length} substate(s) aangemaakt → "${effectiveSubstates[0]?.label}"`);
@@ -837,7 +847,7 @@ export class AgentLoop {
             .slice(-6)
             .map((h) => `${JSON.stringify(h.action)} -> ${h.ok ? "ok" : "FAILED"}`)
             .join("\n");
-          const driftCheck = await callJudge(this.router, {
+          const driftCheck = await callJudge(this.judgeRouter, {
             expected: `The agent is making legitimate progress toward: "${goal.slice(0, 120)}". NOTE: All of the following count as valid progress — NOT drift: (1) setup actions (accepting cookie banners, closing popups, scrolling, handling Cloudflare/consent screens), (2) filling form fields (successful type/paste/select actions when the goal involves submitting a form), (3) reading/extracting page content when the goal requires specific information.`,
             url: snapshot.url,
             extracted: recentActions || undefined,
@@ -1214,7 +1224,7 @@ export class AgentLoop {
       const judgeApplies = action.kind !== "navigate" && action.kind !== "wait";
       let judgeDetail = "";
       if (expectedOutcome && result.ok && judgeApplies) {
-        const jResult = await callJudge(this.router, {
+        const jResult = await callJudge(this.judgeRouter, {
           expected: expectedOutcome,
           url: snapshot.url,
           extracted: result.extracted,

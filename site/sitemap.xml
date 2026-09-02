@@ -85,6 +85,21 @@
     <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-desktop-app-nl"/>
   </url>
   <url>
+    <loc>https://yadagent.com/yad-blog-stuck-in-loops</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-blog-benchmark-browseruse</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-blog-two-clicks-that-lied</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://yadagent.com/yad-privacy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
