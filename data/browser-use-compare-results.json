@@ -1,0 +1,26 @@
+[
+  {
+    "id": "bk-001",
+    "ok": true,
+    "passed": true,
+    "steps": 2,
+    "durationSec": 11.9,
+    "answer": "The first book on the homepage of books.toscrape.com is:\n\n- **Title:** A Light in the Attic\n- **Price:** £51.77"
+  },
+  {
+    "id": "bk-002",
+    "ok": true,
+    "passed": true,
+    "steps": 4,
+    "durationSec": 48.8,
+    "answer": "The cheapest book on the first page of books.toscrape.com is:\n\n**Title:** Starving Hearts (Triangular Trade Trilogy, #1)\n**Price:** £13.99\n\nI reviewed all 20 books on the first page and confirmed this"
+  },
+  {
+    "id": "bk-003",
+    "ok": true,
+    "passed": true,
+    "steps": 2,
+    "durationSec": 8.5,
+    "answer": "According to books.toscrape.com, there are **1,000 books** available in total. This is stated on the homepage in the message: \"All products - 1000 results - showing 1 to 20\"."
+  }
+]

@@ -1,0 +1,5 @@
+{
+  "main": "C:\\Code\\al-yad\\companion-dist\\yad-companion-exe-bundle.cjs",
+  "output": "C:\\Code\\al-yad\\dist-exe\\yad-sea.blob",
+  "disableExperimentalSEAWarning": true
+}

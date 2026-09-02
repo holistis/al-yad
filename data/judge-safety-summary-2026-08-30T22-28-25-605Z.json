@@ -1,0 +1,12 @@
+{
+  "runAt": "2026-08-30T22:28:25.607Z",
+  "tasksRun": 2,
+  "totalJudgeComparisons": 0,
+  "agreeCount": 0,
+  "agreeRate": null,
+  "dangerousDisagreementCount": 0,
+  "dangerousDisagreementRate": null,
+  "cheapMoreCautiousCount": 0,
+  "verdictTransitionMatrix": {},
+  "comparisonsFile": "C:\\Code\\al-yad\\data\\judge-safety-comparisons-2026-08-30T22-28-25-605Z.jsonl"
+}

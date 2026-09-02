@@ -1,0 +1,150 @@
+[
+  {
+    "id": "bk-001",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 2,
+    "durationSec": 12.7,
+    "matched": [
+      "£"
+    ],
+    "answer": "Op de homepage van books.toscrape.com is het eerste boek dat wordt weergegeven:\n\n- **Titel:** A Light in the Attic\n- **Prijs:** £51.77"
+  },
+  {
+    "id": "bk-002",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 4,
+    "durationSec": 23.8,
+    "matched": [
+      "£"
+    ],
+    "answer": "Het goedkoopste boek op de eerste pagina van books.toscrape.com is:\n\n**Titel:** Starving Hearts (Triangular Trade Trilogy, #1)\n**Prijs:** £13.99\n\nDit is de laagste prijs van alle 20 boeken op de eerste pagina."
+  },
+  {
+    "id": "bk-003",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 2,
+    "durationSec": 10.8,
+    "matched": [
+      "1000"
+    ],
+    "answer": "Op books.toscrape.com staan in totaal **1000 boeken** beschikbaar. Dit wordt op de pagina weergegeven als 'All products - 1000 results'. De website toont momenteel 20 boeken per pagina."
+  },
+  {
+    "id": "bk-004",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 3,
+    "durationSec": 22.9,
+    "matched": [
+      "Sharp Objects"
+    ],
+    "answer": "Ik heb met succes genavigeerd naar books.toscrape.com en de categorie 'Mystery' geopend. De categorie bevat 32 resultaten.\n\n**De titel van het eerste boek in de Mystery-categorie is: \"Sharp Objects\"** (£47,82)"
+  },
+  {
+    "id": "bk-005",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 4,
+    "durationSec": 38.4,
+    "matched": [
+      "14"
+    ],
+    "answer": "Ik heb books.toscrape.com bezocht en naar de categorie 'Science' genavigeerd. \n\n**Er staan 14 boeken in de categorie Science.**\n\nDe volgende 14 boeken staan in deze categorie:\n1. The Most Perfect Thing: Inside (and Outside) a Bird's Egg - £42.96\n2. I"
+  },
+  {
+    "id": "bk-006",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 5,
+    "durationSec": 27.7,
+    "matched": [
+      "Wake"
+    ],
+    "answer": "De titel van het eerste boek op pagina 2 van books.toscrape.com is: **\"In Her Wake\"** (prijs: £12.84)."
+  },
+  {
+    "id": "bk-007",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 5,
+    "durationSec": 41.1,
+    "matched": [
+      "£"
+    ],
+    "answer": "Op books.toscrape.com heb ik een boek met een 5-sterren beoordeling gevonden.\n\n**Titel:** A Light in the Attic\n**Prijs:** £51.77\n\nAndere boeken met 5 sterren op de startpagina zijn onder andere:\n- Tipping the Velvet — £53.74\n- Soumission — £50.10\n- S"
+  },
+  {
+    "id": "bk-008",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 3,
+    "durationSec": 16.8,
+    "matched": [
+      "Light"
+    ],
+    "answer": "**Titel:** A Light in the Attic\n\n**Samenvatting (2 zinnen):**\nA Light in the Attic is een klassieke dichtbundel van Shel Silverstein met gedichten en tekeningen, waarvan deze speciale editie het 20-jarig jubileum viert. De humoristische en creatieve "
+  },
+  {
+    "id": "qt-001",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 2,
+    "durationSec": 14.7,
+    "matched": [
+      "Einstein"
+    ],
+    "answer": "De eerste quote op quotes.toscrape.com is:\n\n\"The world as we have created it is a process of our thinking. It cannot be changed without changing our thinking.\"\n\n— Albert Einstein"
+  },
+  {
+    "id": "qt-002",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 3,
+    "durationSec": 24.0,
+    "matched": [
+      "Einstein",
+      "Austen",
+      "Rowling"
+    ],
+    "answer": "Hier is de lijst van alle auteurs die op de eerste pagina van quotes.toscrape.com vermeld staan:\n\n1. Albert Einstein\n2. J.K. Rowling\n3. Albert Einstein\n4. Jane Austen\n5. Marilyn Monroe\n6. Albert Einstein\n7. André Gide\n8. Thomas A. Edison\n9. Eleanor R"
+  },
+  {
+    "id": "qt-003",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 3,
+    "durationSec": 16.3,
+    "matched": [
+      "love",
+      "life",
+      "inspirational"
+    ],
+    "answer": "De top 5 meest gebruikte tags op quotes.toscrape.com (rechts op de pagina in de 'Top Ten tags' sectie) zijn:\n\n1. **love**\n2. **inspirational**\n3. **life**\n4. **humor**\n5. **books**\n\nDeze tags worden in de 'Top Ten tags' sidebar weergegeven, gesorteer"
+  },
+  {
+    "id": "qt-004",
+    "ok": true,
+    "passed": true,
+    "partial": false,
+    "steps": 3,
+    "durationSec": 14.0,
+    "matched": [
+      "hated"
+    ],
+    "answer": "De eerste quote op de pagina https://quotes.toscrape.com/tag/love/ is:\n\n\"It is better to be hated for what you are than to be loved for what you are not.\"\n— André Gide"
+  }
+]

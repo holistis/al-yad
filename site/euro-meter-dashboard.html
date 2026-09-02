@@ -1,0 +1,837 @@
+<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Euro-meter — capture-ledger</title><style>
+body{background:#0B0A12;color:rgba(255,255,255,.9);font:15px/1.5 system-ui,sans-serif;margin:0;padding:28px}
+.wrap{max-width:1000px;margin:0 auto}h1{font-size:22px;margin:0 0 4px}.sub{color:rgba(255,255,255,.5);font-size:13px;margin:0 0 22px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:8px}
+.card{background:#141221;border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:16px}
+.card .k{font-size:12px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em}
+.card .v{font-size:24px;font-weight:700;margin-top:6px}.card .v.good{color:#22c55e}.card .v.warn{color:#f59e0b}
+.note{background:#1a1530;border:1px solid rgba(124,58,237,.35);border-radius:10px;padding:12px 14px;font-size:13px;color:rgba(255,255,255,.78);margin:14px 0 20px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}th,td{text-align:left;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.07)}
+th{color:rgba(255,255,255,.5);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+td.n{text-align:right;font-variant-numeric:tabular-nums}.dim{color:rgba(255,255,255,.4)}
+.foot{color:rgba(255,255,255,.35);font-size:12px;margin-top:18px}
+</style></head><body><div class="wrap">
+<h1>Euro-meter</h1>
+<p class="sub">Read-only capture-ledger · venster 30d · 2026-08-21 09:49 UTC · EUR/USD 1.080</p>
+<div class="cards">
+  <div class="card"><div class="k">Gepakt 30d (arms-length)</div><div class="v warn">$0.00</div></div>
+  <div class="card"><div class="k">Vast server-aandeel (online)</div><div class="v">$67.86</div></div>
+  <div class="card"><div class="k">Marginaal terugwinbaar nu</div><div class="v">$0.00<span style="font-size:12px;color:rgba(255,255,255,.4)"> +gas(v2)</span></div></div>
+  <div class="card"><div class="k">Kill-kandidaten (trading)</div><div class="v warn">8</div></div>
+  <div class="card"><div class="k">Onbekend (review)</div><div class="v" style="color:#f472b6">2</div></div>
+</div>
+<div class="note"><b>Eerlijk lezen:</b> killen wint het <b>marginale</b> (gas + vrijgemaakte quota), niet de <b>vaste</b> serverfee. De EUR62,71 daalt pas als de hele box uitgaat. Gas-marginaal wordt on-chain gemeten (v2), niet in deze lokale dagpas. Gross toont x402 inclusief self-wash, arms-length is 0 na filtering.</div>
+<table><thead><tr><th>Product (pm2)</th><th>Type</th><th style="text-align:right">Gepakt 30d</th><th style="text-align:right">Gross</th><th style="text-align:right">Server-aandeel</th><th>Laatste capture</th><th>Steelt quota</th><th>Status</th></tr></thead>
+<tbody><tr>
+  <td>bonzo-liquidator</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#f59e0b;font-weight:600">KANDIDAAT-KILL</span></td>
+</tr>
+<tr>
+  <td>vps-muraqib</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>signal-memory</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>hardcoded-audit</td>
+  <td class="dim">AUDIT</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#14b8a6;font-weight:600">LUMPY-BEHOUDEN</span></td>
+</tr>
+<tr>
+  <td>rasad-report</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>bounty-watcher</td>
+  <td class="dim">ONBEKEND</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#f472b6;font-weight:600">ONBEKEND-REVIEW</span></td>
+</tr>
+<tr>
+  <td>expensify-monitor</td>
+  <td class="dim">ONBEKEND</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#f472b6;font-weight:600">ONBEKEND-REVIEW</span></td>
+</tr>
+<tr>
+  <td>vps-brein</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>gmx-v2-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#f59e0b;font-weight:600">KANDIDAAT-KILL</span></td>
+</tr>
+<tr>
+  <td>deployment-wachter</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>stofzuiger-compound</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#f59e0b;font-weight:600">KANDIDAAT-KILL</span></td>
+</tr>
+<tr>
+  <td>stofzuiger-ionic</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#f59e0b;font-weight:600">KANDIDAAT-KILL</span></td>
+</tr>
+<tr>
+  <td>x402-server</td>
+  <td class="dim">PAID</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0590</td>
+  <td class="n">$2.34</td>
+  <td>2026-08-19</td>
+  <td><span style="color:#f59e0b">ja</span></td>
+  <td><span style="color:#eab308;font-weight:600">CONDITIONEEL</span></td>
+</tr>
+<tr>
+  <td>cloudflared-tunnel</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>jup-lend-doctor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#f59e0b;font-weight:600">KANDIDAAT-KILL</span></td>
+</tr>
+<tr>
+  <td>kamino-oracle-watch</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#f59e0b;font-weight:600">KANDIDAAT-KILL</span></td>
+</tr>
+<tr>
+  <td>fleet-dashboard</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>fleet-watcher</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>business-dashboard</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>war-room</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>relay-tunnel</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>yad-server-pw</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>pm2-logrotate</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>yad-playwright-server</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>al-radar</td>
+  <td class="dim">AUDIT</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#14b8a6;font-weight:600">LUMPY-BEHOUDEN</span></td>
+</tr>
+<tr>
+  <td>mcp-paywall</td>
+  <td class="dim">PAID</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span style="color:#f59e0b">ja</span></td>
+  <td><span style="color:#eab308;font-weight:600">CONDITIONEEL</span></td>
+</tr>
+<tr>
+  <td>surge-credit-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#f59e0b;font-weight:600">KANDIDAAT-KILL</span></td>
+</tr>
+<tr>
+  <td>stofzuiger-aura</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#f59e0b;font-weight:600">KANDIDAAT-KILL</span></td>
+</tr>
+<tr>
+  <td>yad-herstel-dashboard</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$2.34</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#3b82f6;font-weight:600">INFRA</span></td>
+</tr>
+<tr>
+  <td>silo-v2</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>risk-manager</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>opportunity-recall</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>muraqib-business</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>rasad-dex-arb</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>rasad-funding</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>rasad-liquidation</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>rasad-bad-debt</td>
+  <td class="dim">ONBEKEND</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>rasad-ranking</td>
+  <td class="dim">ONBEKEND</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>rasad-scoring</td>
+  <td class="dim">ONBEKEND</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>rasad-benchmark</td>
+  <td class="dim">ONBEKEND</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>rasad-murshid</td>
+  <td class="dim">ONBEKEND</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>signal-grader</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>pt-claimer-op</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>pt-claimer-arb</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>euler-liquidator</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>aave-base</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>aave-arb</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>aave-op</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>pump-spy</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>silo-liquidator</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>rasad-executor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>micro-loop</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>sol-marginfi</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>pt-claimer-scroll</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>morpho-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>kamino-liquidator</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>scroll-liquidator</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>autopilot</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>pt-claimer</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>funding-research</td>
+  <td class="dim">AUDIT</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>pt-claimer-eth</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>pt-claimer-gnosis</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>pt-claimer-world</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>bug-intel-watcher</td>
+  <td class="dim">AUDIT</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>bot-evaluator</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>bug-intel-learner</td>
+  <td class="dim">AUDIT</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>predraw-cron</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>al-mudarrib-pt</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>tare-monitor</td>
+  <td class="dim">AUDIT</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>money-report</td>
+  <td class="dim">INFRA</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#6b7280;font-weight:600">GESTOPT</span></td>
+</tr>
+<tr>
+  <td>compound-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>morpho-eth-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>aave-eth-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>compound-eth-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>aave-avax-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>aave-polygon-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>venus-bsc-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>aave-bnb-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>aave-gnosis-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>silo-v3-avax-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr>
+<tr>
+  <td>silo-v3-xdc-monitor</td>
+  <td class="dim">TRADING</td>
+  <td class="n">$0.0000</td>
+  <td class="n dim">$0.0000</td>
+  <td class="n">$0.00</td>
+  <td><span class="dim">nooit</span></td>
+  <td><span class="dim">nee</span></td>
+  <td><span style="color:#7c3aed;font-weight:600">BEWUST-UIT</span></td>
+</tr></tbody></table>
+<p class="foot">Actie 1, rechterhand-brief 2026-08-20. Bron: earnings.jsonl (autoritair) + x402-access.jsonl + bug-intel-queue.jsonl + pm2 + pm2-uitlijst.txt. captured = alleen wallet-bevestigd, nooit Est./EV.</p>
+</div></body></html>
