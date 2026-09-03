@@ -1,0 +1,37 @@
+{
+  "name": "yadagent",
+  "version": "0.1.0",
+  "description": "Yad companion (Part B, the brain). Pairs with the Yad Chrome extension for real-browser automation, or runs standalone with Playwright and your own Ollama instance. No cloud copy of your accounts.",
+  "homepage": "https://yadagent.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/holistis/al-yad.git",
+    "directory": "packages/companion"
+  },
+  "bugs": "https://github.com/holistis/al-yad/issues",
+  "license": "MIT",
+  "author": "AO Services",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "yadagent": "./bin/yadagent.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "keywords": [
+    "browser-automation",
+    "ai-agent",
+    "playwright",
+    "chrome-extension",
+    "local-first",
+    "privacy",
+    "ollama"
+  ],
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
