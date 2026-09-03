@@ -37,3 +37,19 @@ jobs:
 
       - name: License check
         run: pnpm check-licenses
+
+      - name: Build + verify yadagent npm package
+        # A separate, isolated build (its own package.json, its own esbuild
+        # dependency, not a pnpm workspace member) that bundles the companion
+        # for standalone npm distribution. Needs pnpm build above to have
+        # already produced packages/shared/dist and packages/companion/dist,
+        # since esbuild resolves @yad/shared through the pnpm symlink into
+        # that built output. Run in CI so a change to the companion's source
+        # cannot silently break the published package without anyone noticing,
+        # which is the exact failure mode this whole project exists to catch
+        # elsewhere.
+        working-directory: packages/companion/npm-package
+        run: |
+          npm install
+          node scripts/build.mjs
+          node scripts/verify.mjs
