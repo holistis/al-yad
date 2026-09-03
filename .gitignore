@@ -36,3 +36,27 @@ ollama_key.pub
 webstore-secrets.json
 yad-winkel-upload.zip
 data/recovery-store.jsonl
+
+# Bouwsels en winkel-uploads. Deze stonden untracked in de werkmap, waaronder
+# een installer van 91 MB, en werden bij een `git add -A` in een docs-commit
+# meegesleept. GitHub waarschuwt vanaf 50 MB en weigert boven 100 MB, dus dat
+# is niet alleen rommelig maar breekt op termijn de push.
+companion-dist/
+dist-exe/
+yad-winkel-*.zip
+
+# Winkel-materiaal en schermafbeeldingen, horen bij de store-listing en niet
+# in de geschiedenis van de code.
+store-promo-*.png
+store-shot-*.png
+yadagent.jpg
+
+# Lokale draai-data en experimenten van een enkele machine.
+data/judge-safety-*.json
+data/judge-safety-*.jsonl
+data/browser-use-compare-*.json
+ollama-tunnel*.ps1
+ollama-tunnel*.bat
+ollama-tunnel*.py
+setup-ollama-key.py
+launcher-debug.log
