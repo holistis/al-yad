@@ -161,3 +161,11 @@ pnpm test
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, package layout, and what's genuinely open to help with right now (Firefox support, macOS support, the desktop-app installer).
+
+## If you are running this
+
+For most of this project's life there was no counter anywhere that could show whether anyone was actually using it. That is fixed now, badges above, and I would genuinely like to know.
+
+I am working on this continuously: the extension, the companion, both operating modes. If Yad is doing its job for you, a star or a review on the Chrome Web Store tells me that in a way I can actually see, and it is the thing that tells me where to spend the next round of work.
+
+If it broke, that is even more useful than a star. Open an issue with what happened.
