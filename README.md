@@ -1,6 +1,10 @@
 # Yad (يد), self-hostable, privacy-first AI browser automation agent
 
 [![CI](https://github.com/holistis/al-yad/actions/workflows/ci.yml/badge.svg)](https://github.com/holistis/al-yad/actions/workflows/ci.yml)
+[![Chrome Web Store users](https://img.shields.io/chrome-web-store/users/dacfhekkemkiikecbjffmbdcohddodea?label=installs)](https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea)
+[![Chrome Web Store version](https://img.shields.io/chrome-web-store/v/dacfhekkemkiikecbjffmbdcohddodea?label=store%20version)](https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea)
+[![stars](https://img.shields.io/github/stars/holistis/al-yad?label=stars)](https://github.com/holistis/al-yad/stargazers)
+[![forks](https://img.shields.io/github/forks/holistis/al-yad?label=forks)](https://github.com/holistis/al-yad/forks)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Built by [Abdellah Ouadoudi](https://github.com/holistis)
