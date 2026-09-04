@@ -24,6 +24,7 @@ export interface PoolEnv {
   OLLAMA_BASE_URL?: string;
   OLLAMA_MODEL?: string;
   OLLAMA_API_KEY?: string;
+  OLLAMA_JUDGE_MODEL?: string;
   GROQ_MODEL?: string;
   CEREBRAS_MODEL?: string;
   GEMINI_MODEL?: string;
@@ -122,6 +123,67 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
   const primaryName = env.YAD_PRIMARY_PROVIDER || (paidPrimary ? "paid" : "");
   const tierFor = (name: string, base: number): number =>
     primaryName && name === primaryName ? -1 : base;
+
+  // Gratis-cloud-providers (Gemini/Groq/Cerebras/OpenRouter/GitHub Models/Together/
+  // Mistral/Hyperbolic) — zie buildFreeCloudProviders() hieronder, gedeeld met buildCheapPool().
+  providers.push(...buildFreeCloudProviders(env, tierFor));
+
+  // Eigen / andere provider: elke OpenAI-compatibele API (door de gebruiker
+  // ingevoerd). Alleen http/https als doel (geen file:/localhost-only-eis, want
+  // het kan een eigen LAN-endpoint zijn). Halal/veilig: dit is de eigen sleutel
+  // van de gebruiker op de eigen machine (BYOK).
+  if (env.YAD_CUSTOM_API_KEY && env.YAD_CUSTOM_BASE_URL && /^https?:\/\//i.test(env.YAD_CUSTOM_BASE_URL)) {
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "custom",
+        baseUrl: env.YAD_CUSTOM_BASE_URL,
+        apiKey: env.YAD_CUSTOM_API_KEY,
+        model: env.YAD_CUSTOM_MODEL ?? "gpt-4o-mini",
+        tier: tierFor("custom", 0),
+      }),
+    );
+  }
+  if (env.YAD_PAID_API_KEY) {
+    // Primair (tier -1) als de gebruiker 'altijd eerst' koos: beste kwaliteit op
+    // lastige sites, je betaalt per stap. Anders tier 1: vangnet, alleen als de
+    // gratis pool faalt (goedkoopst).
+    providers.push(
+      new OpenAICompatibleProvider({
+        name: "paid",
+        baseUrl: env.YAD_PAID_BASE_URL ?? "https://openrouter.ai/api/v1",
+        apiKey: env.YAD_PAID_API_KEY,
+        model: env.YAD_PAID_MODEL ?? "anthropic/claude-3.5-sonnet",
+        tier: tierFor("paid", 1),
+      }),
+    );
+  }
+
+  // Ollama als bodem (alleen nuttig als lokaal geinstalleerd, maar nooit "op").
+  providers.push(
+    new OpenAICompatibleProvider({
+      name: "ollama",
+      baseUrl: env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+      model: env.OLLAMA_MODEL ?? "qwen2.5:7b-instruct",
+      apiKey: env.OLLAMA_API_KEY,
+      tier: 2,
+    }),
+  );
+
+  return providers;
+}
+
+/**
+ * Bouwt de gratis-cloud-providers zelf (Gemini/Groq/Cerebras/OpenRouter/GitHub Models/
+ * Together/Mistral/Hyperbolic), los van buildPool() en buildCheapPool() zodat beide
+ * dezelfde onderliggende lijst gebruiken — geen dubbele providerdefinities die uit
+ * elkaar kunnen groeien. tierFor wordt meegegeven zodat de aanroeper zijn eigen
+ * primary-voorkeur (of geen voorkeur, voor de cheap-pool) kan toepassen.
+ */
+function buildFreeCloudProviders(
+  env: PoolEnv,
+  tierFor: (name: string, base: number) => number,
+): LlmProvider[] {
+  const providers: LlmProvider[] = [];
 
   // Gemini staat EERST in de pool (laagste insertie-index binnen tier 0) zodat
   // KEY_3 → KEY_4 → KEY_1 → KEY_2 worden geprobeerd vóór Groq/Cerebras.
@@ -230,37 +292,40 @@ export function buildPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] 
       }),
     );
   }
-  // Eigen / andere provider: elke OpenAI-compatibele API (door de gebruiker
-  // ingevoerd). Alleen http/https als doel (geen file:/localhost-only-eis, want
-  // het kan een eigen LAN-endpoint zijn). Halal/veilig: dit is de eigen sleutel
-  // van de gebruiker op de eigen machine (BYOK).
-  if (env.YAD_CUSTOM_API_KEY && env.YAD_CUSTOM_BASE_URL && /^https?:\/\//i.test(env.YAD_CUSTOM_BASE_URL)) {
-    providers.push(
-      new OpenAICompatibleProvider({
-        name: "custom",
-        baseUrl: env.YAD_CUSTOM_BASE_URL,
-        apiKey: env.YAD_CUSTOM_API_KEY,
-        model: env.YAD_CUSTOM_MODEL ?? "gpt-4o-mini",
-        tier: tierFor("custom", 0),
-      }),
-    );
-  }
-  if (env.YAD_PAID_API_KEY) {
-    // Primair (tier -1) als de gebruiker 'altijd eerst' koos: beste kwaliteit op
-    // lastige sites, je betaalt per stap. Anders tier 1: vangnet, alleen als de
-    // gratis pool faalt (goedkoopst).
-    providers.push(
-      new OpenAICompatibleProvider({
-        name: "paid",
-        baseUrl: env.YAD_PAID_BASE_URL ?? "https://openrouter.ai/api/v1",
-        apiKey: env.YAD_PAID_API_KEY,
-        model: env.YAD_PAID_MODEL ?? "anthropic/claude-3.5-sonnet",
-        tier: tierFor("paid", 1),
-      }),
-    );
-  }
 
-  // Ollama als bodem (alleen nuttig als lokaal geinstalleerd, maar nooit "op").
+  return providers;
+}
+
+/**
+ * Cheap-pool voor Judge-verificatie en predicaat-generatie: dat werk hoort niet mee te
+ * concurreren met het echte plan-werk om dezelfde gratis cloud-quota's. Klein lokaal
+ * model eerst (kost geen cloud-quota), dan dezelfde gratis-cloud-providers als de
+ * hoofd-pool (uniform op tier 0, geen primary-voorkeur hier), dan het grotere lokale
+ * model als laatste bodem. In lokale stand (YAD_LOKAAL) gewoon dezelfde ene provider
+ * als buildPool(), er is dan toch maar één plek waar iets naartoe mag.
+ */
+export function buildCheapPool(env: PoolEnv = process.env as PoolEnv): LlmProvider[] {
+  if (staatOpAlleenLokaal(env)) return buildPool(env);
+
+  const providers: LlmProvider[] = [
+    // Klein, snel lokaal model EERST: kost geen enkele gratis cloud-quota.
+    new OpenAICompatibleProvider({
+      name: "ollama-cheap",
+      baseUrl: env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+      model: env.OLLAMA_JUDGE_MODEL ?? "qwen2.5:3b-instruct",
+      apiKey: env.OLLAMA_API_KEY,
+      tier: -1,
+      // Ruimer dan een normale cheap-call zou moeten kosten (klein model, kort antwoord),
+      // maar lokaal draaien op CPU blijft onvoorspelbaar traag onder belasting.
+      timeoutMs: 90_000,
+    }),
+  ];
+
+  // Cloud-tiers als vangnet, uniform op tier 0 (geen primary-voorkeur hier).
+  providers.push(...buildFreeCloudProviders(env, () => 0));
+
+  // Laatste bodem: hetzelfde grotere lokale model als de hoofd-pool, voor het geval zowel
+  // het kleine cheap-model als alle cloud-tiers falen. Nooit "op".
   providers.push(
     new OpenAICompatibleProvider({
       name: "ollama",

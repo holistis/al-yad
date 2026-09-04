@@ -53,7 +53,22 @@ const SNAPSHOT_SCRIPT = `(() => {
   for (const el of els) {
     const ref = 'e' + idx++;
     el.setAttribute('data-yad-ref', ref);
-    const role = el.getAttribute('role') || el.tagName.toLowerCase();
+    const explicitRole = el.getAttribute('role');
+    const tag = el.tagName.toLowerCase();
+    let role;
+    if (explicitRole) role = explicitRole;
+    else if (tag === 'a') role = 'link';
+    else if (tag === 'button' || tag === 'summary') role = 'button';
+    else if (tag === 'select') role = 'combobox';
+    else if (tag === 'textarea') role = 'textbox';
+    else if (tag === 'input') {
+      const t = (el.getAttribute('type') || 'text').toLowerCase();
+      if (t === 'checkbox') role = 'checkbox';
+      else if (t === 'radio') role = 'radio';
+      else if (t === 'button' || t === 'submit' || t === 'reset') role = 'button';
+      else if (t === 'file') role = 'file-input';
+      else role = 'textbox';
+    } else role = tag;
     const name = (
       el.getAttribute('aria-label') ||
       el.textContent?.trim().slice(0, 120) ||
@@ -391,6 +406,13 @@ export class PlaywrightHand implements HandBridge {
   update(u: { status: RunStatus; step?: number; message: string; action?: Action }): void {
     const stepStr = u.step != null ? ` [stap ${u.step}]` : "";
     this.options.log(`[${u.status}]${stepStr} ${u.message}`);
+  }
+
+  /** Uitsluitend voor robuustheidstests: forceert een navigatie op de lopende pagina, buiten
+   * de agent-lus om, om een "onverwachte paginawisseling" te simuleren (zie
+   * scripts/robustness-nav-hijack.ts). Niet bedoeld voor productiegebruik. */
+  async forceNavigateForTest(url: string): Promise<void> {
+    await this.requirePage().goto(url, { waitUntil: "domcontentloaded" });
   }
 
   private requirePage(): Page {

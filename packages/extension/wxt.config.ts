@@ -50,7 +50,7 @@ export default defineConfig({
   manifest: {
     name: winkel ? "Yad, AI browser helper on your own computer" : "Yad (full version)",
     description:
-      "Say what you need and Yad does it, on any site in your own browser. Your passwords stay with you, you pick the AI.",
+      "Automate browser tasks in plain English, using your own AI key. Yad clicks, fills forms and researches in your own Chrome.",
     permissions: winkel ? basisRechten : [...basisRechten, "cookies", "debugger"],
     host_permissions: ["<all_urls>"],
     icons: {
@@ -66,6 +66,9 @@ export default defineConfig({
       },
     },
     side_panel: { default_path: "sidepanel.html" },
-    ...(manifestKey ? { key: manifestKey } : {}),
+    // Alleen in de dev-build: de Chrome Web Store beheert zelf de sleutel die bij het
+    // gepubliceerde item hoort, en wijst een upload af (PKG_MANIFEST_KEY_NOT_MATCH) als
+    // het manifest een andere sleutel meestuurt.
+    ...(!winkel && manifestKey ? { key: manifestKey } : {}),
   },
 });

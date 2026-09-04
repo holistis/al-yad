@@ -1,6 +1,12 @@
 # Yad (يد), self-hostable, privacy-first AI browser automation agent
 
 [![CI](https://github.com/holistis/al-yad/actions/workflows/ci.yml/badge.svg)](https://github.com/holistis/al-yad/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/yadagent?label=npm)](https://www.npmjs.com/package/yadagent)
+[![npm downloads](https://img.shields.io/npm/dm/yadagent?label=downloads%2Fmonth)](https://www.npmjs.com/package/yadagent)
+[![Chrome Web Store users](https://img.shields.io/chrome-web-store/users/dacfhekkemkiikecbjffmbdcohddodea?label=installs)](https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea)
+[![Chrome Web Store version](https://img.shields.io/chrome-web-store/v/dacfhekkemkiikecbjffmbdcohddodea?label=store%20version)](https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea)
+[![stars](https://img.shields.io/github/stars/holistis/al-yad?label=stars)](https://github.com/holistis/al-yad/stargazers)
+[![forks](https://img.shields.io/github/forks/holistis/al-yad?label=forks)](https://github.com/holistis/al-yad/forks)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Built by [Abdellah Ouadoudi](https://github.com/holistis)
@@ -14,6 +20,8 @@ Built by [Abdellah Ouadoudi](https://github.com/holistis)
 - Landing page source lives in `site/index.html`; the deployed copy lives at `/app/euler-liquidator/data/yad-landing.html` on the server. nginx config for the domain: `/etc/nginx/sites-available/yadagent` on the Hetzner box.
 
 **Yad** ("the hand" in Arabic) is a thin Chrome extension (the Hand) controlled by a locally hosted brain (the Companion). It works inside the user's real, logged-in browser session, learns a task once, and then repeats it deterministically at near-zero cost.
+
+Yad is two separate installs, on purpose. Part A, the extension, from the [Chrome Web Store](https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea). Part B, the companion, as an npm package: `npx yadagent pair` (native messaging, pairs with Part A, your real logged-in browser) or `npx yadagent serve` (standalone, no extension, headless Chromium, your own Ollama instance). See [packages/companion/npm-package](packages/companion/npm-package) or the [package on npm](https://www.npmjs.com/package/yadagent).
 
 > **Benchmark results** (gpt-4o-mini, July 2025):
 > 92% fully correct on 25-task open benchmark · 100% on 5 authenticated tasks · 100% pass+partial · avg 2.7 steps · avg 8.7s per task
@@ -128,7 +136,7 @@ Full result files are in `data/benchmark-results-*.json`.
 ## Architecture
 
 - `packages/shared`: shared types/protocol between Hand and Brain.
-- `packages/companion`: the Brain. Native-messaging host, agent-loop, engine (LLM-router), memory (action-cache, recovery-store), key (session/vault), gate (guardrails).
+- `packages/companion`: the Brain. Native-messaging host, agent-loop, engine (LLM-router), memory (action-cache, recovery-store), key (session/vault), gate (guardrails). Published standalone as [`yadagent` on npm](https://www.npmjs.com/package/yadagent), see `packages/companion/npm-package`.
 - `packages/extension`: the Hand. MV3 extension (WXT), keeps native-messaging port open, executes actions. Chrome and Brave live today, Edge submitted and in review.
 - `packages/dashboard`: v1 orchestrator UI in front of `main-server.ts`, an in-memory job-queue, worker-pool and a single polling page (single-tenant, no auth/billing yet, multi-tenant control and billing is a later phase, not built).
 - `packages/desktop-app`: an early, working prototype of Yad as a standalone program window, no browser extension needed. Real and tested, not a mockup, but not yet a one-click installer. Requires building from source.
@@ -153,3 +161,11 @@ pnpm test
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, package layout, and what's genuinely open to help with right now (Firefox support, macOS support, the desktop-app installer).
+
+## If you are running this
+
+For most of this project's life there was no counter anywhere that could show whether anyone was actually using it. That is fixed now, badges above, and I would genuinely like to know.
+
+I am working on this continuously: the extension, the companion, both operating modes. If Yad is doing its job for you, a star or a review on the Chrome Web Store tells me that in a way I can actually see, and it is the thing that tells me where to spend the next round of work.
+
+If it broke, that is even more useful than a star. Open an issue with what happened.
