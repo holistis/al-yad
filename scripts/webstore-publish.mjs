@@ -11,15 +11,26 @@
 //   node scripts/webstore-publish.mjs           -> upload zip + publiceer
 //   node scripts/webstore-publish.mjs --upload  -> alleen uploaden (draft), niet publiceren
 //   node scripts/webstore-publish.mjs --auth-url -> print de consent-URL (eenmalige stap)
-//   node scripts/webstore-publish.mjs --exchange <code> -> ruil consent-code om voor refresh_token
+//   node scripts/webstore-publish.mjs --login    -> start lokale server, opent de consent-URL,
+//                                                    vangt de code automatisch op, wisselt 'm
+//                                                    meteen om en print het refresh_token
+//   node scripts/webstore-publish.mjs --exchange <code> -> ruil een handmatig geplakte code om
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createServer } from 'node:http'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const SECRETS = process.env['WEBSTORE_SECRETS'] ?? resolve(ROOT, 'webstore-secrets.json')
 const ZIP = process.env['WEBSTORE_ZIP'] ?? resolve(ROOT, 'yad-winkel-upload.zip')
 const SCOPE = 'https://www.googleapis.com/auth/chromewebstore'
-const REDIRECT = 'urn:ietf:wg:oauth:2.0:oob' // desktop-app out-of-band: code wordt getoond, geen server nodig
+// Google blokkeert de oude out-of-band flow (urn:ietf:wg:oauth:2.0:oob) sinds hun
+// 2022-beveiligingsmaatregel tegen phishing via "plak deze code terug"-schermen — dat gaf
+// hier letterlijk "Error 400: invalid_request, OOB flow has been blocked" terug, geen
+// verouderde documentatie maar een harde blokkade aan Google's kant. De vervanging voor een
+// Desktop-app-client is de loopback-redirect: een tijdelijke lokale server vangt de code op
+// zodra Chrome terugstuurt naar http://localhost:<poort>/callback, geen handmatig plakken nodig.
+const LOOPBACK_PORT = 53682
+const REDIRECT = `http://localhost:${LOOPBACK_PORT}/callback`
 
 function cfg() {
   if (!existsSync(SECRETS)) throw new Error(`Geen ${SECRETS} — vul client_id/client_secret/refresh_token/item_id in (zie kop van dit bestand).`)
@@ -50,6 +61,52 @@ async function main() {
     u.searchParams.set('access_type', 'offline')
     u.searchParams.set('prompt', 'consent')
     console.log('\nOpen deze URL, log in, klik Toestaan, en plak de getoonde code terug:\n\n' + u.toString() + '\n')
+    return
+  }
+
+  if (arg === '--login') {
+    const c = cfg()
+    const u = new URL('https://accounts.google.com/o/oauth2/auth')
+    u.searchParams.set('client_id', c.client_id)
+    u.searchParams.set('redirect_uri', REDIRECT)
+    u.searchParams.set('response_type', 'code')
+    u.searchParams.set('scope', SCOPE)
+    u.searchParams.set('access_type', 'offline')
+    u.searchParams.set('prompt', 'consent')
+
+    const code = await new Promise((resolvePromise, rejectPromise) => {
+      const server = createServer((req, res) => {
+        const reqUrl = new URL(req.url, `http://localhost:${LOOPBACK_PORT}`)
+        if (reqUrl.pathname !== '/callback') { res.writeHead(404); res.end(); return }
+        const gotCode = reqUrl.searchParams.get('code')
+        const err = reqUrl.searchParams.get('error')
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end(err
+          ? `<p>Mislukt: ${err}. Dit venster mag dicht.</p>`
+          : '<p>Gelukt — YAD kan verder. Dit venster mag dicht.</p>')
+        server.close()
+        if (err) rejectPromise(new Error('OAuth geweigerd: ' + err))
+        else resolvePromise(gotCode)
+      })
+      server.listen(LOOPBACK_PORT, '127.0.0.1', () => {
+        console.log('\nLokale server luistert op poort ' + LOOPBACK_PORT + '. Open deze URL en klik Toestaan:\n\n' + u.toString() + '\n')
+      })
+      // Voorkom dat dit voor altijd blijft hangen als de koning/YAD nooit doorklikt.
+      setTimeout(() => { try { server.close() } catch {} ; rejectPromise(new Error('time-out — geen code binnen 5 minuten')) }, 5 * 60_000)
+    })
+
+    const body = new URLSearchParams({
+      client_id: c.client_id, client_secret: c.client_secret,
+      code, grant_type: 'authorization_code', redirect_uri: REDIRECT,
+    })
+    const r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', body })
+    const d = await r.json()
+    if (!d.refresh_token) throw new Error('Geen refresh_token: ' + JSON.stringify(d).slice(0, 200))
+    console.log('\nrefresh_token opgehaald, wordt in ' + SECRETS + ' gezet.\n')
+    const merged = { ...c, refresh_token: d.refresh_token }
+    const { writeFileSync } = await import('node:fs')
+    writeFileSync(SECRETS, JSON.stringify(merged, null, 2) + '\n')
+    console.log('[webstore] webstore-secrets.json bijgewerkt met het nieuwe refresh_token.')
     return
   }
 

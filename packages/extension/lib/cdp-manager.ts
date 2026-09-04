@@ -402,6 +402,86 @@ export async function evaluateInPage(
   }
 }
 
+/**
+ * Voegt ECHTE, vertrouwde tekst in via CDP's Input-domein, in plaats van via JS
+ * (execCommand/dispatchEvent). Nodig voor editors die hun eigen interne state
+ * bijhouden los van de DOM (Draft.js — X/Twitter en Medium gebruiken het allebei):
+ * die editors zien een JS-niveau tekstinvoeging simpelweg niet, en de Post/Publish-knop
+ * blijft dan disabled ook al staat de tekst zichtbaar in het veld. Een synthetisch
+ * ClipboardEvent('paste') lost dit ook niet op — browsers weigeren principieel om
+ * een script-gemaakt paste-event als vertrouwd te behandelen.
+ *
+ * `Input.insertText` en `Input.dispatchKeyEvent` lopen buiten de pagina-JS om, via
+ * hetzelfde kanaal als een echte gebruiker-input, en worden daarom wél als trusted
+ * behandeld. Focussen en (optioneel) de bestaande inhoud selecteren/wissen mag wel
+ * via JS: dat deel wordt door geen enkele browser als vertrouwens-gevoelig gezien,
+ * alleen het ECHTE invoegen van tekst is dat.
+ */
+export async function insertRealTextInPage(
+  tabId: number,
+  selector: string,
+  text: string,
+  opts?: { clearFirst?: boolean },
+): Promise<{ ok: boolean; detail?: string }> {
+  if (!heeftCdp()) {
+    return { ok: false, detail: "Echte tekst-invoer vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
+  }
+  await ensureAttached(tabId);
+  try {
+    const focusExpr = `(function() {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (!el) return { ok: false, detail: 'element niet gevonden: ' + ${JSON.stringify(selector)} };
+      el.focus();
+      ${opts?.clearFirst ? `
+      if (typeof el.value === 'string' && el.tagName !== 'DIV') {
+        const proto = Object.getPrototypeOf(el);
+        const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+        if (desc && desc.set) desc.set.call(el, ''); else el.value = '';
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      } else {
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      ` : ""}
+      return { ok: true };
+    })()`;
+    const focusResult = (await chrome.debugger.sendCommand(
+      { tabId },
+      "Runtime.evaluate",
+      { expression: focusExpr, returnByValue: true, awaitPromise: true, timeout: 10_000 },
+    )) as { result?: { value?: { ok: boolean; detail?: string } }; exceptionDetails?: { text?: string } };
+    const focusValue = focusResult.result?.value;
+    if (focusResult.exceptionDetails || !focusValue?.ok) {
+      return { ok: false, detail: focusValue?.detail ?? focusResult.exceptionDetails?.text ?? "focus/selecteer-stap mislukte" };
+    }
+
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].length > 0) {
+        await chrome.debugger.sendCommand({ tabId }, "Input.insertText", { text: lines[i] });
+      }
+      if (i < lines.length - 1) {
+        // Echte Enter-toetsaanslag i.p.v. het teken "\n" in de tekst — Input.insertText
+        // behandelt newlines niet betrouwbaar als paragraaf-break in elke editor.
+        await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", {
+          type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
+        });
+        await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", {
+          type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
+        });
+      }
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, detail: String(e) };
+  } finally {
+    if (tabId !== captureTabId) await safeDetach(tabId);
+  }
+}
+
 export async function getResponseBody(
   tabId: number,
   requestId: string,
