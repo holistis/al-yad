@@ -16,7 +16,7 @@
     "node": ">=20"
   },
   "bin": {
-    "yadagent": "./bin/yadagent.js"
+    "yadagent": "bin/yadagent.js"
   },
   "files": [
     "bin",
