@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseAction } from "./parse.js";
+import { parseAction, parseMicroPlan } from "./parse.js";
 
 describe("parseAction", () => {
   it("leest een kaal JSON-object", () => {
@@ -64,5 +64,35 @@ describe("parseAction", () => {
   it("faalt op click-at zonder geldige xFraction/yFraction", () => {
     expect(parseAction('{"kind":"click-at"}').ok).toBe(false);
     expect(parseAction('{"kind":"click-at","xFraction":"0.5","yFraction":0.5}').ok).toBe(false);
+  });
+});
+
+describe("parseMicroPlan", () => {
+  it("carries the done array through for the legacy bare single-action finish format", () => {
+    // Regression test for a real bug found while fixing the false-"klaar" gate:
+    // Action itself has no "done" field (see @yad/shared), so the bare single-object
+    // backward-compat branch used to build the PlannedStep from parseAction's return
+    // alone and silently dropped any "done" array the model sent -- even though the
+    // model did everything right. A model using this legacy format for finish could
+    // therefore never supply DONE predicates at all.
+    const r = parseMicroPlan('{"kind":"finish","summary":"done","done":[{"type":"url-contains","value":"sort=lohi"}]}');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.plan.steps).toHaveLength(1);
+      expect(r.plan.steps[0]?.action).toEqual({ kind: "finish", summary: "done" });
+      expect(r.plan.steps[0]?.done).toEqual([{ type: "url-contains", value: "sort=lohi" }]);
+    }
+  });
+
+  it("still omits done for the legacy bare single-action format when none is supplied", () => {
+    const r = parseMicroPlan('{"kind":"finish","summary":"done"}');
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.plan.steps[0]?.done).toBeUndefined();
+  });
+
+  it("does not attach done to non-finish actions in the legacy bare single-action format", () => {
+    const r = parseMicroPlan('{"kind":"click","ref":"e1","done":[{"type":"url-contains","value":"x"}]}');
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.plan.steps[0]?.done).toBeUndefined();
   });
 });
