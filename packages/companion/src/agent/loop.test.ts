@@ -147,6 +147,26 @@ describe("AgentLoop", () => {
     expect(out.summary).toContain("Helpdesk C");
   });
 
+  it("accepts a bare finish with NO done array for a purely informational run (extract only, no state change)", async () => {
+    // prompt.ts's DONE PREDICATES section explicitly tells the model: "Omit ONLY for
+    // purely informational goals (reading/extracting text where no page state
+    // changes)" and decision-tree item 6: "No verifiable end state (pure extraction)?
+    // -> omit done". A run that only extracts (never click/type/select/etc) must
+    // still reach "klaar" without a done array -- the finish gate must not punish a
+    // model for correctly following this documented carve-out.
+    const hand = new MockHand();
+    const router = new MockRouter([
+      '{"kind":"extract","what":"vacatures","ref":"e2"}',
+      '{"kind":"finish","summary":"3 vacatures gevonden"}', // no "done" array at all
+    ]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+    const out = await loop.run("zoek 3 vacatures");
+    expect(out.status).toBe("klaar");
+    expect(out.summary).toContain("Tolk A");
+    // Never rejected -- an informational run does not need to prove a state change.
+    expect(hand.updates.every((u) => !u.message.includes("Finish rejected"))).toBe(true);
+  });
+
   it("weigert click-at als er deze beurt geen screenshot is gestuurd (vision-fallback vereist bewijs)", async () => {
     const hand = new MockHand(); // requestScreenshot() geeft null -> nooit failedHintScreenshot gezet
     const router = new MockRouter([
@@ -307,23 +327,31 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
     expect(hand.updates.some((u) => u.message.includes("Finish") && u.message.includes("rejected"))).toBe(true);
   });
 
-  it("rejects finish without DONE predicates (bug fix: was previously accepted as backwards compat)", async () => {
+  it("rejects finish without DONE predicates after a state-changing action (bug fix: was previously accepted as backwards compat)", async () => {
     // This test used to be named "accepteert finish zonder DONE-predicaten direct
     // (backwards compat)" and asserted status "klaar". That WAS the bug
     // (PROMPT-FIX-VALSE-KLAAR.md): `donePreds.length > 0` was the only gate, so an
-    // empty done array skipped the whole check. Now a finish without predicates is
+    // empty done array skipped the whole check. Now a finish without predicates,
+    // AFTER the run performed a state-changing action (select, here, mirroring the
+    // real HackerOne repro: a menu selection claimed with zero objective proof), is
     // treated as a failed verification: rejected, with the same retry/hint mechanism
     // as a mismatch, and only a non-"klaar" status once MAX_FINISH_REJECTIONS is hit.
-    // Every attempt is bare (no done array), including the ones the retry hint asks
-    // for -- a model that never adds a done array, no matter how many chances it gets.
+    // Every finish attempt is bare (no done array), including the ones the retry hint
+    // asks for -- a model that never adds a done array, no matter how many chances it
+    // gets. (A run that never changes state at all is the separate, legitimate
+    // "purely informational" carve-out from prompt.ts -- see the "accepts a bare
+    // finish with NO done array for a purely informational run" test above.)
     const hand = new DynamicMockHand([
       UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP,
     ]);
+    const selectStep = '{"kind":"select","ref":"e1","value":"lohi"}';
     const bareFinish = '{"steps":[{"kind":"finish","summary":"klaar, geen predicaten"}],"rationale":"simpele taak"}';
-    const router = new MockRouter([bareFinish, bareFinish, bareFinish]);
+    const router = new MockRouter([selectStep, bareFinish, bareFinish, bareFinish]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
-    const out = await loop.run("doe iets");
+    const out = await loop.run("sorteer op prijs");
 
+    // The state-changing action really happened.
+    expect(hand.acts.some((a) => a.kind === "select")).toBe(true);
     // Never silently "klaar" -- rejected on every attempt, "gestopt" once the
     // rejection ceiling (MAX_FINISH_REJECTIONS) is hit.
     expect(out.status).toBe("gestopt");
@@ -368,6 +396,26 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
     expect(hand.updates.some((u) => u.message.includes("Finish rejected"))).toBe(true);
     expect(hand.acts.some((a) => a.kind === "select")).toBe(true);
   });
+
+  it("accepts finish when a text-present DONE predicate is indeterminate (weak predicate, never rejects per prompt.ts)", async () => {
+    // prompt.ts documents text-present/text-absent as "WEAK: absent = indeterminate,
+    // never rejects" -- a real predicate WAS supplied, it just could not be confirmed
+    // against the (possibly truncated) text digest. evaluatePredicates can only
+    // return "indeterminate" for a non-empty predicate set via this weak text path
+    // (see predicate.ts); it must not be treated the same as a hard "mismatch".
+    const hand = new DynamicMockHand([UNSORTED_SNAP, UNSORTED_SNAP]);
+    const weakFinish = JSON.stringify({
+      steps: [{ kind: "finish", summary: "Gesorteerd op prijs",
+        done: [{ type: "text-present", value: "text that is definitely not on this page" }] }],
+      rationale: "zwak predicaat, tekst niet gevonden",
+    });
+    const router = new MockRouter([weakFinish]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("sorteer op prijs");
+
+    expect(out.status).toBe("klaar");
+    expect(hand.updates.every((u) => !u.message.includes("Finish rejected"))).toBe(true);
+  });
 });
 
 // ── Bug fix proof: a finish with NO done predicates must never silently succeed ──
@@ -376,23 +424,32 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
 // fell straight through to status "klaar" with the model's own self-written summary
 // as the only "proof". This test is written and run FIRST against the unfixed code
 // to prove the bug exists (RED), then re-run after the fix to prove it is closed (GREEN).
+//
+// The run below performs a real state-changing action (select) before the bare
+// finish, matching the actual HackerOne repro in that doc (a menu/asset interaction
+// claimed with zero objective proof). A run that never changes state at all is the
+// separate, legitimate "purely informational" carve-out from prompt.ts, covered by
+// its own test in the "DONE-predicaat bewaker" describe block above.
 
 describe("AgentLoop - finish without DONE predicates must not silently succeed (bug fix proof)", () => {
-  it("never returns status klaar for a bare finish call that supplies zero done predicates, even after retries", async () => {
+  it("never returns status klaar for a bare finish call after a state-changing action, even after retries", async () => {
     // A model that never learns to supply a done array, no matter how many times it
     // is asked to try again. This must end in a non-klaar status (eventually "gestopt"
     // once the rejection ceiling is hit), never in silent "klaar".
     const hand = new DynamicMockHand([
       UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP,
     ]);
+    const selectStep = '{"kind":"select","ref":"e1","value":"lohi"}';
     const bareFinish = JSON.stringify({
       steps: [{ kind: "finish", summary: "done, trust me" }],
       rationale: "no predicates supplied",
     });
-    const router = new MockRouter([bareFinish, bareFinish, bareFinish]);
+    const router = new MockRouter([selectStep, bareFinish, bareFinish, bareFinish]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
-    const out = await loop.run("do something that must be objectively verified before finishing");
+    const out = await loop.run("sort the products and confirm it, objectively, before finishing");
 
+    // The state-changing action really happened.
+    expect(hand.acts.some((a) => a.kind === "select")).toBe(true);
     // On the unfixed code, the very first bare finish call is accepted immediately
     // with status "klaar" -- that is the bug. After the fix, it must not be.
     expect(out.status).not.toBe("klaar");

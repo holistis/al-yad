@@ -33,6 +33,41 @@ function isCompareRankCountGoal(goal: string): boolean {
   return COMPARE_RANK_COUNT_PATTERN.test(goal);
 }
 
+/**
+ * Action kinds that change page/form/application state in a way the DONE-predicate
+ * finish gate can (and per prompt.ts, should) demand proof for -- clicking a menu
+ * option, typing into a field, picking a sort/filter value, uploading a file, etc.
+ *
+ * Mirrors the "isMutating" list used further down by the effect-nul detector (see the
+ * comment there), plus a few newer action kinds (upload-local, drag, right-click,
+ * history) that are equally state-changing but were added to the Action union after
+ * that detector was written. "navigate" is deliberately excluded, same as in that
+ * detector and for the same reason: the browser is very often already sitting on the
+ * goal page before the model plans its first step (the run was started with a target
+ * URL), so a run that never does more than read that page must stay eligible for
+ * prompt.ts's "purely informational goals ... omit done" carve-out even when a
+ * `navigate` step happens to be the one that got it there.
+ */
+const DONE_REQUIRED_ACTION_KINDS = new Set<Action["kind"]>([
+  "click", "click-at", "type", "paste", "select", "hover", "keyboard",
+  "upload", "upload-local", "drag", "right-click", "history",
+]);
+
+/**
+ * True once this run has performed at least one action from DONE_REQUIRED_ACTION_KINDS.
+ * Used by the finish gate to tell apart the two situations an empty/omitted "done"
+ * array can mean:
+ *  - the run never interacted with the page (extract/wait/scroll only) -- prompt.ts's
+ *    documented "purely informational goal" carve-out, which must be allowed to omit
+ *    done and still reach "klaar".
+ *  - the run DID click/type/select/etc and still supplies no proof -- the original
+ *    false-"klaar" bug (see PROMPT-FIX-VALSE-KLAAR.md: the model claimed a HackerOne
+ *    asset click / weakness-menu selection had happened with zero objective proof).
+ */
+function hasStateChangingAction(history: HistoryItem[]): boolean {
+  return history.some((h) => DONE_REQUIRED_ACTION_KINDS.has(h.action.kind));
+}
+
 export interface ChatLike {
   chat(req: ChatRequest): Promise<{ content: string; provider: string; model: string }>;
 }
@@ -957,20 +992,35 @@ export class AgentLoop {
         // objectively confirms the goal. Prevents false "done" (Run 1: model called
         // finish but the sort/checkout was not actually completed).
         //
-        // Both halves of the gate below are load-bearing:
-        //   1. A finish with ZERO done predicates is NOT a free pass. It is treated
-        //      exactly like a failed verification (same rejection counter, same hint
-        //      mechanism), because evaluatePredicates([], snapshot) already returns
-        //      "indeterminate" by design (see predicate.ts), and "indeterminate" is
-        //      never accepted as success below. Without this, an empty or omitted
-        //      done array skipped the whole check and fell straight through to
-        //      status "klaar" on the model's own unverified summary.
-        //   2. An "indeterminate" verdict (e.g. a weak text-present/text-absent
-        //      predicate whose target text was not found, which can simply mean the
-        //      text digest was truncated) is rejected too, matching how
-        //      waitForCondition already refuses to treat "indeterminate" as done
-        //      (see the comment above waitForCondition).
+        // prompt.ts's own DONE PREDICATES section tells the model to omit "done" ONLY
+        // for "purely informational goals (reading/extracting text where no page state
+        // changes)" (decision-tree item 6: "No verifiable end state (pure extraction)?
+        // -> omit done"), and separately documents text-present/text-absent as "WEAK:
+        // ... never rejects". The gate below is built to honor both of those, or a
+        // model correctly following its own system prompt would get a legitimately
+        // completed run rejected:
+        //
+        //   - An empty/omitted done array is judged against what this run actually
+        //     DID, not treated as an automatic failure. If the run performed a
+        //     state-changing action (click/type/select/etc, see
+        //     DONE_REQUIRED_ACTION_KINDS) and still supplies no done predicates, that
+        //     IS the original false-"klaar" bug (PROMPT-FIX-VALSE-KLAAR.md: the model
+        //     claimed a HackerOne asset click / weakness-menu selection had happened
+        //     with zero objective proof) -- reject, same as a failed verification. If
+        //     the run never did anything but read the page (extract/wait/scroll),
+        //     there is nothing to verify and prompt.ts explicitly tells the model to
+        //     omit done here -- accept.
+        //   - A non-empty done array is evaluated for real: "mismatch" (a predicate
+        //     the model itself chose is objectively contradicted by the fresh
+        //     snapshot) always rejects. "indeterminate" can only happen via a weak
+        //     text-present/text-absent predicate (evaluatePredicates never returns
+        //     indeterminate for a non-empty set otherwise -- see predicate.ts), which
+        //     prompt.ts documents as "never rejects" -- so it is accepted, not
+        //     rejected. Rejecting it would both contradict that live documentation
+        //     and, per the retry hint's own old wording, push the model toward
+        //     fabricating a falsely-stronger predicate just to pass the gate.
         const donePreds = planned.done ?? [];
+        const stateChanged = hasStateChangingAction(history);
         // Observability: log the finish moment so the step-log shows whether the model
         // sent DONE predicates. Without this, finish was invisible in the log.
         if (this.stepLogger) {
@@ -982,39 +1032,43 @@ export class AgentLoop {
           });
         }
         const doneResult = evaluatePredicates(donePreds, snapshot);
+        // Reject only when: (a) no predicates were supplied for a run that DID change
+        // state (the real bug), or (b) predicates were supplied and one of them is a
+        // hard mismatch. An indeterminate verdict from an empty array (no predicates,
+        // no state change -- informational) or from a weak text predicate (predicates
+        // supplied, none confirmed) is accepted, not rejected.
+        const rejected = donePreds.length === 0
+          ? stateChanged
+          : doneResult.verdict === "mismatch";
         // Observability: log the DONE-check verdict (match/mismatch/indeterminate)
         // including the predicates that were evaluated.
         if (this.stepLogger) {
           this.stepLogger.append({
             run: this.runId, step, url: snapshot.url,
             action: { kind: "_done-check", verdict: doneResult.verdict, matched: doneResult.matched, total: doneResult.total },
-            ok: doneResult.verdict === "match",
-            detail: `DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total}): ${donePreds.map((p) => JSON.stringify(p)).join(", ")}`,
+            ok: !rejected,
+            detail: `DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total}), stateChanged=${stateChanged}: ${donePreds.map((p) => JSON.stringify(p)).join(", ")}`,
             ts: Date.now(),
           });
         }
-        if (doneResult.verdict !== "match") {
+        if (rejected) {
           finishRejections++;
           const evidence = donePreds.length === 0
-            ? `no DONE predicates were supplied, URL: ${snapshot.url}`
+            ? `no DONE predicates were supplied for a run that performed a state-changing action, URL: ${snapshot.url}`
             : `DONE predicates ${doneResult.verdict} (${doneResult.matched}/${doneResult.total} matched), URL: ${snapshot.url}`;
           this.log(`finish rejected #${finishRejections}: ${evidence}`);
           if (finishRejections <= MAX_FINISH_REJECTIONS) {
             if (donePreds.length === 0) {
               // Tell the model the real reason (missing array), not a false
               // "predicates failed" message -- there were no predicates to fail.
-              this.failedHint = `You called finish with no "done" array. A finish call must include at least one DONE predicate that objectively proves the page confirms the goal, otherwise verification is skipped entirely and the run cannot be trusted. Add a "done" array (see the predicate grammar for the available types, e.g. url-contains, role-present) that matches this goal's completion state, then call finish again WITH that array.`;
+              this.failedHint = `You called finish with no "done" array after performing an action that changes page or form state (click/type/select/etc). A finish call after such an action must include at least one DONE predicate that objectively proves the page confirms the goal, otherwise verification is skipped entirely and the run cannot be trusted. Add a "done" array (see the predicate grammar for the available types, e.g. url-contains, role-present) that matches this goal's completion state, then call finish again WITH that array.`;
             } else {
               // Give the model the exact unconfirmed predicates so it knows which
-              // concrete step is still missing (e.g. "navigate to ?sort=hilo"), or
-              // that it should switch to a stronger predicate type.
+              // concrete step is still missing (e.g. "navigate to ?sort=hilo").
               const notedPreds = donePreds
                 .map((p, i) => `[${i + 1}] ${JSON.stringify(p)}`)
                 .join(", ");
-              const reason = doneResult.verdict === "indeterminate"
-                ? `The DONE predicates could not be confirmed (indeterminate). This is likely a weak text-present/text-absent predicate whose target text was not found, which can simply mean the page text was truncated rather than proof the text is absent or present. An indeterminate result is never accepted as done.`
-                : `The page does NOT confirm the goal.`;
-              this.failedHint = `You called finish but the page does not confirm the goal. ${reason} ${evidence}. Predicates: ${notedPreds}. Perform the missing browser steps so the page satisfies these predicates, or replace weak text predicates with a stronger type (url-contains, role-present, attribute-equals, attribute-contains). Then call finish again WITH the same (or improved) done array -- do not omit it, omitting it skips verification entirely.`;
+              this.failedHint = `You called finish but the page does not confirm the goal. ${evidence}. Predicates: ${notedPreds}. Perform the missing browser steps so the page satisfies these predicates, then call finish again WITH the same (or improved) done array -- do not omit it, omitting it skips verification entirely.`;
             }
             this.currentPlan = [];
             this.hand.update({ status: "bezig", step, message: `Finish rejected - ${evidence}` });
@@ -1026,7 +1080,7 @@ export class AgentLoop {
           this.hand.update({ status: "gestopt", step, message: `Finish rejected ${finishRejections}x - ${evidence}` });
           return { status: "gestopt", steps: step };
         }
-        this.log(`finish accepted: DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total})`);
+        this.log(`finish accepted: DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total}), stateChanged=${stateChanged}`);
 
         const answer = composeAnswer(action.summary, findings);
         this.hand.update({ status: "klaar", step, message: answer, action });
