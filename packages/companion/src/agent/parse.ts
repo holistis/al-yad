@@ -269,9 +269,22 @@ export function parseMicroPlan(raw: string): ParseMicroPlanResult {
     };
   }
 
-  // Backward compat: enkel action object → plan van 1 stap
+  // Backward compat: a bare action object becomes a 1-step plan.
+  // A finish action carries its "done" predicates alongside "summary" on the SAME
+  // raw object, not inside parseAction's return (Action itself has no "done" field,
+  // see @yad/shared -- "done" only exists on PlannedStep). Without reading it here
+  // too, a model using this legacy single-object format for finish could never
+  // supply DONE predicates at all: parseAction() only reads "summary" for "finish",
+  // so the array would silently vanish on every such call, regardless of what the
+  // model sent -- the same class of silent-drop bug this fix is closing elsewhere.
   const single = parseAction(raw);
-  if (single.ok) return { ok: true, plan: { steps: [{ action: single.action }], rationale: "" } };
+  if (single.ok) {
+    const done = single.action.kind === "finish" ? parsePredicates(obj["done"]) : undefined;
+    return {
+      ok: true,
+      plan: { steps: [{ action: single.action, ...(done && done.length > 0 ? { done } : {}) }], rationale: "" },
+    };
+  }
 
   return { ok: false, error: `onherkenbaar formaat (${single.error})` };
 }

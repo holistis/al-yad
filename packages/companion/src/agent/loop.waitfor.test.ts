@@ -35,11 +35,19 @@ const MET_KNOP: Snapshot = {
   ],
 };
 
+/**
+ * DONE predicate that matches any snapshot: role-absent on a role name that never
+ * appears in BASIS/MET_KNOP. Gives the bare "finish" calls in this file's plan()
+ * helper a predicate that trivially satisfies the finish gate added for the
+ * false-"klaar" fix, since these tests are about wait-for, not DONE semantics.
+ */
+const ALWAYS_TRUE_DONE = '"done":[{"type":"role-absent","role":"yad-test-nonexistent-role"}]';
+
 class Router implements ChatLike {
   private i = 0;
   constructor(private readonly queue: string[]) {}
   async chat(_req: ChatRequest): Promise<{ content: string; provider: string; model: string }> {
-    const c = this.queue[this.i] ?? '{"kind":"finish","summary":"klaar"}';
+    const c = this.queue[this.i] ?? `{"kind":"finish","summary":"klaar",${ALWAYS_TRUE_DONE}}`;
     this.i++;
     return { content: c, provider: "mock", model: "mock-model" };
   }
@@ -68,7 +76,7 @@ const geenPauze = async (): Promise<void> => {};
 function plan(predicate: unknown, timeoutMs?: number): string[] {
   return [
     JSON.stringify({ kind: "wait-for", predicate, ...(timeoutMs ? { timeoutMs } : {}) }),
-    JSON.stringify({ kind: "finish", summary: "klaar" }),
+    `{"kind":"finish","summary":"klaar",${ALWAYS_TRUE_DONE}}`,
   ];
 }
 
