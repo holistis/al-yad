@@ -13,6 +13,15 @@ const SNAP: Snapshot = {
   textDigest: "",
 };
 
+/**
+ * DONE predicate that matches any snapshot: role-absent on a role name that never
+ * appears in any test fixture used in this file. Used to give a "finish" call in
+ * tests that are not about DONE-predicate semantics a predicate that trivially
+ * satisfies the finish gate added for the false-"klaar" fix, without having to
+ * reason about each fixture's actual content.
+ */
+const ALWAYS_TRUE_DONE = '"done":[{"type":"role-absent","role":"yad-test-nonexistent-role"}]';
+
 class MockRouter implements ChatLike {
   private i = 0;
   constructor(
@@ -20,7 +29,7 @@ class MockRouter implements ChatLike {
     private readonly model: string = "mock-model",
   ) {}
   async chat(_req: ChatRequest): Promise<{ content: string; provider: string; model: string }> {
-    const c = this.queue[this.i] ?? '{"kind":"finish","summary":"klaar"}';
+    const c = this.queue[this.i] ?? `{"kind":"finish","summary":"klaar",${ALWAYS_TRUE_DONE}}`;
     this.i++;
     return { content: c, provider: "mock", model: this.model };
   }
@@ -57,7 +66,7 @@ describe("AgentLoop", () => {
     const hand = new MockHand();
     const router = new MockRouter([
       '{"kind":"navigate","url":"https://shop.nl/producten"}',
-      '{"kind":"finish","summary":"gevonden"}',
+      `{"kind":"finish","summary":"gevonden",${ALWAYS_TRUE_DONE}}`,
     ]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep });
     const out = await loop.run("zoek producten");
@@ -71,7 +80,7 @@ describe("AgentLoop", () => {
     const hand = new MockHand();
     const router = new MockRouter([
       '{"kind":"navigate","url":"https://shop.nl/checkout"}',
-      '{"kind":"finish","summary":"gestopt"}',
+      `{"kind":"finish","summary":"gestopt",${ALWAYS_TRUE_DONE}}`,
     ]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep });
     const out = await loop.run("reken af");
@@ -116,7 +125,7 @@ describe("AgentLoop", () => {
     const hand = new MockHand();
     const router = new MockRouter([
       '{"kind":"navigate","url":"https://shop.nl/checkout"}',
-      '{"kind":"finish","summary":"gestopt"}',
+      `{"kind":"finish","summary":"gestopt",${ALWAYS_TRUE_DONE}}`,
     ]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
     const out = await loop.run("reken af");
@@ -129,7 +138,7 @@ describe("AgentLoop", () => {
     const hand = new MockHand();
     const router = new MockRouter([
       '{"kind":"extract","what":"vacatures","ref":"e2"}',
-      '{"kind":"finish","summary":"Klaar"}',
+      `{"kind":"finish","summary":"Klaar",${ALWAYS_TRUE_DONE}}`,
     ]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep });
     const out = await loop.run("zoek 3 vacatures");
@@ -204,7 +213,7 @@ describe("AgentLoop — sessie-verloop detectie", () => {
     hand.confirmReturn = true;
     const router = new MockRouter([
       '{"kind":"navigate","url":"https://shop.nl/account"}', // stap 1
-      '{"kind":"finish","summary":"hervat"}',                 // stap 3 (stap 2 → continue)
+      `{"kind":"finish","summary":"hervat",${ALWAYS_TRUE_DONE}}`, // stap 3 (stap 2 → continue)
     ]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep });
     const out = await loop.run("ga naar account");
@@ -229,7 +238,7 @@ describe("AgentLoop — sessie-verloop detectie", () => {
   it("triggert login-detectie NIET op stap 1 (startpagina kan al een loginpagina zijn)", async () => {
     // initSnap = login, stap-1 = login → guard step > 1 beschermt
     const hand = new DynamicMockHand([LOGIN_SNAP, LOGIN_SNAP, SNAP]);
-    const router = new MockRouter(['{"kind":"finish","summary":"klaar"}']);
+    const router = new MockRouter([`{"kind":"finish","summary":"klaar",${ALWAYS_TRUE_DONE}}`]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep });
     const out = await loop.run("doe iets");
     expect(hand.confirmCalls).toBe(0);
@@ -276,8 +285,8 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
     expect(out.summary).toContain("gesorteerd op prijs");
     // Select-actie werd uitgevoerd (finish was geweigerd, model herplande)
     expect(hand.acts.some((a) => a.kind === "select" && (a as { value?: string }).value === "lohi")).toBe(true);
-    // Hand zag de "Finish geweigerd" status
-    expect(hand.updates.some((u) => u.message.includes("Finish geweigerd"))).toBe(true);
+    // Hand saw the "Finish rejected" status
+    expect(hand.updates.some((u) => u.message.includes("Finish rejected"))).toBe(true);
   });
 
   it("eindigt met gestopt (niet fout) na MAX_FINISH_REJECTIONS+1 mislukte finish-pogingen", async () => {
@@ -295,21 +304,31 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
 
     // "gestopt" i.p.v. "fout": taak was grotendeels klaar, recovery-store mag later leren.
     expect(out.status).toBe("gestopt");
-    expect(hand.updates.some((u) => u.message.includes("Finish") && u.message.includes("geweigerd"))).toBe(true);
+    expect(hand.updates.some((u) => u.message.includes("Finish") && u.message.includes("rejected"))).toBe(true);
   });
 
-  it("accepteert finish zonder DONE-predicaten direct (backwards compat)", async () => {
-    const hand = new DynamicMockHand([UNSORTED_SNAP, UNSORTED_SNAP]);
-    const router = new MockRouter([
-      '{"steps":[{"kind":"finish","summary":"klaar, geen predicaten"}],"rationale":"simpele taak"}',
+  it("rejects finish without DONE predicates (bug fix: was previously accepted as backwards compat)", async () => {
+    // This test used to be named "accepteert finish zonder DONE-predicaten direct
+    // (backwards compat)" and asserted status "klaar". That WAS the bug
+    // (PROMPT-FIX-VALSE-KLAAR.md): `donePreds.length > 0` was the only gate, so an
+    // empty done array skipped the whole check. Now a finish without predicates is
+    // treated as a failed verification: rejected, with the same retry/hint mechanism
+    // as a mismatch, and only a non-"klaar" status once MAX_FINISH_REJECTIONS is hit.
+    // Every attempt is bare (no done array), including the ones the retry hint asks
+    // for -- a model that never adds a done array, no matter how many chances it gets.
+    const hand = new DynamicMockHand([
+      UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP,
     ]);
+    const bareFinish = '{"steps":[{"kind":"finish","summary":"klaar, geen predicaten"}],"rationale":"simpele taak"}';
+    const router = new MockRouter([bareFinish, bareFinish, bareFinish]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
     const out = await loop.run("doe iets");
 
-    expect(out.status).toBe("klaar");
-    expect(out.summary).toContain("geen predicaten");
-    // Geen updates over "Finish geweigerd"
-    expect(hand.updates.every((u) => !u.message.includes("Finish geweigerd"))).toBe(true);
+    // Never silently "klaar" -- rejected on every attempt, "gestopt" once the
+    // rejection ceiling (MAX_FINISH_REJECTIONS) is hit.
+    expect(out.status).toBe("gestopt");
+    expect(hand.updates.every((u) => u.status !== "klaar")).toBe(true);
+    expect(hand.updates.some((u) => u.message.includes("Finish rejected"))).toBe(true);
   });
 
   it("attribute-equals DONE-predicaat: match als combobox juiste waarde heeft", async () => {
@@ -346,8 +365,38 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
     const out = await loop.run("sorteer op prijs");
 
     expect(out.status).toBe("klaar");
-    expect(hand.updates.some((u) => u.message.includes("Finish geweigerd"))).toBe(true);
+    expect(hand.updates.some((u) => u.message.includes("Finish rejected"))).toBe(true);
     expect(hand.acts.some((a) => a.kind === "select")).toBe(true);
+  });
+});
+
+// ── Bug fix proof: a finish with NO done predicates must never silently succeed ──
+// This is the exact gap from PROMPT-FIX-VALSE-KLAAR.md: `donePreds.length > 0` was
+// the only gate, so an empty/omitted done array skipped verification entirely and
+// fell straight through to status "klaar" with the model's own self-written summary
+// as the only "proof". This test is written and run FIRST against the unfixed code
+// to prove the bug exists (RED), then re-run after the fix to prove it is closed (GREEN).
+
+describe("AgentLoop - finish without DONE predicates must not silently succeed (bug fix proof)", () => {
+  it("never returns status klaar for a bare finish call that supplies zero done predicates, even after retries", async () => {
+    // A model that never learns to supply a done array, no matter how many times it
+    // is asked to try again. This must end in a non-klaar status (eventually "gestopt"
+    // once the rejection ceiling is hit), never in silent "klaar".
+    const hand = new DynamicMockHand([
+      UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP, UNSORTED_SNAP,
+    ]);
+    const bareFinish = JSON.stringify({
+      steps: [{ kind: "finish", summary: "done, trust me" }],
+      rationale: "no predicates supplied",
+    });
+    const router = new MockRouter([bareFinish, bareFinish, bareFinish]);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("do something that must be objectively verified before finishing");
+
+    // On the unfixed code, the very first bare finish call is accepted immediately
+    // with status "klaar" -- that is the bug. After the fix, it must not be.
+    expect(out.status).not.toBe("klaar");
+    expect(hand.updates.every((u) => u.status !== "klaar")).toBe(true);
   });
 });
 
@@ -369,7 +418,7 @@ describe("AgentLoop — plan-clear na succesvolle select", () => {
     const hand = new DynamicMockHand([UNSORTED_SNAP, SORTED_SNAP, SORTED_SNAP]);
     const router = new MockRouter([
       multiStepPlan, // stap 1: model geeft 3-staps plan
-      '{"steps":[{"kind":"finish","summary":"klaar na verse snapshot"}],"rationale":"verse snapshot"}', // stap 2: na plan-clear
+      `{"steps":[{"kind":"finish","summary":"klaar na verse snapshot",${ALWAYS_TRUE_DONE}}],"rationale":"verse snapshot"}`, // stap 2: na plan-clear
     ]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
     const out = await loop.run("sorteer op prijs");
@@ -403,7 +452,7 @@ describe("AgentLoop — plan-clear na succesvolle select", () => {
     const hand = new FailSelectHand(UNSORTED_SNAP);
     const router = new MockRouter([
       failPlan,
-      '{"steps":[{"kind":"finish","summary":"klaar na vers plan"}],"rationale":"herstel na fout"}',
+      `{"steps":[{"kind":"finish","summary":"klaar na vers plan",${ALWAYS_TRUE_DONE}}],"rationale":"herstel na fout"}`,
     ]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
     const out = await loop.run("sorteer op prijs");
@@ -419,7 +468,7 @@ describe("AgentLoop — plan-clear na succesvolle select", () => {
 describe("AgentLoop — RunRecord-getters", () => {
   it("lastStuckSignalId is undefined na succesvolle run", async () => {
     const hand = new MockHand();
-    const router = new MockRouter(['{"kind":"finish","summary":"klaar"}']);
+    const router = new MockRouter([`{"kind":"finish","summary":"klaar",${ALWAYS_TRUE_DONE}}`]);
     const loop = new AgentLoop(router, hand, { sleep: noSleep });
     const out = await loop.run("simpele taak");
     expect(out.status).toBe("klaar");
@@ -500,7 +549,7 @@ describe("AgentLoop — RunRecord-getters", () => {
     // We can't re-use the same AgentLoop with a new router easily, but we can
     // verify via a fresh loop that the reset logic is correct conceptually.
     // Since run() resets at the top, create a fresh run:
-    const router2 = new MockRouter(['{"kind":"finish","summary":"klaar"}']);
+    const router2 = new MockRouter([`{"kind":"finish","summary":"klaar",${ALWAYS_TRUE_DONE}}`]);
     const loop2 = new AgentLoop(router2, hand2, { sleep: noSleep });
     const out2 = await loop2.run("simpele taak");
     expect(out2.status).toBe("klaar");

@@ -953,58 +953,84 @@ export class AgentLoop {
       }
 
       if (action.kind === "finish") {
-        // DONE-predicaat check (Stap 4): weiger de finish als de snapshot het doel
-        // niet objectief bevestigt. Voorkomt vals "klaar" (Run 1: model riep finish
-        // maar de sortering/checkout was nog niet voltooid).
+        // DONE-predicate check (Step 4): reject the finish unless the snapshot
+        // objectively confirms the goal. Prevents false "done" (Run 1: model called
+        // finish but the sort/checkout was not actually completed).
+        //
+        // Both halves of the gate below are load-bearing:
+        //   1. A finish with ZERO done predicates is NOT a free pass. It is treated
+        //      exactly like a failed verification (same rejection counter, same hint
+        //      mechanism), because evaluatePredicates([], snapshot) already returns
+        //      "indeterminate" by design (see predicate.ts), and "indeterminate" is
+        //      never accepted as success below. Without this, an empty or omitted
+        //      done array skipped the whole check and fell straight through to
+        //      status "klaar" on the model's own unverified summary.
+        //   2. An "indeterminate" verdict (e.g. a weak text-present/text-absent
+        //      predicate whose target text was not found, which can simply mean the
+        //      text digest was truncated) is rejected too, matching how
+        //      waitForCondition already refuses to treat "indeterminate" as done
+        //      (see the comment above waitForCondition).
         const donePreds = planned.done ?? [];
-        // Observability: log het finish-moment zodat de step-log laat zien of het model
-        // DONE-predicaten meestuurde. Zonder dit was finish onzichtbaar in de log.
+        // Observability: log the finish moment so the step-log shows whether the model
+        // sent DONE predicates. Without this, finish was invisible in the log.
         if (this.stepLogger) {
           this.stepLogger.append({
             run: this.runId, step, url: snapshot.url,
             action: { kind: "_finish", donePredicates: donePreds.length },
-            ok: true, detail: `finish gepland — ${donePreds.length} DONE-predicaat(en)`,
+            ok: true, detail: `finish planned - ${donePreds.length} DONE predicate(s)`,
             ts: Date.now(),
           });
         }
-        if (donePreds.length > 0) {
-          const doneResult = evaluatePredicates(donePreds, snapshot);
-          // Observability: log DONE-check verdict (match/mismatch) inclusief de predicaten.
-          if (this.stepLogger) {
-            this.stepLogger.append({
-              run: this.runId, step, url: snapshot.url,
-              action: { kind: "_done-check", verdict: doneResult.verdict, matched: doneResult.matched, total: doneResult.total },
-              ok: doneResult.verdict === "match",
-              detail: `DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total}): ${donePreds.map((p) => JSON.stringify(p)).join(", ")}`,
-              ts: Date.now(),
-            });
-          }
-          if (doneResult.verdict === "mismatch") {
-            finishRejections++;
-            const evidence = `DONE-predicaten niet gehaald (${doneResult.matched}/${doneResult.total}), URL: ${snapshot.url}`;
-            this.log(`finish geweigerd #${finishRejections}: ${evidence}`);
-            if (finishRejections <= MAX_FINISH_REJECTIONS) {
-              // Geef het model de exacte falende predicaten mee zodat het weet
-              // welke concrete stap nog ontbreekt (bv. "navigeer naar ?sort=hilo").
-              const failedPreds = donePreds
+        const doneResult = evaluatePredicates(donePreds, snapshot);
+        // Observability: log the DONE-check verdict (match/mismatch/indeterminate)
+        // including the predicates that were evaluated.
+        if (this.stepLogger) {
+          this.stepLogger.append({
+            run: this.runId, step, url: snapshot.url,
+            action: { kind: "_done-check", verdict: doneResult.verdict, matched: doneResult.matched, total: doneResult.total },
+            ok: doneResult.verdict === "match",
+            detail: `DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total}): ${donePreds.map((p) => JSON.stringify(p)).join(", ")}`,
+            ts: Date.now(),
+          });
+        }
+        if (doneResult.verdict !== "match") {
+          finishRejections++;
+          const evidence = donePreds.length === 0
+            ? `no DONE predicates were supplied, URL: ${snapshot.url}`
+            : `DONE predicates ${doneResult.verdict} (${doneResult.matched}/${doneResult.total} matched), URL: ${snapshot.url}`;
+          this.log(`finish rejected #${finishRejections}: ${evidence}`);
+          if (finishRejections <= MAX_FINISH_REJECTIONS) {
+            if (donePreds.length === 0) {
+              // Tell the model the real reason (missing array), not a false
+              // "predicates failed" message -- there were no predicates to fail.
+              this.failedHint = `You called finish with no "done" array. A finish call must include at least one DONE predicate that objectively proves the page confirms the goal, otherwise verification is skipped entirely and the run cannot be trusted. Add a "done" array (see the predicate grammar for the available types, e.g. url-contains, role-present) that matches this goal's completion state, then call finish again WITH that array.`;
+            } else {
+              // Give the model the exact unconfirmed predicates so it knows which
+              // concrete step is still missing (e.g. "navigate to ?sort=hilo"), or
+              // that it should switch to a stronger predicate type.
+              const notedPreds = donePreds
                 .map((p, i) => `[${i + 1}] ${JSON.stringify(p)}`)
                 .join(", ");
-              this.failedHint = `Je riep finish aan maar de pagina bevestigt het doel NIET. ${evidence}. Niet-gehaalde DONE-predicaten: ${failedPreds}. Voer de ontbrekende browser-stappen uit zodat de pagina aan deze predicaten voldoet. Roep daarna opnieuw finish aan MET hetzelfde done-array (laat die niet weg — anders wordt de verificatie overgeslagen).`;
-              this.currentPlan = [];
-              this.hand.update({ status: "bezig", step, message: `Finish geweigerd — ${evidence}` });
-              continue;
+              const reason = doneResult.verdict === "indeterminate"
+                ? `The DONE predicates could not be confirmed (indeterminate). This is likely a weak text-present/text-absent predicate whose target text was not found, which can simply mean the page text was truncated rather than proof the text is absent or present. An indeterminate result is never accepted as done.`
+                : `The page does NOT confirm the goal.`;
+              this.failedHint = `You called finish but the page does not confirm the goal. ${reason} ${evidence}. Predicates: ${notedPreds}. Perform the missing browser steps so the page satisfies these predicates, or replace weak text predicates with a stronger type (url-contains, role-present, attribute-equals, attribute-contains). Then call finish again WITH the same (or improved) done array -- do not omit it, omitting it skips verification entirely.`;
             }
-            // Plafond bereikt: stoppen om oneindige weiger-lus te voorkomen.
-            // "gestopt" i.p.v. "fout": taak was 90% klaar — recovery-store mag later leren.
-            this.hand.update({ status: "gestopt", step, message: `Finish ${finishRejections}x geweigerd — ${evidence}` });
-            return { status: "gestopt", steps: step };
+            this.currentPlan = [];
+            this.hand.update({ status: "bezig", step, message: `Finish rejected - ${evidence}` });
+            continue;
           }
-          this.log(`finish geaccepteerd: DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total})`);
+          // Rejection ceiling reached: stop to avoid an infinite rejection loop.
+          // "gestopt" (stopped) instead of "fout" (error): the task may be mostly
+          // done already -- the recovery-store can still learn from this later.
+          this.hand.update({ status: "gestopt", step, message: `Finish rejected ${finishRejections}x - ${evidence}` });
+          return { status: "gestopt", steps: step };
         }
+        this.log(`finish accepted: DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total})`);
 
         const answer = composeAnswer(action.summary, findings);
         this.hand.update({ status: "klaar", step, message: answer, action });
-        // Cache schrijven: alleen bij schone runs met echte stappen (geen parse-fouten).
+        // Write to cache: only for clean runs with real steps (no parse errors).
         if (this.cacheStore && startingUrl && cleanRun && history.length > 0) {
           const cacheKey = makeCacheKey(goal, startingUrl);
           const existing = this.cacheStore.get(cacheKey);
@@ -1017,7 +1043,7 @@ export class AgentLoop {
             savedAt: Date.now(),
             totalRuns: (existing?.totalRuns ?? 0) + 1,
           });
-          this.log(`cache opgeslagen: ${history.length} stappen voor "${goal.slice(0, 40)}"`);
+          this.log(`cache saved: ${history.length} step(s) for "${goal.slice(0, 40)}"`);
         }
         return { status: "klaar", summary: answer, steps: step };
       }
