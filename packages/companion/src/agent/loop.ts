@@ -29,6 +29,27 @@ const MAX_RECOVERY_ATTEMPTS = 3;
 const COMPARE_RANK_COUNT_PATTERN =
   /goedkoopste|duurste|meeste|minste|beste|slechtste|hoogste|laagste|populairste|hoeveel|aantal|cheapest|most expensive|highest|lowest|most popular|least popular|how many|count of|number of/i;
 
+/**
+ * Bewust EENZIJDIG conservatief: alleen expliciete actiewerkwoorden, geen brede
+ * interpretatie. Fout in deze richting (een schrijfdoel niet herkend) verandert
+ * niets aan het bestaande gedrag; fout in de andere richting (een leesdoel ten
+ * onrechte als schrijfdoel gezien) zou een informatief doel onterecht laten
+ * weigeren. Bij twijfel dus liever een gemist schrijfdoel dan een vals geweigerd
+ * leesdoel.
+ *
+ * Gevonden op 2026-09-07 (PROBE G in het onderzoek van die dag): een doel als
+ * "plaats een reactie" kreeg, bij nul uitgevoerde acties en een kale finish zonder
+ * enig predicaat, gewoon status "klaar". stateChanged() is dan ook false (er
+ * gebeurde niets), en "geen predicaten, geen statusverandering" wordt vandaag
+ * gelezen als een informatief doel in plaats van een genegeerde opdracht.
+ */
+const WRITE_GOAL_PATTERN =
+  /\b(plaats|post|verstuur|verzend|typ|schrijf|klik|druk|vul in|log in|meld aan|reageer|antwoord|bevestig|bestel|koop|betaal|upload|verwijder|schrap|abonneer|volg|like|deel)\b|\b(post|send|submit|type|write|click|press|fill in|log ?in|sign ?in|reply|comment|confirm|order|buy|pay|upload|delete|remove|subscribe|follow|share)\b/i;
+
+function isWriteGoal(goal: string): boolean {
+  return WRITE_GOAL_PATTERN.test(goal);
+}
+
 function isCompareRankCountGoal(goal: string): boolean {
   return COMPARE_RANK_COUNT_PATTERN.test(goal);
 }
@@ -1042,13 +1063,21 @@ export class AgentLoop {
           });
         }
         const doneResult = evaluatePredicates(donePreds, snapshot);
-        // Reject only when: (a) no predicates were supplied for a run that DID change
-        // state (the real bug), or (b) predicates were supplied and one of them is a
-        // hard mismatch. An indeterminate verdict from an empty array (no predicates,
-        // no state change -- informational) or from a weak text predicate (predicates
-        // supplied, none confirmed) is accepted, not rejected.
+        // Reject when: (a) no predicates were supplied for a run that DID change
+        // state (the real bug), (b) predicates were supplied and one of them is a
+        // hard mismatch, or (c) the goal explicitly asked for an action and NEITHER
+        // any state change NOR any DONE predicate backs up the finish. Without (c),
+        // "nothing happened" on a write goal reads as informational, the same
+        // carve-out meant for "what is the title of this page?" -- which is exactly
+        // how a "plaats een reactie" goal reached status "klaar" with zero actions
+        // taken and zero predicates supplied (2026-09-07, PROBE G).
+        //
+        // (c) is deliberately narrow: only fires when the goal itself uses an
+        // explicit action verb, so a genuinely informational goal is never rejected
+        // by this branch, only a write goal that produced no evidence at all.
+        const writeGoalWithNoEvidence = donePreds.length === 0 && !stateChanged && isWriteGoal(goal);
         const rejected = donePreds.length === 0
-          ? stateChanged
+          ? (stateChanged || writeGoalWithNoEvidence)
           : doneResult.verdict === "mismatch";
         // Observability: log the DONE-check verdict (match/mismatch/indeterminate)
         // including the predicates that were evaluated.
