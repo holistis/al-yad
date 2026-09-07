@@ -206,9 +206,13 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
     // gezondheidslus doet.
     if (url.startsWith("/status") && method === "GET") {
       const connected = session.isConnected();
+      // stilteMs erbij: hoe lang de hand al niets liet horen. Zonder dit was een
+      // storing niet te onderscheiden van rust, want connected was een write-once
+      // vlag die na de eerste HELLO nooit meer op false ging.
+      const stilteMs = session.stilteMs();
       const wilDiep = new URL(url, "http://x").searchParams.get("deep") === "1";
       if (!wilDiep || !connected) {
-        json(res, 200, { ok: true, connected, version: "0.1.0" });
+        json(res, 200, { ok: true, connected, stilteMs, pid: process.pid, version: "0.1.0" });
         return;
       }
       const start = Date.now();

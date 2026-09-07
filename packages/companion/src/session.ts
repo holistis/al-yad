@@ -89,6 +89,14 @@ interface Pending {
  * verzoeken (SNAPSHOT/ACT/CONFIRM) via correlationId. Implementeert tegelijk de
  * HandBridge die de agent-lus gebruikt om de Hand aan te sturen.
  */
+/**
+ * Hoe lang de hand mag zwijgen voordat we hem als weg beschouwen. De extensie stuurt
+ * elke 20 seconden een PING, dus 45s is ruim twee gemiste hartslagen: laag genoeg om
+ * een echt weggevallen extensie snel te zien, hoog genoeg om niet te flakkeren op een
+ * trage machine.
+ */
+const HAND_STILTE_MAX_MS = 45_000;
+
 export class BrainSession implements HandBridge {
   private readonly pending = new Map<string, Pending>();
   private readonly handshake: (raw: unknown) => void;
@@ -98,6 +106,8 @@ export class BrainSession implements HandBridge {
   private autonomy: "confirm" | "auto" = "confirm";
   private language: "nl" | "en" = "nl";
   private connected = false;
+  /** Tijdstip van het laatste bericht van de hand. 0 = nog nooit iets ontvangen. */
+  private lastHandMessageAt = 0;
   private pendingCapture: ((path: string) => void) | null = null;
   private pendingCaptureReject: ((e: Error) => void) | null = null;
   /** Wacht op herstelplan van Claude Code via POST /assist. */
@@ -133,7 +143,24 @@ export class BrainSession implements HandBridge {
     this.handshake = createHandshakeHandler(info, send, log);
   }
 
-  isConnected(): boolean { return this.connected; }
+  /**
+   * Verbonden betekent: de hand heeft ooit HELLO gestuurd EN recent nog iets van zich
+   * laten horen. Zonder die tweede voorwaarde was dit een write-once vlag: eenmaal
+   * true, altijd true, en dan houden ruim dertig endpoints hun 503-poort open terwijl
+   * er niemand meer aan de andere kant zit.
+   *
+   * Live op 2026-09-07: /status gaf {"ok":true,"connected":true} terwijl /navigate
+   * direct daarna ok:false gaf. Daardoor was de storing niet te diagnosticeren.
+   */
+  isConnected(): boolean {
+    if (!this.connected) return false;
+    return Date.now() - this.lastHandMessageAt < HAND_STILTE_MAX_MS;
+  }
+
+  /** Hoe lang de hand al niets liet horen, in ms. Voor /status, zodat een storing meetbaar is. */
+  stilteMs(): number {
+    return this.lastHandMessageAt === 0 ? -1 : Date.now() - this.lastHandMessageAt;
+  }
 
   /**
    * Ontvangt een herstelplan van Claude Code (via POST /assist).
@@ -348,6 +375,10 @@ export class BrainSession implements HandBridge {
 
 
   handle(raw: unknown): void {
+    // Elk binnenkomend bericht is bewijs van leven. De extensie stuurt sowieso elke
+    // 20 seconden een PING (native-port.ts:18), dus dit signaal was er al; het werd
+    // alleen weggegooid.
+    this.lastHandMessageAt = Date.now();
     if (!isEnvelope(raw)) {
       this.handshake(raw);
       return;
@@ -547,7 +578,11 @@ export class BrainSession implements HandBridge {
     try {
       const result = await loop.run(goal, maxSteps, attachments);
       // Flush bewezen recoveries naar de store zodat toekomstige runs er baat van hebben.
-      if (result.status === "klaar" && loop.hadRecovery) {
+      // verifiedFinish, niet alleen status: een "klaar" waarvan de DONE-poort niets
+      // kon vaststellen is geen bewijs. Zonder deze voorwaarde schreef een
+      // onbevestigde run zijn hints als bewezen weg EN postte ze naar het gedeelde
+      // brein, waar ze de hint voor elke volgende gebruiker overschrijven.
+      if (result.status === "klaar" && loop.verifiedFinish && loop.hadRecovery) {
         for (const r of loop.provenRecoveries) {
           this.recoveryStore.record(r.sitePattern, r.failureCategory, r.hint, r.failureClass);
         }
