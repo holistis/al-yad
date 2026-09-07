@@ -64,6 +64,7 @@ const RUN_MSG = {
     noTabOpen: "Kon geen tab openen om de taak uit te voeren. Probeer het opnieuw.",
     notConnected: "Niet verbonden met de companion.",
     noWebTab: "Geen actieve web-tab gevonden.",
+    noYadTab: "Geen YAD-tab om te lezen. Start eerst een taak of navigeer met YAD; de tabs van de gebruiker worden bewust niet gelezen.",
   },
   en: {
     tabClosed: "The tab was closed, so the task has stopped.",
@@ -72,6 +73,7 @@ const RUN_MSG = {
     noTabOpen: "Could not open a tab to run the task. Please try again.",
     notConnected: "Not connected to the companion.",
     noWebTab: "No active web tab found.",
+    noYadTab: "No YAD tab to read. Start a task or navigate with YAD first; the user's own tabs are deliberately never read.",
   },
 } as const;
 
@@ -561,7 +563,9 @@ function onMessage(raw: unknown): void {
     }
     case "INJECT_LOCALSTORAGE": {
       const p = raw.payload as { items: Record<string, string> };
-      const tabId = runTabId ?? lastWebTabId;
+      // stickyTabId, niet lastWebTabId: schrijven in de laatst door de GEBRUIKER
+      // bezochte tab is precies waar regel 522 hieronder al voor waarschuwt.
+      const tabId = runTabId ?? stickyTabId;
       if (tabId == null) {
         replyToBrain("INJECT_LOCALSTORAGE_RESULT", { ok: false, count: 0 }, raw.id);
         break;
@@ -575,7 +579,10 @@ function onMessage(raw: unknown): void {
     }
     case "REQUEST_SCREENSHOT": {
       void (async () => {
-        const tabId = runTabId ?? lastWebTabId;
+        // stickyTabId, niet lastWebTabId: een schermafdruk van de privé-tab van de
+        // gebruiker verlaat het apparaat via de companion. Zelfde exposure-klasse
+        // als het capture-lek dat op 2026-09-07 de mailbox uitlas.
+        const tabId = runTabId ?? stickyTabId;
         try {
           if (tabId == null) throw new Error("geen run-tab");
           const tab = await chrome.tabs.get(tabId);
@@ -663,8 +670,11 @@ function onMessage(raw: unknown): void {
           return;
         }
 
-        // Bepaal de doeltab: expliciet opgegeven, anders run-tab of laatste web-tab.
-        const tabId = p.tabId ?? runTabId ?? lastWebTabId;
+        // Bepaal de doeltab: expliciet opgegeven, anders de eigen YAD-tab. Bewust
+        // NIET lastWebTabId: CDP voert willekeurige JavaScript uit en leest cookies,
+        // dus dit op de laatst bekeken tab van de gebruiker laten landen is de
+        // zwaarste variant van dezelfde exposure-fout.
+        const tabId = p.tabId ?? runTabId ?? stickyTabId;
         if (tabId == null) {
           replyToBrain("CDP_RESULT", { ok: false, command: p.command, detail: "geen actieve tab" }, raw.id);
           return;
@@ -834,23 +844,26 @@ async function handleCaptureForClaude(): Promise<void> {
   }
   toSidepanel({ type: "YAD_CLAUDE_BRIDGE_CAPTURING" });
   try {
-    // Prefer de YAD-werktab (stickyTabId) boven de meest-recent-bezochte tab.
-    // Zo pakt capture altijd de tab waar YAD het doel uitvoerde, ook als de gebruiker
-    // ondertussen een andere tab actief heeft (bv. DuckDNS tijdens x402scan-registratie).
+    // Alleen een tab die van YAD ZELF is: eerst de lopende run, anders de laatste
+    // werktab. Er is met opzet GEEN terugval meer op "de tab die de gebruiker het
+    // laatst aanraakte".
+    //
+    // Die terugval las hier eerder document.body.innerText (20.000 tekens) plus 100
+    // links van een willekeurige tab van de gebruiker en schreef dat naar een bestand
+    // op schijf. Live opgetreden op 2026-09-07: zonder lopende run leverde /capture de
+    // volledige inhoud van de Roundcube-mailbox van de gebruiker op. Dat faalt de
+    // exposure-poort van de vier veiligheidschecks: een duidelijke fout is beter dan
+    // stilzwijgend de privé-tab van de gebruiker uitlezen.
     let tab: chrome.tabs.Tab | undefined;
-    if (stickyTabId != null) {
+    const eigenTabId = runTabId ?? stickyTabId;
+    if (eigenTabId != null) {
       try {
-        const known = await chrome.tabs.get(stickyTabId);
+        const known = await chrome.tabs.get(eigenTabId);
         if (known.url && /^https?:\/\//i.test(known.url)) tab = known;
-      } catch { /* tab gesloten — val terug op query */ }
-    }
-    if (!tab) {
-      const tabs = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
-      tabs.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
-      tab = tabs[0];
+      } catch { /* tab gesloten — geen terugval, we falen hieronder eerlijk */ }
     }
     if (!tab || typeof tab.id !== "number") {
-      toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ok: false, detail: rt("noWebTab") });
+      toSidepanel({ type: "YAD_CLAUDE_BRIDGE_RESULT", ok: false, detail: rt("noYadTab") });
       return;
     }
     const results = await chrome.scripting.executeScript({
