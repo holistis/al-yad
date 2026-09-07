@@ -3,6 +3,7 @@ import { isAccepted } from "./acceptance";
 import { getSettings, saveSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { injectCookies, injectLocalStorage } from "./session-inject";
 import { startCapture, stopCapture, evaluateInPage, insertRealTextInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
+import { YadTabGroupManager, type TabGroupsChromeApi } from "./tab-groups";
 
 /**
  * Beheert de native-messaging-poort naar het Brein (companion) EN vertaalt de
@@ -228,9 +229,34 @@ function endRun(): void {
  * opnieuw, met een tweede tab en een run die naar about:blank keek als gevolg.
  */
 function claimTab(tabId: number): void {
+  // De vorige geclaimde tab loslaten als het een ANDERE tab is: zonder dit blijft
+  // elke tab die YAD ooit gebruikte in de groep zitten, en groeit "YAD" tot een
+  // verzameling oude tabbladen in plaats van te tonen waar de agent NU mee bezig is.
+  const vorige = runInProgress ? runTabId : stickyTabId;
+  if (vorige != null && vorige !== tabId) {
+    void tabGroupManager.release(vorige).catch(() => { /* puur cosmetisch, nooit fataal */ });
+  }
   if (runInProgress) runTabId = tabId;
   else stickyTabId = tabId;
+  // Fire-and-forget: zichtbaarheid voor de mens mag een navigatie of actie nooit
+  // vertragen of blokkeren. Mislukt het groeperen (bv. permissie ontbreekt op een
+  // oudere Chrome), dan werkt YAD gewoon door zoals voorheen, alleen onzichtbaar.
+  void tabGroupManager.ensureYadGroup(tabId).catch(() => { /* puur cosmetisch, nooit fataal */ });
 }
+
+// chrome.tabGroups bestaat pas sinds Chrome 89 en ontbreekt in sommige test-
+// omgevingen; de adapter isoleert dat verschil van de geteste logica in tab-groups.ts.
+const chromeTabGroupsApi: TabGroupsChromeApi = {
+  tabGroups: {
+    query: (info) => chrome.tabGroups.query(info),
+    update: (groupId, props) => chrome.tabGroups.update(groupId, props),
+  },
+  tabs: {
+    group: (options) => chrome.tabs.group(options),
+    ungroup: (tabIds) => chrome.tabs.ungroup(tabIds),
+  },
+};
+const tabGroupManager = new YadTabGroupManager(chromeTabGroupsApi);
 
 /** Wordt aangeroepen vanuit background.ts als de gebruiker op het YAD-icoon klikt op een tab. */
 export function setYadTabId(tabId: number): void {
