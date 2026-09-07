@@ -478,8 +478,28 @@ export async function executeAction(
         if (typeDelay > 0) {
           await typeSlowlyEditable(el as HTMLElement, action.text, typeDelay);
         } else {
-          (el as HTMLElement).textContent = action.text;
+          // Framework-gestuurde editors (YouTube, Lexical, Draft.js, ProseMirror) houden
+          // hun eigen interne state bij en negeren een directe textContent-toewijzing:
+          // op de eerstvolgende tick schrijven ze hun ongewijzigde state terug en is de
+          // tekst weer weg. execCommand("insertText") biedt de invoer aan als échte
+          // gebruikersinvoer, wat die state wél bijwerkt. Dit is dezelfde methode die de
+          // paste-actie hieronder al gebruikt, en die typeSlowlyEditable per teken gebruikt.
+          //
+          // Gevonden op 2026-09-07: drie opeenvolgende YouTube-reacties werden als
+          // geslaagd gerapporteerd terwijl het veld leeg bleef. De terugleescontrole
+          // verderop kon dat niet zien omdat zij las vóórdat het framework terugschreef.
+          document.execCommand("selectAll", false);
+          const ingevoegd = document.execCommand("insertText", false, action.text);
+          if (!ingevoegd) {
+            // execCommand geweigerd (oudere of afwijkende editor): val terug op de
+            // directe toewijzing, zodat dit pad niet slechter wordt dan het was.
+            (el as HTMLElement).textContent = action.text;
+          }
           el.dispatchEvent(new Event("input", { bubbles: true }));
+          // Even lang settelen als de input/textarea-tak hierboven, zodat het framework
+          // de kans krijgt terug te schrijven vóór de terugleescontrole meet. Zonder deze
+          // wachttijd meet die controle te vroeg en kan zij de echte faalmodus niet zien.
+          await sleep(350);
         }
       } else {
         // Fallback: Angular/React/Spartacus component wrappers bevatten soms een
