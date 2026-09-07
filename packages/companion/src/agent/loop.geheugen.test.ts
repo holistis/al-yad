@@ -3,6 +3,12 @@ import { AgentLoop, type ChatLike, type HandBridge } from "./loop.js";
 import type { Action, ActResult, RunStatus, Snapshot } from "@yad/shared";
 import type { ChatRequest } from "../engine/types.js";
 
+// Geen echte pauze tussen stappen: de mensachtige pacing (1800ms + jitter per
+// stap) is een echte functie van de loop, geen testartefact, en zonder dit liepen
+// deze tests in CI tegen vitest's standaard 5000ms-timeout aan bij een run van
+// meerdere stappen. Zelfde patroon als loop.test.ts.
+const noSleep = async (): Promise<void> => {};
+
 /**
  * Dekt de vraag "mag deze run het geheugen voeden".
  *
@@ -56,7 +62,7 @@ describe("AgentLoop — alleen een bevestigde finish mag het geheugen voeden", (
       '{"kind":"finish","summary":"Gedaan","done":[{"type":"text-present","text":"deze tekst staat nergens op de pagina"}]}',
     ]);
     const hand = new StilleHand();
-    const loop = new AgentLoop(router, hand);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
 
     await loop.run("Plaats een reactie", 5);
 
@@ -72,7 +78,7 @@ describe("AgentLoop — alleen een bevestigde finish mag het geheugen voeden", (
       '{"kind":"finish","summary":"Gedaan","done":[{"type":"role-present","role":"button","name":"Reageren"}]}',
     ]);
     const hand = new StilleHand();
-    const loop = new AgentLoop(router, hand);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
 
     const result = await loop.run("Controleer of de reageerknop er is", 5);
 
@@ -83,7 +89,7 @@ describe("AgentLoop — alleen een bevestigde finish mag het geheugen voeden", (
   it("markeert een run die vastliep nooit als geverifieerd", async () => {
     const router = new ScriptRouter(['{"kind":"extract","what":"lezen"}', '{"kind":"extract","what":"nog eens lezen"}']);
     const hand = new StilleHand();
-    const loop = new AgentLoop(router, hand);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
 
     const result = await loop.run("Plaats een reactie", 6);
 
