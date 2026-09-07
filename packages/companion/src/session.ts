@@ -578,7 +578,11 @@ export class BrainSession implements HandBridge {
     try {
       const result = await loop.run(goal, maxSteps, attachments);
       // Flush bewezen recoveries naar de store zodat toekomstige runs er baat van hebben.
-      if (result.status === "klaar" && loop.hadRecovery) {
+      // verifiedFinish, niet alleen status: een "klaar" waarvan de DONE-poort niets
+      // kon vaststellen is geen bewijs. Zonder deze voorwaarde schreef een
+      // onbevestigde run zijn hints als bewezen weg EN postte ze naar het gedeelde
+      // brein, waar ze de hint voor elke volgende gebruiker overschrijven.
+      if (result.status === "klaar" && loop.verifiedFinish && loop.hadRecovery) {
         for (const r of loop.provenRecoveries) {
           this.recoveryStore.record(r.sitePattern, r.failureCategory, r.hint, r.failureClass);
         }
