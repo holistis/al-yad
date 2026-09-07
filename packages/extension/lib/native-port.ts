@@ -217,6 +217,21 @@ function endRun(): void {
   confirmPending.clear();
 }
 
+/**
+ * Legt vast dat deze tab van YAD is. Dit hoort de enige plek te zijn waar een
+ * gekozen tab wordt onthouden, zodat "welke tab is van mij" één antwoord heeft in
+ * plaats van vijf plekken die elk hun eigen keuze maken en niets terugschrijven.
+ *
+ * Tijdens een run schrijft hij runTabId, zodat de rest van de run naar dezelfde tab
+ * kijkt. Buiten een run schrijft hij stickyTabId, zodat een losse navigate ook een
+ * tab achterlaat om verder op te werken. Zonder dit koos elke volgende aanroep
+ * opnieuw, met een tweede tab en een run die naar about:blank keek als gevolg.
+ */
+function claimTab(tabId: number): void {
+  if (runInProgress) runTabId = tabId;
+  else stickyTabId = tabId;
+}
+
 /** Wordt aangeroepen vanuit background.ts als de gebruiker op het YAD-icoon klikt op een tab. */
 export function setYadTabId(tabId: number): void {
   stickyTabId = tabId;
@@ -265,6 +280,10 @@ export function startNativePort(): void {
   // Een gesloten run-tab breekt de lopende run netjes af.
   chrome.tabs.onRemoved.addListener((tabId) => {
     if (lastWebTabId === tabId) lastWebTabId = null;
+    // Ook de onthouden werktab opruimen. Zonder dit bleef een dood tab-id in
+    // stickyTabId staan nadat de gebruiker die tab sloot, en faalde elke volgende
+    // actie die erop mikte tot er toevallig een pad langskwam dat het zelf herstelde.
+    if (stickyTabId === tabId) stickyTabId = null;
     if (runInProgress && tabId === runTabId) {
       if (port) port.postMessage(handMessage("ABORT_RUN", { reason: "run-tab gesloten" }));
       toSidepanel({ type: "YAD_RUN_UPDATE", status: "gestopt", message: rt("tabClosed") });
@@ -518,19 +537,36 @@ function onMessage(raw: unknown): void {
     case "REQUEST_NAVIGATE": {
       const p = raw.payload as { url: string };
       void (async () => {
-        // Navigeer op de run-tab (als die loopt), anders de sticky tab, anders resolve.
-        // NIET lastWebTabId als eerste keuze — dat zou de email-tab van de user kunnen zijn.
-        let tabId = runTabId ?? stickyTabId;
-        if (tabId == null) tabId = await resolveRunTab();
+        // resolveRunTab() is hier de ENIGE keuzeweg. Eerder stond hier
+        // `runTabId ?? stickyTabId` met resolveRunTab alleen als die beide null
+        // waren, en dat sloeg het zelfherstel over precies wanneer je het nodig had:
+        // resolveRunTab controleert de onthouden tab met chrome.tabs.get en zet
+        // stickyTabId op null als hij dood is (regel ~374). Was stickyTabId een dood
+        // tab-id, dan kwam de code daar nooit, viel chrome.tabs.update om, en bleef
+        // het dode id staan. Elke volgende navigate faalde dan opnieuw.
+        //
+        // Live op 2026-09-07: twee opeenvolgende /navigate-aanroepen gaven ok:false
+        // terwijl de browser gewoon openstond, en het herstelde pas toen er toevallig
+        // een snapshot langskwam die wel via resolveRunTab liep.
+        const tabId = runTabId ?? (await resolveRunTab());
         if (tabId == null) {
           replyToBrain("NAVIGATE_RESULT", { ok: false, detail: "geen actieve tab" }, raw.id);
           return;
         }
         try {
           await chrome.tabs.update(tabId, { url: p.url });
+          // Claim de tab: zonder dit koos de volgende aanroep opnieuw, en kon er een
+          // tweede tab ontstaan waar de rest van de run naar keek. Dat gebeurde in run
+          // ex6v072x: stap 0 navigeerde naar freshworks.com, stap 1 keek naar
+          // about:blank, twee tabs binnen een run.
+          claimTab(tabId);
           const done = await waitForLoad(tabId);
           replyToBrain("NAVIGATE_RESULT", { ok: done }, raw.id);
         } catch (e) {
+          // De tab bleek onbruikbaar: laat geen dood id achter, anders faalt elke
+          // volgende navigate op dezelfde manier.
+          if (stickyTabId === tabId) stickyTabId = null;
+          if (runTabId === tabId) runTabId = null;
           replyToBrain("NAVIGATE_RESULT", { ok: false, detail: (e as Error).message }, raw.id);
         }
       })();
