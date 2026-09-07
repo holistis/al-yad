@@ -1,6 +1,6 @@
 {
   "name": "yadagent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Yad companion (Part B, the brain). Pairs with the Yad Chrome extension for real-browser automation, or runs standalone with Playwright and your own Ollama instance. No cloud copy of your accounts.",
   "homepage": "https://yadagent.com",
   "repository": {
@@ -16,7 +16,7 @@
     "node": ">=20"
   },
   "bin": {
-    "yadagent": "./bin/yadagent.js"
+    "yadagent": "bin/yadagent.js"
   },
   "files": [
     "bin",
