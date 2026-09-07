@@ -16,6 +16,7 @@ import {
   setSiteOverride,
 } from "../../lib/storage";
 import { PROVIDER_CATALOG, type ProviderCatalogEntry } from "../../lib/providers";
+import { heeftCdp } from "../../lib/cdp-manager";
 import type { YadSettings, YadHistoryEntry, ProviderUserConfig } from "@yad/shared";
 
 type RunStatus = "plannen" | "bezig" | "klaar" | "gestopt" | "fout" | "geweigerd";
@@ -93,6 +94,8 @@ const STRINGS = {
     provCompanionActive: "✓ actief",
     provCompanionActiveTitle: "Actief in companion via .env, geen sleutel nodig in de UI",
     provNoResults: "Geen aanbieder gevonden.",
+    provAdvanced: "Geavanceerd (model, primair)",
+    provEmptyHint: "Nog geen AI ingesteld. Typ hierboven een naam om te beginnen, bijvoorbeeld Groq, gratis en in 2 minuten klaar.",
     spendTitle: "Uitgaven en veiligheid",
     spendCapLabel: "Max AI-aanroepen per dag:",
     spendCapHint: "Een veiligheidsplafond zodat Yad nooit ongelimiteerd je sleutel kan blijven gebruiken.",
@@ -189,6 +192,8 @@ const STRINGS = {
     provCompanionActive: "✓ active",
     provCompanionActiveTitle: "Active in the companion via .env, no key needed in the UI",
     provNoResults: "No provider found.",
+    provAdvanced: "Advanced (model, primary)",
+    provEmptyHint: "No AI set up yet. Type a name above to get started, for example Groq, free and ready in 2 minutes.",
     spendTitle: "Spending and safety",
     spendCapLabel: "Max AI calls per day:",
     spendCapHint: "A safety ceiling so Yad can never keep using your key without limit.",
@@ -879,6 +884,13 @@ function refreshLangState(): void {
 }
 
 async function loadSettingsTab(): Promise<void> {
+  // Claude-brug is een ontwikkelaars-eigen koppeling (schrijft naar een pad op de
+  // ontwikkelaar's eigen machine) en heeft voor een klant van de Store geen betekenis.
+  // Zelfde signaal als de rest van de winkel/volledige-versie-scheiding: alleen de
+  // niet-Store build heeft de debugger-permissie, dus alleen daar tonen we dit blok.
+  const bridgeSection = document.getElementById("claude-bridge-section");
+  if (bridgeSection) bridgeSection.style.display = heeftCdp() ? "" : "none";
+
   const settings = await getSettings();
   lastLoadedSettings = settings;
   // Taal eerst zetten: renderProviderCatalog gebruikt currentLanguage voor de uitleg-tekst.
@@ -918,12 +930,13 @@ function renderProviderCatalog(settings: YadSettings): void {
   const c = $("#provider-catalog"); c.innerHTML = "";
   const en = currentLanguage === "en";
 
-  // Simpele modus: één korte uitleg + het aanbevolen brein bovenaan open, de rest inklapbaar.
+  // Simpele modus: zoekbalk is de enige ingang, kaarten blijven verborgen tot een match
+  // of tot de provider al aanstaat. Zie updateProviderVisibility() verderop.
   const intro = document.createElement("p");
   intro.className = "simple-intro";
   intro.textContent = en
-    ? "Pick one AI brain. Recommended: Groq, free and ready in about two minutes. Click Sign up, paste the key, then Save below."
-    : "Kies één AI-brein. Aanbevolen: Groq, gratis en klaar in zo'n twee minuten. Klik Aanmelden, plak de sleutel, dan hieronder Opslaan.";
+    ? "Search for your AI provider above, pick it, then paste your key. One is enough to start."
+    : "Zoek hierboven je AI-provider, kies hem, en plak dan je sleutel. Eén is genoeg om te beginnen.";
   c.append(intro);
 
   // Sleutel-veiligheid + coaching, precies waar de gebruiker zijn sleutel plakt.
@@ -934,28 +947,39 @@ function renderProviderCatalog(settings: YadSettings): void {
     : "Je sleutel blijft op je computer en gaat alleen naar de AI-provider die jij kiest. Tip: maak een aparte sleutel speciaal voor Yad met een uitgavenlimiet, dan houd je volledig de controle.";
   c.append(safety);
 
-  const first = PROVIDER_CATALOG[0];
-  if (first) {
-    const cfg = settings.providers[first.id] ?? { enabled: false, key: "" };
-    c.append(buildProviderCard(first, cfg, { recommended: true }));
+  for (const entry of PROVIDER_CATALOG) {
+    const config = settings.providers[entry.id] ?? { enabled: false, key: "" };
+    c.append(buildProviderCard(entry, config));
   }
+  updateProviderVisibility();
+}
 
-  const rest = PROVIDER_CATALOG.slice(1);
-  if (rest.length) {
-    const details = document.createElement("details");
-    details.className = "advanced-providers";
-    const summary = document.createElement("summary");
-    summary.textContent = en ? "More options (advanced)" : "Meer opties (gevorderd)";
-    details.append(summary);
-    for (const entry of rest) {
-      const config = settings.providers[entry.id] ?? { enabled: false, key: "" };
-      details.append(buildProviderCard(entry, config));
-    }
-    c.append(details);
+/**
+ * Enige bron van waarheid voor welke provider-kaarten zichtbaar zijn: een kaart die al
+ * aanstaat (config.enabled, via de "active"-klasse) blijft altijd zichtbaar, elke andere
+ * kaart alleen bij een treffer in de zoekbalk. Leeg zoekveld + niets aan = lege-staat-hint
+ * in plaats van 14 kaarten tegelijk, dat was precies de klacht (te veel info ineens).
+ */
+function updateProviderVisibility(): void {
+  const q = ($<HTMLInputElement>("#provider-search").value ?? "").toLowerCase().trim();
+  let visible = 0;
+  document.querySelectorAll<HTMLElement>(".provider-card").forEach((card) => {
+    const alwaysShow = card.classList.contains("active");
+    const match = alwaysShow || (q !== "" && (card.dataset["search"] ?? "").includes(q));
+    card.classList.toggle("hidden", !match);
+    if (match) visible++;
+  });
+  const cat = $<HTMLElement>("#provider-catalog");
+  let note = cat.querySelector<HTMLElement>(".no-results");
+  if (visible === 0) {
+    if (!note) { note = document.createElement("p"); note.className = "no-results"; cat.append(note); }
+    note.textContent = q === "" ? t("provEmptyHint") : t("provNoResults");
+  } else if (note) {
+    note.remove();
   }
 }
 
-function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConfig, opts: { recommended?: boolean } = {}): HTMLElement {
+function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConfig): HTMLElement {
   const card = document.createElement("div");
   card.className = `provider-card${config.enabled ? " active" : ""}`;
   card.dataset["search"] = `${loc(entry.name)} ${loc(entry.tagline)} ${entry.id}`.toLowerCase();
@@ -966,12 +990,6 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
   nameLabel.className = "provider-name"; nameLabel.textContent = loc(entry.name);
   const badge = document.createElement("span"); badge.className = `provider-badge ${entry.tier}`; badge.textContent = loc(entry.badge);
   header.append(chk, nameLabel, badge);
-  if (opts.recommended) {
-    const rec = document.createElement("span");
-    rec.className = "provider-badge recommended";
-    rec.textContent = currentLanguage === "en" ? "RECOMMENDED" : "AANBEVOLEN";
-    header.append(rec);
-  }
   // Toon "✓ via companion" als de companion deze provider actief heeft vanuit zijn .env maar de gebruiker er geen sleutel voor heeft ingesteld
   if (companionActiveProviders.includes(entry.id) && !config.enabled) {
     const companionBadge = document.createElement("span");
@@ -993,7 +1011,7 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
   signupBtn.onclick = (): void => { window.open(entry.signupUrl, "_blank"); };
   meta.append(stars, signupBtn); detail.append(tagline, meta);
   const fields = document.createElement("div"); fields.className = "provider-fields";
-  if (!config.enabled && !opts.recommended) fields.classList.add("hidden");
+  if (!config.enabled) fields.classList.add("hidden");
   if (entry.requiresKey) {
     // Een versleutelde blob NOOIT in het veld tonen: leeg + duidelijke placeholder.
     const savedEncrypted = config.encrypted && !!config.key;
@@ -1003,10 +1021,19 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
       : loc(entry.keyPlaceholder);
     fields.append(buildKeyField(`prov-${entry.id}-key`, t("provKeyLabel"), shownValue, shownPlaceholder));
   }
-  if (entry.supportsModel) fields.append(buildTextField(`prov-${entry.id}-model`, t("provModelLabel"), config.model ?? "", `${t("provModelPh")} ${entry.defaultModel}`));
+  // Model/baseUrl/primary staan standaard dicht: een leeg modelveld betekent al automatisch
+  // "gebruik het standaardmodel van deze provider" (zie settingsToEnv), dus dit hoeft niemand
+  // te zien om te starten. Uitzondering: bij custom/lokaal IS de URL de kern van de keuze,
+  // die blijft altijd zichtbaar. Stond er al een eigen model/primary-keuze, dan blijft die open.
+  const advFields: HTMLElement[] = [];
+  if (entry.supportsModel) {
+    advFields.push(buildTextField(`prov-${entry.id}-model`, t("provModelLabel"), config.model ?? "", `${t("provModelPh")} ${entry.defaultModel}`));
+  }
+  const baseUrlIsCore = entry.tier === "custom" || entry.tier === "local";
   if (entry.supportsBaseUrl) {
     const defUrl = entry.defaultBaseUrl ?? "";
-    fields.append(buildTextField(`prov-${entry.id}-baseUrl`, entry.id === "ollama" ? "Ollama URL" : "Base URL", config.baseUrl || defUrl, defUrl));
+    const baseUrlField = buildTextField(`prov-${entry.id}-baseUrl`, entry.id === "ollama" ? "Ollama URL" : "Base URL", config.baseUrl || defUrl, defUrl);
+    if (baseUrlIsCore) fields.append(baseUrlField); else advFields.push(baseUrlField);
   }
   if (entry.supportsPrimary) {
     const pDiv = document.createElement("div"); pDiv.className = "field";
@@ -1014,19 +1041,35 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
     const pChk = document.createElement("input"); pChk.type = "checkbox";
     pChk.id = `prov-${entry.id}-primary`; pChk.checked = config.primary ?? false;
     pLbl.append(pChk, document.createTextNode(" " + t("provPrimaryLabel")));
-    pDiv.append(pLbl); fields.append(pDiv);
+    pDiv.append(pLbl); advFields.push(pDiv);
   }
-  chk.onchange = (): void => { card.classList.toggle("active", chk.checked); fields.classList.toggle("hidden", !chk.checked); };
-  // Aanbevolen kaart: zodra iemand een sleutel plakt, zet de provider vanzelf aan.
-  // Dicht de stille val waarbij een geplakte sleutel genegeerd werd omdat het vinkje uit stond.
-  if (opts.recommended) {
-    const keyInput = fields.querySelector<HTMLInputElement>("input[type=password]");
-    keyInput?.addEventListener("input", () => {
-      const on = keyInput.value.trim().length > 0;
+  if (advFields.length) {
+    const hasCustomAdvValue = (!!config.model && config.model !== entry.defaultModel) || !!config.primary;
+    const adv = document.createElement("details");
+    adv.className = "prov-advanced";
+    adv.open = hasCustomAdvValue;
+    const advSummary = document.createElement("summary");
+    advSummary.textContent = t("provAdvanced");
+    adv.append(advSummary, ...advFields);
+    fields.append(adv);
+  }
+  chk.onchange = (): void => {
+    card.classList.toggle("active", chk.checked);
+    fields.classList.toggle("hidden", !chk.checked);
+    updateProviderVisibility();
+    if (chk.checked) fields.querySelector<HTMLInputElement>("input[type=password]")?.focus();
+  };
+  // Zodra iemand een sleutel plakt, zet de provider vanzelf aan. Dicht de stille val
+  // waarbij een geplakte sleutel genegeerd werd omdat het vinkje uit stond.
+  const keyInput = fields.querySelector<HTMLInputElement>("input[type=password]");
+  keyInput?.addEventListener("input", () => {
+    const on = keyInput.value.trim().length > 0;
+    if (chk.checked !== on) {
       chk.checked = on;
       card.classList.toggle("active", on);
-    });
-  }
+      updateProviderVisibility();
+    }
+  });
   card.append(header, detail, fields);
   return card;
 }
@@ -1194,24 +1237,8 @@ function startApp(): void {
     });
   });
 
-  // Provider search
-  $<HTMLInputElement>("#provider-search").addEventListener("input", (e) => {
-    const q = (e.target as HTMLInputElement).value.toLowerCase().trim();
-    // Bij zoeken de "meer opties"-inklap openen, anders blijven treffers erin verborgen.
-    const adv = document.querySelector<HTMLDetailsElement>("details.advanced-providers");
-    if (adv) adv.open = q !== "";
-    let visible = 0;
-    document.querySelectorAll<HTMLElement>(".provider-card").forEach((c) => {
-      const match = q === "" || (c.dataset["search"] ?? "").includes(q);
-      c.classList.toggle("hidden", !match);
-      if (match) visible++;
-    });
-    const cat = $<HTMLElement>("#provider-catalog");
-    let note = cat.querySelector<HTMLElement>(".no-results");
-    if (visible === 0) {
-      if (!note) { note = document.createElement("p"); note.className = "no-results"; note.textContent = t("provNoResults"); cat.append(note); }
-    } else if (note) note.remove();
-  });
+  // Provider search — enige zichtbaarheidsregel zit in updateProviderVisibility()
+  $<HTMLInputElement>("#provider-search").addEventListener("input", updateProviderVisibility);
 
   // Site tier buttons
   document.querySelectorAll<HTMLButtonElement>(".tier-btn").forEach((b) =>
