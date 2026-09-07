@@ -40,6 +40,7 @@ const basisRechten = [
   "scripting", // het content-script in de pagina zetten
   "webNavigation", // weten wanneer een pagina klaar is met laden
   "downloads", // zien of een bestand binnenkwam, en waar het staat
+  "tabGroups", // zichtbare, benoemde tabgroep zodat de gebruiker ziet welke tabs van YAD zijn
 ];
 
 export default defineConfig({
