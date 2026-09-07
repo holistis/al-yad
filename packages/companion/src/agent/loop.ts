@@ -329,6 +329,13 @@ export class AgentLoop {
   private _lastStuckSignalId: string | undefined = undefined;
   /** True als minstens één escalatie-poging succesvol een herstelplan ontving (RunRecord-substraat). */
   private _hadRecovery = false;
+  /**
+   * Of de run eindigde op een finish die de DONE-poort ECHT bevestigde (verdict
+   * "match" op minstens één predicaat), niet op een indeterminate die er doorheen
+   * glipte. Alleen zo'n run mag de herstel-hints als bewezen wegschrijven en naar het
+   * gedeelde brein sturen; anders leert het geheugen van werk dat nooit is gedaan.
+   */
+  private _verifiedFinish = false;
 
   /** Bewezen herstel-events van deze run — voor flush naar recovery-store na "klaar". */
   private _provenRecoveries: Array<{ sitePattern: string; failureCategory: string; failureClass?: string; hint: string }> = [];
@@ -342,6 +349,9 @@ export class AgentLoop {
   get lastStuckSignalId(): string | undefined { return this._lastStuckSignalId; }
   /** Voor RunRecord-substraat: had deze run minstens één succesvolle escalatie-herstelpoging? */
   get hadRecovery(): boolean { return this._hadRecovery; }
+
+  /** True als de DONE-poort de finish echt bevestigde ("match"), niet slechts toeliet. */
+  get verifiedFinish(): boolean { return this._verifiedFinish; }
   /** Provider:model-combinaties die deze run daadwerkelijk antwoord gaven, in volgorde van eerste gebruik. */
   get providersUsed(): readonly string[] { return this._providersUsed; }
   /** Bewezen recovery-events van deze run (voor flush naar recovery-store na "klaar"). */
@@ -1081,6 +1091,12 @@ export class AgentLoop {
           return { status: "gestopt", steps: step };
         }
         this.log(`finish accepted: DONE ${doneResult.verdict} (${doneResult.matched}/${doneResult.total}), stateChanged=${stateChanged}`);
+        // Alleen een echte "match" telt als bewijs. Een "indeterminate" wordt bewust
+        // doorgelaten (een run mag niet vastlopen op een predicaat dat niets kon
+        // vaststellen), maar hij mag het geheugen niet voeden: op 2026-09-07 zette een
+        // reeks onbevestigde YouTube-runs zeven onzin-hints als "bewezen" in
+        // data/recovery-store.jsonl, en stuurde die ook naar het gedeelde brein.
+        this._verifiedFinish = doneResult.verdict === "match" && doneResult.matched > 0;
 
         const answer = composeAnswer(action.summary, findings);
         this.hand.update({ status: "klaar", step, message: answer, action });
