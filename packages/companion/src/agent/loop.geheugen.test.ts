@@ -97,3 +97,34 @@ describe("AgentLoop — alleen een bevestigde finish mag het geheugen voeden", (
     expect(loop.verifiedFinish).toBe(false);
   });
 });
+
+describe("AgentLoop — een schrijf-opdracht mag niet 'klaar' zijn zonder enige actie", () => {
+  it("weigert een kale finish (geen predicaten, geen acties) op een expliciete schrijf-opdracht", async () => {
+    // Precies PROBE G uit het onderzoek van vandaag: nul uitgevoerde acties, meteen
+    // finish, geen enkel predicaat. Op dit moment glipt dit erdoor omdat
+    // stateChanged() ook false is als er niets gebeurde, en "niets gebeurd, niets
+    // beweerd" wordt vandaag gelezen als een informatief doel in plaats van een
+    // genegeerde schrijfopdracht.
+    const router = new ScriptRouter([
+      '{"kind":"finish","summary":"De reactie is geplaatst onder de comment van AdvantestInc","done":[]}',
+    ]);
+    const hand = new StilleHand();
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+
+    const result = await loop.run("Plaats een reactie onder de comment van AdvantestInc", 5);
+
+    expect(result.status).not.toBe("klaar");
+  });
+
+  it("laat een echt informatief doel gewoon door zonder acties (geen regressie)", async () => {
+    const router = new ScriptRouter([
+      '{"kind":"finish","summary":"De titel is Video","done":[]}',
+    ]);
+    const hand = new StilleHand();
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
+
+    const result = await loop.run("Wat is de titel van deze pagina?", 5);
+
+    expect(result.status).toBe("klaar");
+  });
+});
