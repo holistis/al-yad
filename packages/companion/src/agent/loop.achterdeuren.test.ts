@@ -3,6 +3,12 @@ import { AgentLoop, type ChatLike, type HandBridge } from "./loop.js";
 import type { Action, ActResult, RunStatus, Snapshot } from "@yad/shared";
 import type { ChatRequest } from "../engine/types.js";
 
+// Geen echte pauze tussen stappen: de mensachtige pacing (1800ms + jitter per
+// stap) is een echte functie van de loop, geen testartefact, en zonder dit liepen
+// deze tests in CI tegen vitest's standaard 5000ms-timeout aan bij een run van
+// meerdere stappen. Zelfde patroon als loop.test.ts.
+const noSleep = async (): Promise<void> => {};
+
 /**
  * Deze suite dekt twee code-paden die "klaar" teruggeven zonder ooit langs de
  * DONE-poort te gaan. De poort zelf werkt (loop.ts:990-1060, run rqfpmbjp werd er
@@ -69,7 +75,7 @@ describe("AgentLoop — een run die de gevraagde actie nooit deed mag geen 'klaa
       '{"kind":"extract","what":"reactieveld nogmaals zoeken"}',
     ]);
     const hand = new TellendeHand();
-    const loop = new AgentLoop(router, hand);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
 
     const result = await loop.run("Plaats deze reactie onder de comment van AdvantestInc", 10);
 
@@ -91,7 +97,7 @@ describe("AgentLoop — een run die de gevraagde actie nooit deed mag geen 'klaa
       '{"kind":"scroll","direction":"up","amount":4}',
     ]);
     const hand = new TellendeHand();
-    const loop = new AgentLoop(router, hand);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
 
     const result = await loop.run("Plaats deze reactie onder de comment van AdvantestInc", 4);
 
@@ -104,7 +110,7 @@ describe("AgentLoop — een run die de gevraagde actie nooit deed mag geen 'klaa
       '{"kind":"finish","summary":"Reactie geplaatst","done":[{"type":"role-absent","role":"yad-test-nonexistent-role"}]}',
     ]);
     const hand = new TellendeHand();
-    const loop = new AgentLoop(router, hand);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep });
 
     const result = await loop.run("Lees de titel van deze pagina", 5);
 
