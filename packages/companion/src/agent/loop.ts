@@ -1384,10 +1384,22 @@ export class AgentLoop {
         if (snapshot.url === lastExtractUrl) {
           consecutiveSameUrlExtracts++;
           if (consecutiveSameUrlExtracts >= 2) {
-            this.log(`extract-lus: ${consecutiveSameUrlExtracts} opeenvolgende extracts op ${snapshot.url} — forceer finish`);
-            const answer = composeAnswer("Klaar.", findings);
-            this.hand.update({ status: "klaar", step, message: answer, action });
-            return { status: "klaar", summary: answer, steps: step };
+            this.log(`extract-lus: ${consecutiveSameUrlExtracts} opeenvolgende extracts op ${snapshot.url} — run gestopt`);
+            // "gestopt", niet "klaar". Een run die alleen las heeft de gevraagde actie
+            // niet uitgevoerd, en mag dat niet als succes melden. Deze bewaker zat vóór
+            // de DONE-poort (regel 990) en omzeilde die dus volledig.
+            //
+            // Live bewijs 2026-09-07: de runs 9guchw9l en 7vigymjv moesten een
+            // YouTube-reactie plaatsen, deden uitsluitend navigate/scroll/extract, en
+            // werden hier als "klaar" geboekt. Er is nooit iets geplaatst; de YouTube
+            // API bevestigde dat onafhankelijk. "gestopt" mapt in session.ts:58 naar
+            // outcome "stuck", precies wat dit is.
+            const answer = composeAnswer(
+              "Gestopt: alleen de pagina gelezen, de gevraagde actie is niet uitgevoerd.",
+              findings,
+            );
+            this.hand.update({ status: "gestopt", step, message: answer, action });
+            return { status: "gestopt", summary: answer, steps: step };
           }
         } else {
           consecutiveSameUrlExtracts = 1;
@@ -1404,9 +1416,13 @@ export class AgentLoop {
       this.log(`stap ${step}: ${JSON.stringify(action)} -> ${result.ok ? "ok" : "fout"}`);
     }
 
-    const answer = composeAnswer(`Gestopt na ${maxSteps} stappen.`, findings);
-    this.hand.update({ status: "klaar", message: answer });
-    return { status: "klaar", summary: answer, steps: maxSteps };
+    // "gestopt", niet "klaar": de samenvatting zei zelf al "Gestopt na N stappen",
+    // terwijl de status succes meldde. Het stappenplafond raken betekent dat het doel
+    // niet is afgerond, dus dit hoort outcome "stuck" te geven (session.ts:58), niet
+    // "success". Ook dit pad omzeilde de DONE-poort volledig.
+    const answer = composeAnswer(`Gestopt na ${maxSteps} stappen, doel niet afgerond.`, findings);
+    this.hand.update({ status: "gestopt", message: answer });
+    return { status: "gestopt", summary: answer, steps: maxSteps };
   }
 
   /**
