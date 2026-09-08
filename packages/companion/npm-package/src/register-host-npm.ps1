@@ -22,11 +22,17 @@ $ErrorActionPreference = "Stop"
 $instance = $env:YAD_INSTANCE
 if ($instance) {
   $hostName = "com.yad.companion.$instance"
+  # setup-host-npm.mjs uses a SEPARATE config dir per instance
+  # (~/.yadagent-<instance>), not just a different filename inside the
+  # shared ~/.yadagent — has to match exactly, or Test-Path below never
+  # finds the manifest that script actually wrote.
+  $configDir = ".yadagent-$instance"
 } else {
   $hostName = "com.yad.companion"
+  $configDir = ".yadagent"
 }
 
-$json = Join-Path $env:USERPROFILE ".yadagent\native-messaging\$hostName.json"
+$json = Join-Path $env:USERPROFILE "$configDir\native-messaging\$hostName.json"
 
 if (-not (Test-Path $json)) {
   if ($instance) {
