@@ -9,6 +9,16 @@
  * dat reproduceerbaar.
  *
  * Draai: pnpm setup-host   (na een companion-build)
+ *
+ * Multi-instance (2026-09-08): `YAD_INSTANCE=b YAD_PORT=4001 pnpm setup-host`
+ * registreert een TWEEDE, onafhankelijke host naast de standaard-instantie
+ * (eigen hostnaam, eigen poort, eigen logbestanden), zodat een tweede
+ * Chrome-profiel er los van kan pairen zonder de eerste te storen. Beide
+ * instanties delen bewust dezelfde extensie-sleutel (zelfde `.keys`-map,
+ * dus zelfde extensie-ID) — het tweede profiel gebruikt dezelfde
+ * extensie-build, alleen met een andere `nativeHostName` in de
+ * extensie-instellingen. Zonder YAD_INSTANCE verandert er niets aan het
+ * bestaande gedrag.
  */
 import {
   generateKeyPairSync,
@@ -28,10 +38,53 @@ const keysDir = resolve(extDir, ".keys");
 const nmDir = resolve(repoRoot, "native-messaging");
 const companionEntry = resolve(repoRoot, "packages", "companion", "dist", "main.js");
 
-const HOST_NAME = "com.yad.companion";
+const instance = (process.env["YAD_INSTANCE"] ?? "").trim();
+const instancePort = process.env["YAD_PORT"];
+
+// Zelfde validatie als setup-host-npm.mjs, en om dezelfde reden: een naam
+// buiten [a-zA-Z0-9_-] "slaagt" hier stilletjes maar geeft later een
+// ongeldige native-messaging hostnaam of, bij een "/", een kapot bestandspad
+// met een kale ENOENT-stacktrace in plaats van een duidelijke fout.
+const INSTANCE_NAME_RE = /^[a-zA-Z0-9_-]{1,32}$/;
+if (instance && !INSTANCE_NAME_RE.test(instance)) {
+  console.error(
+    `YAD_INSTANCE is "${instance}", dat is geen veilige instantienaam. Gebruik alleen letters, cijfers, "_" en ` +
+    `"-", 1-32 tekens (bijv. "b", "tweede", "test-account"). Geen spaties, punten of schuine strepen: die breken ` +
+    `ofwel de native-messaging-hostnaam die Chrome accepteert, ofwel de bestandspaden die dit script schrijft.`
+  );
+  process.exit(1);
+}
+
+if (instance && !instancePort) {
+  console.error(
+    `YAD_INSTANCE is "${instance}" maar YAD_PORT ontbreekt. Een tweede instantie heeft een eigen, vrije ` +
+    `poort nodig (niet 3747, dat is de standaard-instantie). Voorbeeld: YAD_INSTANCE=${instance} YAD_PORT=4001 pnpm setup-host`
+  );
+  process.exit(1);
+}
+
+// Een verkeerd getypte YAD_PORT die toevallig 3747 is, "slaagt" hier anders
+// stilletjes: alle bestanden worden geschreven, het script meldt succes, en
+// de botsing wordt pas zichtbaar zodra Chrome deze instantie daadwerkelijk
+// start en zijn HTTP-API de poort-race verliest tegen wie 3747 al vasthoudt
+// (http-api.ts logt dat en blijft draaien zonder HTTP-API, geen crash, dus
+// ook dan geen duidelijke foutmelding).
+const parsedPort = instancePort !== undefined ? Number(instancePort) : undefined;
+if (instance && (parsedPort === 3747 || !Number.isInteger(parsedPort) || parsedPort <= 0 || parsedPort > 65535)) {
+  console.error(
+    `YAD_PORT is "${instancePort}", dat is niet bruikbaar voor een tweede instantie: het moet een eigen ` +
+    `poortnummer zijn van 1-65535, en NIET 3747 (dat is altijd de poort van de standaard-instantie, hergebruik ` +
+    `botst stilletjes zodra beide instanties echt draaien). Voorbeeld: YAD_INSTANCE=${instance} YAD_PORT=4001 pnpm setup-host`
+  );
+  process.exit(1);
+}
+
+const HOST_NAME = instance ? `com.yad.companion.${instance}` : "com.yad.companion";
+const instanceDataDir = instance ? resolve(repoRoot, "data-instance", instance) : undefined;
 
 mkdirSync(keysDir, { recursive: true });
 mkdirSync(nmDir, { recursive: true });
+if (instanceDataDir) mkdirSync(instanceDataDir, { recursive: true });
 
 // 1. Sleutel: hergebruik bestaande private key, anders nieuwe genereren.
 const privPath = resolve(keysDir, "ext-private.pem");
@@ -65,11 +118,28 @@ writeFileSync(resolve(keysDir, "ext-id.txt"), extId, "utf8");
 
 // 5. Windows-launcher: Chrome native-messaging "path" mag geen argumenten dragen,
 //    dus we wrappen `node <companion>` in een .bat.
-const launcherPath = resolve(nmDir, "yad-companion-launcher.bat");
+//
+// Voor een genoemde instantie (YAD_INSTANCE gezet): eigen launcher-bestandsnaam
+// (anders overschrijft de tweede registratie de launcher van de eerste), en
+// expliciete env-vars zodat deze instantie niet de C:\Code\yad-*.json-bestanden
+// van de standaard-instantie deelt of de poort 3747 probeert te claimen.
+const launcherPath = resolve(nmDir, instance ? `yad-companion-launcher-${instance}.bat` : "yad-companion-launcher.bat");
 // Gebruik het absolute pad naar node.exe zodat Chrome de host kan starten
 // ook als Node.js niet in de systeem-PATH staat (Chrome erft PATH niet altijd).
 const nodeBin = process.execPath.replace(/"/g, '""');
-const launcher = `@echo off\r\n"${nodeBin}" "${companionEntry}" %*\r\n`;
+const launcherLines = ["@echo off"];
+if (instance && instanceDataDir) {
+  launcherLines.push(
+    `set "YAD_PORT=${instancePort}"`,
+    `set "YAD_DATA_DIR=${instanceDataDir}"`,
+    `set "YAD_STEP_LOG_PATH=${resolve(instanceDataDir, "yad-step-log.jsonl")}"`,
+    `set "YAD_RESULT_PATH=${resolve(instanceDataDir, "yad-goal-result.json")}"`,
+    `set "YAD_STUCK_PATH=${resolve(instanceDataDir, "yad-stuck.json")}"`,
+    `set "YAD_BRIDGE_PATH=${resolve(instanceDataDir, "yad-claude-bridge.json")}"`
+  );
+}
+launcherLines.push(`"${nodeBin}" "${companionEntry}" %*`, "");
+const launcher = launcherLines.join("\r\n");
 writeFileSync(launcherPath, launcher, "utf8");
 
 // 6. Host-manifest met allowed_origins.

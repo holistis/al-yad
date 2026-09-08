@@ -55,7 +55,12 @@ import type { BrainSession } from "./session.js";
 import type { Substate } from "./agent/substate.js";
 import type { LlmRouter } from "./engine/router.js";
 
-const PORT = 3747;
+const PORT = (() => {
+  const raw = process.env["YAD_PORT"];
+  if (raw === undefined) return 3747;
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 && parsed < 65536 ? parsed : 3747;
+})();
 
 /** Detecteert of een tekst eruitziet als een ruwe paginadump (niet gesynthetiseerd). */
 function looksLikeRawDump(text: string): boolean {

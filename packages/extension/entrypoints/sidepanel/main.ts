@@ -83,6 +83,8 @@ const STRINGS = {
     welcomeHint: "Typ hieronder wat ik moet doen, of klik een voorbeeld.",
     mistakeDisclaimer: "Yad kan fouten maken. Controleer belangrijke stappen zelf.",
     advancedTitle: "Geavanceerd",
+    nativeHostLabel: "Native-messaging host (tweede instantie)",
+    nativeHostHint: "Leeg laten, tenzij dit een TWEEDE, apart geregistreerde companion-instantie is (zie YAD_INSTANCE bij pnpm setup-host / npx yadagent pair). Vul dan exact dezelfde hostnaam in als die dat opzetscript liet zien, bijv. com.yad.companion.b.",
     bizTitle: "Voor je bedrijf?",
     bizText: "YAD draait op je eigen computer. Wil je hem afgestemd op je team, of volledig op je eigen servers zodat je data binnen blijft?",
     bizCta: "Neem contact op",
@@ -182,6 +184,8 @@ const STRINGS = {
     welcomeHint: "Type what I should do below, or click an example.",
     mistakeDisclaimer: "Yad can make mistakes. Double-check anything important yourself.",
     advancedTitle: "Advanced",
+    nativeHostLabel: "Native-messaging host (second instance)",
+    nativeHostHint: "Leave empty unless this is a SECOND, separately-registered companion instance (see YAD_INSTANCE with pnpm setup-host / npx yadagent pair). Then enter the exact host name that setup script printed, e.g. com.yad.companion.b.",
     bizTitle: "For your company?",
     bizText: "YAD runs on your own computer. Want it tuned to your team, or fully on your own servers so your data stays in?",
     bizCta: "Get in touch",
@@ -875,6 +879,7 @@ async function loadSettingsTab(): Promise<void> {
   $<HTMLElement>("#cap-val").textContent = String(cap);
   currentKilled = settings.killed ?? false;
   renderKillBtn();
+  $<HTMLInputElement>("#s-native-host").value = settings.nativeHostName ?? "";
   currentAutonomy = settings.autonomy === "auto" ? "auto" : "confirm";
   currentLanguage = settings.language === "en" ? "en" : "nl";
   refreshModeState();
@@ -1106,7 +1111,18 @@ function collectSettings(): YadSettings {
     if (primaryEl) config.primary = primaryEl.checked;
     providers[entry.id] = config;
   }
-  return { providers, maxSteps: parseInt($<HTMLInputElement>("#s-steps").value, 10) || 15, autonomy: currentAutonomy, language: currentLanguage, maxRequestsPerDay: parseInt($<HTMLInputElement>("#s-daily-cap").value, 10) || 1000, killed: currentKilled };
+  const nativeHostRaw = $<HTMLInputElement>("#s-native-host").value.trim();
+  return {
+    providers,
+    maxSteps: parseInt($<HTMLInputElement>("#s-steps").value, 10) || 15,
+    autonomy: currentAutonomy,
+    language: currentLanguage,
+    maxRequestsPerDay: parseInt($<HTMLInputElement>("#s-daily-cap").value, 10) || 1000,
+    killed: currentKilled,
+    // Leeg = veld weglaten, zodat getSettings() gewoon terugvalt op de standaard-host
+    // ("com.yad.companion") in plaats van een expliciete lege string te bewaren.
+    ...(nativeHostRaw ? { nativeHostName: nativeHostRaw } : {}),
+  };
 }
 
 // ---- Start button ----
