@@ -23,6 +23,8 @@ Built by [Abdellah Ouadoudi](https://github.com/holistis)
 
 Yad is two separate installs, on purpose. Part A, the extension, from the [Chrome Web Store](https://chromewebstore.google.com/detail/dacfhekkemkiikecbjffmbdcohddodea). Part B, the companion, as an npm package: `npx yadagent pair` (native messaging, pairs with Part A, your real logged-in browser) or `npx yadagent serve` (standalone, no extension, headless Chromium, your own Ollama instance). See [packages/companion/npm-package](packages/companion/npm-package) or the [package on npm](https://www.npmjs.com/package/yadagent).
 
+**Second account / second profile, run side by side.** `YAD_INSTANCE=<name> YAD_PORT=<port>` on setup registers a second, fully independent companion (its own native-messaging host, its own port, its own data files), so a second Chrome profile can pair with it without ever touching the first instance's tabs or session. Point the second profile's extension at it under Settings → Advanced. Without those env vars, nothing changes for a single-instance setup.
+
 > **Benchmark results** (gpt-4o-mini, July 2025):
 > 92% fully correct on 25-task open benchmark · 100% on 5 authenticated tasks · 100% pass+partial · avg 2.7 steps · avg 8.7s per task
 > → See [Benchmark](#benchmark) section below.
