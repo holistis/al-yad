@@ -71,17 +71,14 @@ const STRINGS = {
     claudeCaptureBtn: "🔗 Stuur naar Claude",
     claudeCapturingMsg: "Pagina sturen…",
     welcomeTitle: "Hallo, ik ben Yad. Je eigen hand in de browser.",
-    welcomeWhat: "Je zegt in gewone taal wat je wilt, en ik klik en typ het voor je op elke website. In jouw eigen browser, waar je al bent ingelogd. Ik leer een klus één keer en kan hem daarna zo herhalen.",
-    welcomeCanTitle: "Wat je me kunt vragen",
-    welcomeCan1: "Iets opzoeken en netjes op een rij zetten",
-    welcomeCan2: "Saaie stappen herhalen die je steeds opnieuw doet",
-    welcomeCan3: "Lezen wat er op een pagina staat en het teruggeven",
     welcomeTryTitle: "Probeer bijvoorbeeld",
     welcomeEx1: "Zoek 5 vacatures en zet ze op een rij",
     welcomeEx2: "Vat deze pagina kort voor me samen",
     welcomeEx3: "Verzamel de prijzen van de producten op deze pagina",
     welcomePrivacy: "Je wachtwoorden blijven op je computer, en jij kiest welke AI je gebruikt.",
     welcomeHint: "Typ hieronder wat ik moet doen, of klik een voorbeeld.",
+    mistakeDisclaimer: "Yad kan fouten maken. Controleer belangrijke stappen zelf.",
+    advancedTitle: "Geavanceerd",
     bizTitle: "Voor je bedrijf?",
     bizText: "YAD draait op je eigen computer. Wil je hem afgestemd op je team, of volledig op je eigen servers zodat je data binnen blijft?",
     bizCta: "Neem contact op",
@@ -169,17 +166,14 @@ const STRINGS = {
     claudeCaptureBtn: "🔗 Send to Claude",
     claudeCapturingMsg: "Sending page…",
     welcomeTitle: "Hi, I am Yad. Your own hand in the browser.",
-    welcomeWhat: "Tell me in plain words what you want, and I click and type it for you on any website. Inside your own browser, where you are already logged in. I learn a job once and can repeat it after that.",
-    welcomeCanTitle: "What you can ask me",
-    welcomeCan1: "Look something up and put it in a neat list",
-    welcomeCan2: "Repeat boring steps you do again and again",
-    welcomeCan3: "Read what is on a page and hand it back to you",
     welcomeTryTitle: "Try for example",
     welcomeEx1: "Find 5 job posts and list them",
     welcomeEx2: "Give me a short summary of this page",
     welcomeEx3: "Collect the prices of the products on this page",
     welcomePrivacy: "Your passwords stay on your computer, and you choose which AI to use.",
     welcomeHint: "Type what I should do below, or click an example.",
+    mistakeDisclaimer: "Yad can make mistakes. Double-check anything important yourself.",
+    advancedTitle: "Advanced",
     bizTitle: "For your company?",
     bizText: "YAD runs on your own computer. Want it tuned to your team, or fully on your own servers so your data stays in?",
     bizCta: "Get in touch",
@@ -347,7 +341,7 @@ async function showGate(): Promise<void> {
   if (currentLanguage === "en") {
     const notice = document.createElement("p");
     notice.id = "gate-notice";
-    notice.style.cssText = "font-size:12px;color:#6b7280;font-style:italic;margin:8px 0 0";
+    notice.style.cssText = "font-size:12px;color:#8891ab;font-style:italic;margin:8px 0 0";
     notice.textContent = "This is a translation for your convenience. The Dutch version is the legally binding one.";
     (document.getElementById("gate-summary") as HTMLElement).after(notice);
   }
@@ -477,22 +471,6 @@ function renderWelcome(): void {
   title.className = "wc-title";
   title.textContent = t("welcomeTitle");
 
-  const what = document.createElement("p");
-  what.className = "wc-what";
-  what.textContent = t("welcomeWhat");
-
-  const canTitle = document.createElement("p");
-  canTitle.className = "wc-sub";
-  canTitle.textContent = t("welcomeCanTitle");
-
-  const canList = document.createElement("ul");
-  canList.className = "wc-can";
-  (["welcomeCan1", "welcomeCan2", "welcomeCan3"] as const).forEach((k) => {
-    const li = document.createElement("li");
-    li.textContent = t(k);
-    canList.append(li);
-  });
-
   const tryTitle = document.createElement("p");
   tryTitle.className = "wc-sub";
   tryTitle.textContent = t("welcomeTryTitle");
@@ -523,27 +501,13 @@ function renderWelcome(): void {
   footText.textContent = t("welcomePrivacy");
   foot.append(lock, footText);
 
-  card.append(title, what, canTitle, canList, tryTitle, exWrap, foot);
+  card.append(title, tryTitle, exWrap, foot);
 
   const hint = document.createElement("p");
   hint.className = "wc-hint";
   hint.textContent = t("welcomeHint");
 
-  const biz = document.createElement("div");
-  biz.className = "wc-biz";
-  const bizTitle = document.createElement("p");
-  bizTitle.className = "wc-biz-title";
-  bizTitle.textContent = t("bizTitle");
-  const bizText = document.createElement("p");
-  bizText.className = "wc-biz-text";
-  bizText.textContent = t("bizText");
-  const bizCta = document.createElement("a");
-  bizCta.className = "wc-biz-cta";
-  bizCta.href = "mailto:info@mergefix.com";
-  bizCta.textContent = t("bizCta");
-  biz.append(bizTitle, bizText, bizCta);
-
-  wrap.append(card, hint, biz);
+  wrap.append(card, hint);
   chat.append(wrap);
 }
 

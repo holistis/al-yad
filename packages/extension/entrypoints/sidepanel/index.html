@@ -36,11 +36,11 @@
         --ink-1: #0b0e16;
         --ink-2: #12161f;
         --ink-3: #1a1f2c;
-        --ink-line: #262c3c;
-        --ink-line-soft: #1d2230;
-        --text: #ece9e0;
-        --text-dim: #a3aabb;
-        --text-faint: #626a7d;
+        --ink-line: #323b52;
+        --ink-line-soft: #232a3c;
+        --text: #f4f2ec;
+        --text-dim: #c2c8db;
+        --text-faint: #8891ab;
         --seal: #d9ad5e;
         --seal-soft: #f0cf95;
         --seal-glow: rgba(217, 173, 94, 0.32);
@@ -49,6 +49,7 @@
         --void-line: rgba(194, 105, 90, 0.45);
         --teal: #6fb8ad;
         --teal-soft: rgba(111, 184, 173, 0.16);
+        --teal-text: #9adbd0;
         --font-ui: -apple-system, "Segoe UI", system-ui, sans-serif;
         --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
       }
@@ -288,7 +289,7 @@
         background: rgba(111,184,173,.08); border-top: 1px solid var(--teal);
         display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
       }
-      #bewaar-form p { margin: 0; font-size: 12px; color: var(--teal-soft); flex: 1; min-width: 110px; }
+      #bewaar-form p { margin: 0; font-size: 12px; color: var(--teal-text); flex: 1; min-width: 110px; }
       #bewaar-naam {
         flex: 1; min-width: 90px; font: inherit; font-size: 12px;
         padding: 4px 7px; border: 1px solid var(--ink-line); border-radius: 5px;
@@ -309,7 +310,7 @@
       .attach-thumb {
         display: inline-flex; align-items: center; gap: 4px;
         background: var(--teal-soft); border: 1px solid var(--teal); border-radius: 5px;
-        padding: 3px 6px; font-size: 11px; color: var(--teal-soft);
+        padding: 3px 6px; font-size: 11px; color: var(--teal-text);
       }
       .attach-thumb img { width: 22px; height: 22px; object-fit: cover; border-radius: 3px; }
       .attach-remove { background: none; border: none; padding: 0; cursor: pointer; color: var(--text-dim); font-size: 13px; }
@@ -329,7 +330,7 @@
         align-self: flex-end; margin-bottom: 2px; white-space: nowrap; font: inherit;
       }
       #attach-btn:hover { background: var(--ink-3); color: var(--text); }
-      .doc-chip { background: var(--teal-soft); border-color: var(--teal); color: var(--teal-soft); }
+      .doc-chip { background: var(--teal-soft); border-color: var(--teal); color: var(--teal-text); }
       #start {
         flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
         background: var(--seal); color: var(--ink-0); border: none; cursor: pointer; padding: 0;
@@ -339,6 +340,7 @@
       #start:hover:not(:disabled) { transform: scale(1.06); }
       #start:disabled { background: var(--ink-3); color: var(--text-faint); cursor: not-allowed; }
       .input-hint { font-size: 11px; color: var(--text-faint); margin-top: 4px; padding-left: 3px; }
+      .disclaimer-hint { font-size: 11px; color: var(--text-dim); margin-top: 5px; padding-left: 3px; line-height: 1.4; }
 
       /* Paginascan: werkt los van het Brein, zie de toelichting in de opmaak hieronder. */
       #scan-blok { margin-top: 10px; padding-left: 3px; }
@@ -371,7 +373,7 @@
       .wc-can li::before { content: "✓"; position: absolute; left: 3px; color: var(--seal); font-weight: 700; }
       .wc-ex { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
       .wc-ex-btn {
-        text-align: left; font: inherit; font-size: 13px; color: var(--teal-soft);
+        text-align: left; font: inherit; font-size: 13px; color: var(--teal-text);
         background: var(--teal-soft); border: 1px solid var(--teal); border-radius: 8px;
         padding: 8px 11px; cursor: pointer; line-height: 1.35;
       }
@@ -383,7 +385,7 @@
       .wc-biz { margin: 12px 2px 2px; padding: 11px 13px; border: 1px solid var(--ink-line); border-radius: 10px; background: var(--ink-1); }
       .wc-biz-title { font-size: 12.5px; font-weight: 700; color: var(--text-dim); margin: 0 0 3px; }
       .wc-biz-text { font-size: 12px; line-height: 1.45; color: var(--text-faint); margin: 0 0 8px; }
-      .wc-biz-cta { display: inline-block; font-size: 12px; font-weight: 600; color: var(--teal-soft); background: var(--teal-soft); border: 1px solid var(--teal); border-radius: 7px; padding: 5px 11px; text-decoration: none; }
+      .wc-biz-cta { display: inline-block; font-size: 12px; font-weight: 600; color: var(--teal-text); background: var(--teal-soft); border: 1px solid var(--teal); border-radius: 7px; padding: 5px 11px; text-decoration: none; }
       .wc-biz-cta:hover { background: rgba(111,184,173,.24); }
 
       /* ---- Overige tabs ---- */
@@ -446,10 +448,10 @@
       .provider-header input[type=checkbox] { flex-shrink: 0; cursor: pointer; accent-color: var(--seal); }
       .provider-name { flex: 1; font-size: 13px; font-weight: 600; cursor: pointer; -webkit-user-select: none; user-select: none; color: var(--text); }
       .provider-badge { font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 3px; letter-spacing: .04em; }
-      .provider-badge.free { background: rgba(111,184,173,.18); color: var(--teal-soft); }
+      .provider-badge.free { background: rgba(111,184,173,.18); color: var(--teal-text); }
       .provider-badge.paid { background: rgba(217,173,94,.18); color: var(--seal-soft); }
       .provider-badge.local { background: var(--ink-3); color: var(--text-dim); }
-      .provider-badge.custom { background: var(--teal-soft); color: var(--teal-soft); }
+      .provider-badge.custom { background: var(--teal-soft); color: var(--teal-text); }
       .provider-badge.companion { background: var(--ink-3); color: var(--text-dim); font-weight: 500; }
       .provider-detail { padding: 0 8px 5px 27px; }
       .provider-tagline { font-size: 11px; color: var(--text-faint); margin-bottom: 2px; }
@@ -460,7 +462,7 @@
       .provider-fields { padding: 2px 8px 8px; border-top: 1px solid var(--ink-line-soft); }
       .provider-badge.recommended { background: var(--seal); color: var(--ink-0); }
       .simple-intro {
-        font-size: 12px; color: var(--teal-soft); background: var(--teal-soft); border: 1px solid var(--teal);
+        font-size: 12px; color: var(--teal-text); background: var(--teal-soft); border: 1px solid var(--teal);
         border-radius: 6px; padding: 8px 10px; margin: 0 0 10px; line-height: 1.4;
       }
       .prov-advanced { margin-top: 4px; }
@@ -473,10 +475,14 @@
       .prov-advanced[open] summary::before { content: "▾ "; }
       .prov-advanced .field { margin-top: 6px; }
       #provider-search {
-        width: 100%; box-sizing: border-box; padding: 6px 9px; margin-bottom: 8px;
-        font: inherit; font-size: 12px; border: 1px solid var(--ink-line); border-radius: 6px;
-        background: var(--ink-2); color: var(--text);
+        width: 100%; box-sizing: border-box; padding: 7px 10px 7px 30px; margin-bottom: 8px;
+        font: inherit; font-size: 12.5px; border: 1px solid var(--text-faint); border-radius: 6px;
+        background: var(--ink-3); color: var(--text);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238891ab' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: 9px center;
       }
+      #provider-search::placeholder { color: var(--text-faint); }
+      #provider-search:focus { outline: none; border-color: var(--seal); box-shadow: 0 0 0 2px var(--seal-glow); }
       .no-results { color: var(--text-faint); font-size: 12px; text-align: center; padding: 12px 0; }
       .mode-options { display: flex; flex-direction: column; gap: 6px; }
       .mode-btn {
@@ -532,16 +538,16 @@
     <!-- Akkoord-poort -->
     <section id="gate" class="hidden">
       <div style="padding:14px">
-        <h1 style="font-size:16px;margin:0 0 10px;color:#ece9e0" data-i18n="gateTitle">Voor je begint</h1>
-        <div id="gate-summary" style="background:#12161f;border:1px solid #262c3c;color:#a3aabb;padding:10px;border-radius:6px;line-height:1.4;white-space:pre-line"></div>
+        <h1 style="font-size:16px;margin:0 0 10px;color:#f4f2ec" data-i18n="gateTitle">Voor je begint</h1>
+        <div id="gate-summary" style="background:#12161f;border:1px solid #323b52;color:#c2c8db;padding:10px;border-radius:6px;line-height:1.4;white-space:pre-line"></div>
         <div style="margin:10px 0">
-          <a href="#" data-doc="algemene-voorwaarden" style="display:block;margin:4px 0;color:#6fb8ad">Algemene Voorwaarden</a>
-          <a href="#" data-doc="privacyverklaring" style="display:block;margin:4px 0;color:#6fb8ad">Privacyverklaring</a>
-          <a href="#" data-doc="gebruiksbeleid" style="display:block;margin:4px 0;color:#6fb8ad">Gebruiksbeleid</a>
+          <a href="#" data-doc="algemene-voorwaarden" style="display:block;margin:4px 0;color:#9adbd0">Algemene Voorwaarden</a>
+          <a href="#" data-doc="privacyverklaring" style="display:block;margin:4px 0;color:#9adbd0">Privacyverklaring</a>
+          <a href="#" data-doc="gebruiksbeleid" style="display:block;margin:4px 0;color:#9adbd0">Gebruiksbeleid</a>
         </div>
         <div id="gate-items"></div>
         <button id="accept" type="button" disabled style="font:inherit;font-size:13px;padding:8px 14px;border:none;border-radius:6px;background:#d9ad5e;color:#05070c;font-weight:600;cursor:pointer;width:100%;margin-top:10px" data-i18n="gateAccept">Akkoord en starten</button>
-        <p style="color:#626a7d;font-size:12px;margin-top:10px" data-i18n="gateConcept">Dit is een concept.</p>
+        <p style="color:#8891ab;font-size:12px;margin-top:10px" data-i18n="gateConcept">Dit is een concept.</p>
       </div>
     </section>
 
@@ -587,11 +593,6 @@
       <div id="tab-taak" class="tab-panel">
         <div id="chat-topbar">
           <div class="qb-group">
-            <button type="button" class="qb-btn qmode-btn" data-mode="confirm">🛡️ <span class="qb-label" data-i18n="qbConfirm">Bevestig</span></button>
-            <button type="button" class="qb-btn qmode-btn" data-mode="auto">⚡ <span class="qb-label" data-i18n="qbAuto">Auto</span></button>
-          </div>
-          <div class="qb-divider"></div>
-          <div class="qb-group">
             <button type="button" class="qb-btn qlang-btn" data-lang="nl">NL</button>
             <button type="button" class="qb-btn qlang-btn" data-lang="en">EN</button>
           </div>
@@ -620,19 +621,7 @@
             </button>
           </div>
           <div class="input-hint" data-i18n="pasteHint">Of plak een afbeelding (Ctrl+V)</div>
-
-          <!--
-            Paginascan. Werkt zonder het lokale Brein, en dat is met opzet.
-            Twee redenen. Voor de gebruiker: je kunt meteen zien of Yad deze site goed
-            leest, vóór je iets installeert. Voor de winkel: een extensie die zonder een
-            ander programma niets doet, wordt afgewezen op "single purpose is launching
-            another app" (handhavingscode Yellow Lithium). Dit is echte functionaliteit,
-            geen alibi: het is de snelste manier om te zien waarom een taak ergens misgaat.
-          -->
-          <div id="scan-blok">
-            <button type="button" id="scan-btn" data-i18n="scanBtn">Bekijk wat Yad op deze pagina ziet</button>
-            <div id="scan-uitslag" class="hidden"></div>
-          </div>
+          <div class="disclaimer-hint">⚠ <span data-i18n="mistakeDisclaimer">Yad kan fouten maken. Controleer belangrijke stappen zelf.</span></div>
         </div>
       </div>
 
@@ -710,9 +699,21 @@
             <button type="button" id="claude-capture-btn" class="capture-btn" data-i18n="claudeCaptureBtn">🔗 Stuur naar Claude</button>
             <div id="claude-capture-msg"></div>
           </div>
+          <div class="settings-section">
+            <h3 data-i18n="advancedTitle">Geavanceerd</h3>
+            <div id="scan-blok">
+              <button type="button" id="scan-btn" data-i18n="scanBtn">Bekijk wat Yad op deze pagina ziet</button>
+              <div id="scan-uitslag" class="hidden"></div>
+            </div>
+          </div>
           <button type="submit" id="save-btn" data-i18n="saveSettings">Opslaan &amp; toepassen</button>
           <div id="save-msg"></div>
         </form>
+        <div class="settings-section wc-biz">
+          <p class="wc-biz-title" data-i18n="bizTitle">Voor je bedrijf?</p>
+          <p class="wc-biz-text" data-i18n="bizText">YAD draait op je eigen computer. Wil je hem afgestemd op je team, of volledig op je eigen servers zodat je data binnen blijft?</p>
+          <a class="wc-biz-cta" href="mailto:info@mergefix.com" data-i18n="bizCta">Neem contact op</a>
+        </div>
       </div>
 
       <!-- Tab: Stats -->
