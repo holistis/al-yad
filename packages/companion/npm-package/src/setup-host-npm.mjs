@@ -56,11 +56,46 @@ const companionEntry = join(here, "pair-host.js");
 // single-instance behaviour exactly, byte for byte.
 const instance = (process.env["YAD_INSTANCE"] ?? "").trim();
 const instancePort = process.env["YAD_PORT"];
+
+// Validated up front, not left to fail later: an instance name that isn't
+// [a-zA-Z0-9_-] would still "succeed" here (write files, print success) but
+// silently produce an invalid native-messaging host name (Chrome rejects
+// anything outside roughly [\w.]+ for the manifest "name" field) or, worse,
+// a slash in the name turns straight into a broken file path with a raw
+// ENOENT stack trace instead of a message that says what actually went
+// wrong. Caught here once, instead of at pairing time with no clear cause.
+const INSTANCE_NAME_RE = /^[a-zA-Z0-9_-]{1,32}$/;
+if (instance && !INSTANCE_NAME_RE.test(instance)) {
+  console.error(
+    `YAD_INSTANCE is "${instance}", which is not a safe instance name. Use only letters, digits, "_" and ` +
+    `"-", 1-32 characters (e.g. "b", "second", "test-account"). No spaces, dots, or slashes: those either break ` +
+    `the native-messaging host name Chrome will accept, or the file paths this script writes.`
+  );
+  process.exit(1);
+}
+
 if (instance && !instancePort) {
   console.error(
     `YAD_INSTANCE is set to "${instance}" but YAD_PORT is not. A named instance needs its own port ` +
     `(any free port other than 3747) so it never fights the default instance for the same one. ` +
     `Example: YAD_INSTANCE=${instance} YAD_PORT=4001 npx yadagent pair`
+  );
+  process.exit(1);
+}
+
+// A mistyped/copy-pasted YAD_PORT that happens to equal the default port
+// would otherwise "succeed" silently here: every file gets written, the
+// script prints success, and the collision only surfaces much later when
+// Chrome actually spawns this instance's companion and its HTTP API loses
+// the port race against whichever instance grabbed 3747 first (see
+// http-api.ts's EADDRINUSE handling — it logs and keeps running with no
+// HTTP API, it does not crash, so there would be no obvious error either).
+const parsedPort = instancePort !== undefined ? Number(instancePort) : undefined;
+if (instance && (parsedPort === 3747 || !Number.isInteger(parsedPort) || parsedPort <= 0 || parsedPort > 65535)) {
+  console.error(
+    `YAD_PORT is "${instancePort}", which is not usable for a named instance: it must be a distinct port number ` +
+    `from 1-65535, and NOT 3747 (that is always the default instance's port, reusing it here would silently ` +
+    `collide the moment both instances actually run). Example: YAD_INSTANCE=${instance} YAD_PORT=4001 npx yadagent pair`
   );
   process.exit(1);
 }

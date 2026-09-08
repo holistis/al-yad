@@ -875,6 +875,7 @@ async function loadSettingsTab(): Promise<void> {
   $<HTMLElement>("#cap-val").textContent = String(cap);
   currentKilled = settings.killed ?? false;
   renderKillBtn();
+  $<HTMLInputElement>("#s-native-host").value = settings.nativeHostName ?? "";
   currentAutonomy = settings.autonomy === "auto" ? "auto" : "confirm";
   currentLanguage = settings.language === "en" ? "en" : "nl";
   refreshModeState();
@@ -1106,7 +1107,18 @@ function collectSettings(): YadSettings {
     if (primaryEl) config.primary = primaryEl.checked;
     providers[entry.id] = config;
   }
-  return { providers, maxSteps: parseInt($<HTMLInputElement>("#s-steps").value, 10) || 15, autonomy: currentAutonomy, language: currentLanguage, maxRequestsPerDay: parseInt($<HTMLInputElement>("#s-daily-cap").value, 10) || 1000, killed: currentKilled };
+  const nativeHostRaw = $<HTMLInputElement>("#s-native-host").value.trim();
+  return {
+    providers,
+    maxSteps: parseInt($<HTMLInputElement>("#s-steps").value, 10) || 15,
+    autonomy: currentAutonomy,
+    language: currentLanguage,
+    maxRequestsPerDay: parseInt($<HTMLInputElement>("#s-daily-cap").value, 10) || 1000,
+    killed: currentKilled,
+    // Leeg = veld weglaten, zodat getSettings() gewoon terugvalt op de standaard-host
+    // ("com.yad.companion") in plaats van een expliciete lege string te bewaren.
+    ...(nativeHostRaw ? { nativeHostName: nativeHostRaw } : {}),
+  };
 }
 
 // ---- Start button ----

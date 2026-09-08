@@ -40,10 +40,41 @@ const companionEntry = resolve(repoRoot, "packages", "companion", "dist", "main.
 
 const instance = (process.env["YAD_INSTANCE"] ?? "").trim();
 const instancePort = process.env["YAD_PORT"];
+
+// Zelfde validatie als setup-host-npm.mjs, en om dezelfde reden: een naam
+// buiten [a-zA-Z0-9_-] "slaagt" hier stilletjes maar geeft later een
+// ongeldige native-messaging hostnaam of, bij een "/", een kapot bestandspad
+// met een kale ENOENT-stacktrace in plaats van een duidelijke fout.
+const INSTANCE_NAME_RE = /^[a-zA-Z0-9_-]{1,32}$/;
+if (instance && !INSTANCE_NAME_RE.test(instance)) {
+  console.error(
+    `YAD_INSTANCE is "${instance}", dat is geen veilige instantienaam. Gebruik alleen letters, cijfers, "_" en ` +
+    `"-", 1-32 tekens (bijv. "b", "tweede", "test-account"). Geen spaties, punten of schuine strepen: die breken ` +
+    `ofwel de native-messaging-hostnaam die Chrome accepteert, ofwel de bestandspaden die dit script schrijft.`
+  );
+  process.exit(1);
+}
+
 if (instance && !instancePort) {
   console.error(
     `YAD_INSTANCE is "${instance}" maar YAD_PORT ontbreekt. Een tweede instantie heeft een eigen, vrije ` +
     `poort nodig (niet 3747, dat is de standaard-instantie). Voorbeeld: YAD_INSTANCE=${instance} YAD_PORT=4001 pnpm setup-host`
+  );
+  process.exit(1);
+}
+
+// Een verkeerd getypte YAD_PORT die toevallig 3747 is, "slaagt" hier anders
+// stilletjes: alle bestanden worden geschreven, het script meldt succes, en
+// de botsing wordt pas zichtbaar zodra Chrome deze instantie daadwerkelijk
+// start en zijn HTTP-API de poort-race verliest tegen wie 3747 al vasthoudt
+// (http-api.ts logt dat en blijft draaien zonder HTTP-API, geen crash, dus
+// ook dan geen duidelijke foutmelding).
+const parsedPort = instancePort !== undefined ? Number(instancePort) : undefined;
+if (instance && (parsedPort === 3747 || !Number.isInteger(parsedPort) || parsedPort <= 0 || parsedPort > 65535)) {
+  console.error(
+    `YAD_PORT is "${instancePort}", dat is niet bruikbaar voor een tweede instantie: het moet een eigen ` +
+    `poortnummer zijn van 1-65535, en NIET 3747 (dat is altijd de poort van de standaard-instantie, hergebruik ` +
+    `botst stilletjes zodra beide instanties echt draaien). Voorbeeld: YAD_INSTANCE=${instance} YAD_PORT=4001 pnpm setup-host`
   );
   process.exit(1);
 }
