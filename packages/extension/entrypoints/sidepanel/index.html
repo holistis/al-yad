@@ -715,6 +715,11 @@
               <button type="button" id="scan-btn" data-i18n="scanBtn">Bekijk wat Yad op deze pagina ziet</button>
               <div id="scan-uitslag" class="hidden"></div>
             </div>
+            <div class="field">
+              <label data-i18n="nativeHostLabel">Native-messaging host (tweede instantie)</label>
+              <input type="text" id="s-native-host" placeholder="com.yad.companion" autocomplete="off" spellcheck="false" pattern="^(com\.yad\.companion(\.[a-zA-Z0-9_-]{1,32})?)?$" title="Laat leeg, of com.yad.companion.&lt;naam&gt; met alleen letters, cijfers, _ en -" />
+              <div class="hint" data-i18n="nativeHostHint">Leeg laten, tenzij dit een TWEEDE, apart geregistreerde companion-instantie is (zie YAD_INSTANCE bij pnpm setup-host / npx yadagent pair). Vul dan exact dezelfde hostnaam in als die dat opzetscript liet zien, bijv. com.yad.companion.b.</div>
+            </div>
           </div>
           <button type="submit" id="save-btn" data-i18n="saveSettings">Opslaan &amp; toepassen</button>
           <div id="save-msg"></div>

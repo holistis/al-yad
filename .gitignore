@@ -17,6 +17,11 @@ packages/extension/.keys/
 # gegenereerde, machine-specifieke host-bestanden (absolute paden) -> per machine via pnpm setup-host
 native-messaging/com.yad.companion.json
 native-messaging/yad-companion-launcher.bat
+# idem, voor een genoemde tweede/derde instantie (YAD_INSTANCE=<naam> pnpm setup-host)
+native-messaging/com.yad.companion.*.json
+native-messaging/yad-companion-launcher-*.bat
+# per-instantie data (logs, bridge-bestand, enz.) van een genoemde instantie
+data-instance/
 # benchmark-resultaten (te groot voor repo; enkel de definitieve bewaar je)
 data/benchmark-results-*.json
 # run-history en action-cache (machine-specifiek, in alle subdirectories)
