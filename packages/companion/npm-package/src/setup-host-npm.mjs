@@ -48,16 +48,35 @@ const here = dirname(fileURLToPath(import.meta.url));
 // is always a sibling, never a path computed through a monorepo layout.
 const companionEntry = join(here, "pair-host.js");
 
-const CONFIG_DIR = join(homedir(), ".yadagent");
+// Multi-instance support: running `YAD_INSTANCE=b YAD_PORT=4001 npx yadagent
+// pair` sets up a second, fully independent companion (its own config dir,
+// its own native-messaging host name, its own port, its own log files),
+// so a second Chrome profile can pair with it without colliding with a
+// default install already running. Leaving both unset reproduces today's
+// single-instance behaviour exactly, byte for byte.
+const instance = (process.env["YAD_INSTANCE"] ?? "").trim();
+const instancePort = process.env["YAD_PORT"];
+if (instance && !instancePort) {
+  console.error(
+    `YAD_INSTANCE is set to "${instance}" but YAD_PORT is not. A named instance needs its own port ` +
+    `(any free port other than 3747) so it never fights the default instance for the same one. ` +
+    `Example: YAD_INSTANCE=${instance} YAD_PORT=4001 npx yadagent pair`
+  );
+  process.exit(1);
+}
+
+const CONFIG_DIR = instance ? join(homedir(), `.yadagent-${instance}`) : join(homedir(), ".yadagent");
 const keysDir = join(CONFIG_DIR, "keys");
 const nmDir = join(CONFIG_DIR, "native-messaging");
 const logsDir = join(CONFIG_DIR, "logs");
+const dataDir = join(CONFIG_DIR, "data");
 
-const HOST_NAME = "com.yad.companion";
+const HOST_NAME = instance ? `com.yad.companion.${instance}` : "com.yad.companion";
 
 mkdirSync(keysDir, { recursive: true });
 mkdirSync(nmDir, { recursive: true });
 mkdirSync(logsDir, { recursive: true });
+mkdirSync(dataDir, { recursive: true });
 
 if (!existsSync(companionEntry)) {
   console.error(`Expected the bundled companion at ${companionEntry}, did not find it. This is a packaging bug, not something you did wrong.`);
@@ -98,24 +117,44 @@ writeFileSync(join(keysDir, "ext-id.txt"), extId, "utf8");
 // monorepo version, using the absolute node.exe path since Chrome does not
 // always inherit PATH.
 //
-// The three `set` lines exist because the bundled companion (main.ts, via
-// http-api.ts) falls back to a handful of hardcoded C:\Code\... paths when
-// these env vars are not set. That default is fine inside the monorepo,
-// where those paths are what the maintainer's own tooling already expects,
-// but it is wrong for anyone else: their C:\Code likely does not exist, and
-// this is the only place that launches the bundled companion for an external
-// install, so it is also the only correct place to override it. The shared
-// source in http-api.ts is left exactly as the monorepo needs it.
+// The `set` lines exist because the bundled companion (main.ts, via
+// http-api.ts and session.ts) falls back to a handful of hardcoded
+// C:\Code\... paths when these env vars are not set. That default is fine
+// inside the monorepo, where those paths are what the maintainer's own
+// tooling already expects, but it is wrong for anyone else: their C:\Code
+// likely does not exist, and this is the only place that launches the
+// bundled companion for an external install, so it is also the only correct
+// place to override it. The shared source in http-api.ts/session.ts is left
+// exactly as the monorepo needs it.
+//
+// YAD_BRIDGE_PATH was missing here for a while: session.ts reads it too
+// (the capture/page-state bridge file), and without it every external
+// `npx yadagent pair` install was silently writing that file to
+// C:\Code\yad-claude-bridge.json on the *user's* machine instead of into
+// their own ~/.yadagent/logs — harmless if C:\Code happens to exist and be
+// writable, a confusing silent failure if it does not. Fixed here, for the
+// default instance and not just for named ones.
+//
+// YAD_PORT and YAD_DATA_DIR are only set for a named instance (`instance`
+// truthy). The default instance keeps relying on http-api.ts's own 3747
+// fallback and each store's own no-YAD_DATA_DIR fallback, unchanged, so a
+// plain `npx yadagent pair` with neither YAD_INSTANCE nor YAD_PORT set
+// behaves exactly as it always has.
 const launcherPath = join(nmDir, "yad-companion-launcher.bat");
 const nodeBin = process.execPath.replace(/"/g, '""');
-const launcher = [
+const launcherLines = [
   "@echo off",
   `set "YAD_STEP_LOG_PATH=${join(logsDir, "step-log.jsonl")}"`,
   `set "YAD_RESULT_PATH=${join(logsDir, "goal-result.json")}"`,
   `set "YAD_STUCK_PATH=${join(logsDir, "stuck.json")}"`,
-  `"${nodeBin}" "${companionEntry}" %*`,
-  "",
-].join("\r\n");
+  `set "YAD_BRIDGE_PATH=${join(logsDir, "claude-bridge.json")}"`,
+];
+if (instance) {
+  launcherLines.push(`set "YAD_PORT=${instancePort}"`);
+  launcherLines.push(`set "YAD_DATA_DIR=${dataDir}"`);
+}
+launcherLines.push(`"${nodeBin}" "${companionEntry}" %*`, "");
+const launcher = launcherLines.join("\r\n");
 writeFileSync(launcherPath, launcher, "utf8");
 
 // 6. Host manifest. The Chrome Web Store ID is always included alongside the

@@ -33,6 +33,16 @@ export interface YadSettings {
   maxRequestsPerDay?: number;
   /** Noodstop: als true blokkeert de companion elke AI-aanroep tot dit weer uit staat. */
   killed?: boolean;
+  /**
+   * Naam van de native-messaging host om mee te verbinden. Leeg/onbekend = de
+   * standaard "com.yad.companion", wat het gedrag van vandaag is. Alleen
+   * nodig als deze extensie-installatie moet pairen met een TWEEDE, apart
+   * opgestarte companion-instantie (bijvoorbeeld in een tweede Chrome-profiel,
+   * naast een al lopende standaard-instantie) — die tweede instantie is dan
+   * geregistreerd onder een andere hostnaam, zie `YAD_INSTANCE` bij
+   * `npx yadagent pair`.
+   */
+  nativeHostName?: string;
 }
 
 export const DEFAULT_PROVIDER_CONFIGS: Record<string, ProviderUserConfig> = {

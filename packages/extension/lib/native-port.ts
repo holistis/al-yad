@@ -14,7 +14,15 @@ import { YadTabGroupManager, type TabGroupsChromeApi } from "./tab-groups";
  * web-tab; een gesloten tab breekt de run af; bevestigingen verlopen netjes.
  */
 
-const HOST = "com.yad.companion";
+const DEFAULT_HOST = "com.yad.companion";
+/**
+ * Native-messaging host-naam. Standaard "com.yad.companion", tenzij de
+ * gebruiker in settings een `nativeHostName` heeft ingesteld (voor een
+ * tweede, parallel draaiende companion-instantie). Wordt eenmalig geladen
+ * in `startNativePort()`, voor de eerste `connect()`; `connect()` zelf
+ * blijft synchroon en gebruikt gewoon de op dat moment bekende waarde.
+ */
+let HOST: string = DEFAULT_HOST;
 const EXT_VERSION = "0.1.0";
 const HEARTBEAT_MS = 20_000;
 const PONG_TIMEOUT_MS = 60_000;
@@ -264,7 +272,21 @@ export function setYadTabId(tabId: number): void {
 }
 
 export function startNativePort(): void {
-  connect();
+  // Host-naam eenmalig laden voor de eerste connect(); als settings niet
+  // (op tijd) leesbaar zijn, verbindt hij gewoon met de standaard-host in
+  // plaats van te blijven wachten.
+  void getSettings()
+    .then((s) => {
+      if (s.nativeHostName && s.nativeHostName.trim()) {
+        HOST = s.nativeHostName.trim();
+      }
+    })
+    .catch(() => {
+      // Stil negeren: HOST blijft op DEFAULT_HOST staan.
+    })
+    .finally(() => {
+      connect();
+    });
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     switch (msg?.type) {
