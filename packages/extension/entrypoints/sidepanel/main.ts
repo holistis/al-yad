@@ -101,7 +101,7 @@ const STRINGS = {
     killHint: "Blokkeert direct elke AI-aanroep tot je hem weer aanzet.",
     scanBtn: "Bekijk wat Yad op deze pagina ziet",
     qbConfirm: "Bevestig", qbAuto: "Auto",
-    attachBtn: "📎 Upload bijlage",
+    attachBtn: "📎",
     attachBtnTitle: "Bijlage uploaden (afbeelding, .txt, .rtf)",
     startTitle: "Taak starten",
     attachUnreadable: "niet leesbaar. Exporteer je CV als .txt (Word, Opslaan als, Tekst).",
@@ -196,7 +196,7 @@ const STRINGS = {
     killHint: "Instantly blocks every AI call until you turn it back on.",
     scanBtn: "See what Yad detects on this page",
     qbConfirm: "Confirm", qbAuto: "Auto",
-    attachBtn: "📎 Upload attachment",
+    attachBtn: "📎",
     attachBtnTitle: "Upload attachment (image, .txt, .rtf)",
     startTitle: "Start task",
     attachUnreadable: "not readable. Export your CV as .txt (Word, Save as, Text).",
@@ -950,10 +950,15 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
   const header = document.createElement("div"); header.className = "provider-header";
   const chk = document.createElement("input"); chk.type = "checkbox";
   chk.id = `prov-${entry.id}-enabled`; chk.checked = config.enabled;
-  const nameLabel = document.createElement("label"); nameLabel.htmlFor = chk.id;
+  chk.onclick = (e): void => e.stopPropagation(); // niet ook de uitklap-toggle van de header triggeren
+  // Bewust een span, geen <label for>: klikken op de naam moet de kaart UITKLAPPEN, niet
+  // het vinkje omzetten. Dat zijn twee losse handelingen (aan/uit vs. kijken/instellen), en
+  // een <label for> zou ze onbedoeld aan elkaar knopen.
+  const nameLabel = document.createElement("span");
   nameLabel.className = "provider-name"; nameLabel.textContent = loc(entry.name);
   const badge = document.createElement("span"); badge.className = `provider-badge ${entry.tier}`; badge.textContent = loc(entry.badge);
-  header.append(chk, nameLabel, badge);
+  const chevron = document.createElement("span"); chevron.className = "provider-chevron"; chevron.textContent = "▾";
+  header.append(chk, nameLabel, badge, chevron);
   // Toon "✓ via companion" als de companion deze provider actief heeft vanuit zijn .env maar de gebruiker er geen sleutel voor heeft ingesteld
   if (companionActiveProviders.includes(entry.id) && !config.enabled) {
     const companionBadge = document.createElement("span");
@@ -962,7 +967,10 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
     companionBadge.textContent = t("provCompanionActive");
     header.append(companionBadge);
   }
-  const detail = document.createElement("div"); detail.className = "provider-detail";
+  // Standaard dicht, ook als de provider al aanstaat: alleen naam + badge + vinkje zichtbaar
+  // tot iemand er zelf op klikt. Dat was precies de klacht (alle info van elke provider stond
+  // meteen open, ook van providers die al lang geleden ingesteld waren).
+  const detail = document.createElement("div"); detail.className = "provider-detail hidden";
   const tagline = document.createElement("div"); tagline.className = "provider-tagline"; tagline.textContent = loc(entry.tagline);
   const meta = document.createElement("div"); meta.className = "provider-meta";
   if (entry.freeLimit) {
@@ -974,8 +982,7 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
   signupBtn.className = "provider-signup"; signupBtn.textContent = t("provSignup");
   signupBtn.onclick = (): void => { window.open(entry.signupUrl, "_blank"); };
   meta.append(stars, signupBtn); detail.append(tagline, meta);
-  const fields = document.createElement("div"); fields.className = "provider-fields";
-  if (!config.enabled) fields.classList.add("hidden");
+  const fields = document.createElement("div"); fields.className = "provider-fields hidden";
   if (entry.requiresKey) {
     // Een versleutelde blob NOOIT in het veld tonen: leeg + duidelijke placeholder.
     const savedEncrypted = config.encrypted && !!config.key;
@@ -1017,11 +1024,22 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
     adv.append(advSummary, ...advFields);
     fields.append(adv);
   }
+  const setExpanded = (open: boolean): void => {
+    card.classList.toggle("expanded", open);
+    detail.classList.toggle("hidden", !open);
+    fields.classList.toggle("hidden", !open);
+    chevron.textContent = open ? "▴" : "▾";
+  };
+  header.onclick = (): void => setExpanded(!card.classList.contains("expanded"));
   chk.onchange = (): void => {
     card.classList.toggle("active", chk.checked);
-    fields.classList.toggle("hidden", !chk.checked);
     updateProviderVisibility();
-    if (chk.checked) fields.querySelector<HTMLInputElement>("input[type=password]")?.focus();
+    // Aanzetten is meteen ook de vraag "welke sleutel", dus meteen uitklappen; uitzetten
+    // laat de uitklap-staat met rust, dat is geen reden om iets te verbergen dat al open stond.
+    if (chk.checked) {
+      setExpanded(true);
+      fields.querySelector<HTMLInputElement>("input[type=password]")?.focus();
+    }
   };
   // Zodra iemand een sleutel plakt, zet de provider vanzelf aan. Dicht de stille val
   // waarbij een geplakte sleutel genegeerd werd omdat het vinkje uit stond.

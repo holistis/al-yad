@@ -325,9 +325,10 @@
       #chat-input-row textarea::placeholder { color: var(--text-faint); }
       #chat-input-row textarea:focus { outline: none; border-color: var(--seal); box-shadow: 0 0 0 2px var(--seal-glow); }
       #attach-btn {
-        flex-shrink: 0; background: var(--ink-2); color: var(--text-dim); border: 1px solid var(--ink-line);
-        padding: 4px 9px; font-size: 12px; cursor: pointer; border-radius: 6px;
-        align-self: flex-end; margin-bottom: 2px; white-space: nowrap; font: inherit;
+        flex-shrink: 0; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+        background: var(--ink-2); color: var(--text-dim); border: 1px solid var(--ink-line);
+        font-size: 15px; cursor: pointer; border-radius: 50%; padding: 0;
+        align-self: flex-end; font: inherit;
       }
       #attach-btn:hover { background: var(--ink-3); color: var(--text); }
       .doc-chip { background: var(--teal-soft); border-color: var(--teal); color: var(--teal-text); }
@@ -444,9 +445,11 @@
       #provider-catalog { margin-bottom: 8px; }
       .provider-card { border: 1px solid var(--ink-line); border-radius: 6px; margin-bottom: 5px; background: var(--ink-2); }
       .provider-card.active { border-color: var(--seal); }
-      .provider-header { display: flex; align-items: center; gap: 7px; padding: 8px 8px 5px; }
+      .provider-header { display: flex; align-items: center; gap: 7px; padding: 9px 10px; cursor: pointer; -webkit-user-select: none; user-select: none; }
       .provider-header input[type=checkbox] { flex-shrink: 0; cursor: pointer; accent-color: var(--seal); }
-      .provider-name { flex: 1; font-size: 13px; font-weight: 600; cursor: pointer; -webkit-user-select: none; user-select: none; color: var(--text); }
+      .provider-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); }
+      .provider-chevron { color: var(--text-faint); font-size: 11px; flex-shrink: 0; transition: transform 120ms ease; }
+      .provider-card.expanded .provider-header { padding-bottom: 5px; }
       .provider-badge { font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 3px; letter-spacing: .04em; }
       .provider-badge.free { background: rgba(111,184,173,.18); color: var(--teal-text); }
       .provider-badge.paid { background: rgba(217,173,94,.18); color: var(--seal-soft); }
