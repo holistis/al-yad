@@ -432,8 +432,15 @@
       .tier-btn {
         flex: 1; padding: 5px; font: inherit; font-size: 12px; border: 1px solid var(--ink-line);
         border-radius: 5px; background: var(--ink-1); color: var(--text-dim); cursor: pointer; text-align: center;
+        display: flex; align-items: center; justify-content: center; gap: 3px;
       }
       .tier-btn.active { background: var(--seal); color: var(--ink-0); border-color: var(--seal); font-weight: 600; }
+      .tier-help {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 12px; height: 12px; border-radius: 50%; border: 1px solid currentColor;
+        font-size: 9px; line-height: 1; opacity: .65; cursor: help; flex-shrink: 0;
+      }
+      .tier-btn.active .tier-help { opacity: .8; }
       #save-btn {
         width: 100%; margin-top: 4px; font: inherit; font-size: 13px; padding: 9px;
         border: none; border-radius: 6px; background: var(--seal); color: var(--ink-0); cursor: pointer; font-weight: 600;
@@ -688,10 +695,10 @@
             <div id="site-override-section">
               <p id="site-domain-label"></p>
               <div class="tier-options">
-                <button type="button" class="tier-btn" data-tier="stealth" data-i18n="tierCautious">Voorzichtig</button>
-                <button type="button" class="tier-btn" data-tier="normal" data-i18n="tierNormal">Normaal</button>
-                <button type="button" class="tier-btn" data-tier="fast" data-i18n="tierFast">Snel</button>
-                <button type="button" class="tier-btn" data-tier="null" data-i18n="tierDefault">Standaard</button>
+                <button type="button" class="tier-btn" data-tier="stealth"><span data-i18n="tierCautious">Voorzichtig</span><span class="tier-help" data-i18n-title="tierCautiousHelp">?</span></button>
+                <button type="button" class="tier-btn" data-tier="normal"><span data-i18n="tierNormal">Normaal</span><span class="tier-help" data-i18n-title="tierNormalHelp">?</span></button>
+                <button type="button" class="tier-btn" data-tier="fast"><span data-i18n="tierFast">Snel</span><span class="tier-help" data-i18n-title="tierFastHelp">?</span></button>
+                <button type="button" class="tier-btn" data-tier="null"><span data-i18n="tierDefault">Standaard</span><span class="tier-help" data-i18n-title="tierDefaultHelp">?</span></button>
               </div>
               <div class="hint" data-i18n="tierHint">Voorzichtig = mensachtig tempo. Snel = minimale pauze. Standaard = automatisch.</div>
             </div>
