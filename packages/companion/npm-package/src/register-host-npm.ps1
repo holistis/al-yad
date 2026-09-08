@@ -10,18 +10,36 @@
 #
 # Registers the Yad native-messaging host manifest in the Windows registry
 # for Chrome and Edge (HKCU = current user only, no admin required).
+#
+# Multi-instance: if YAD_INSTANCE is set (same value as passed to
+# `npx yadagent pair`), this registers the SECOND host name
+# (com.yad.companion.<instance>) instead of the default one, matching
+# what setup-host-npm.mjs wrote for that instance. Without it, behaviour
+# is unchanged.
 
 $ErrorActionPreference = "Stop"
-$json = Join-Path $env:USERPROFILE ".yadagent\native-messaging\com.yad.companion.json"
+
+$instance = $env:YAD_INSTANCE
+if ($instance) {
+  $hostName = "com.yad.companion.$instance"
+} else {
+  $hostName = "com.yad.companion"
+}
+
+$json = Join-Path $env:USERPROFILE ".yadagent\native-messaging\$hostName.json"
 
 if (-not (Test-Path $json)) {
-  Write-Error "Host manifest not found: $json. Run 'npx yadagent pair' first, this script is invoked automatically as its second step on Windows."
+  if ($instance) {
+    Write-Error "Host manifest not found: $json. Run 'YAD_INSTANCE=$instance YAD_PORT=<port> npx yadagent pair' first, this script is invoked automatically as its second step on Windows."
+  } else {
+    Write-Error "Host manifest not found: $json. Run 'npx yadagent pair' first, this script is invoked automatically as its second step on Windows."
+  }
   exit 1
 }
 
 $targets = @(
-  "HKCU:\Software\Google\Chrome\NativeMessagingHosts\com.yad.companion",
-  "HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\com.yad.companion"
+  "HKCU:\Software\Google\Chrome\NativeMessagingHosts\$hostName",
+  "HKCU:\Software\Microsoft\Edge\NativeMessagingHosts\$hostName"
 )
 
 foreach ($key in $targets) {
@@ -30,4 +48,7 @@ foreach ($key in $targets) {
   Write-Output "Registered: $key -> $json"
 }
 
-Write-Output "Done. Host: com.yad.companion"
+Write-Output "Done. Host: $hostName"
+if ($instance) {
+  Write-Output "Remember: in the SECOND Chrome profile's extension settings, set 'nativeHostName' to '$hostName'."
+}
