@@ -11,7 +11,10 @@
  *   OLLAMA_BASE_URL   — verplicht, bv. http://localhost:11434
  *   OLLAMA_MODEL      — optioneel, default qwen2.5:7b
  *   YAD_PORT          — optioneel, default 3747
- *   YAD_HOST          — optioneel, default 0.0.0.0 (bereikbaar van buiten)
+ *   YAD_HOST          — optioneel, default 127.0.0.1 (alleen lokaal). Zet dit
+ *                       bewust op 0.0.0.0 om van buiten bereikbaar te zijn —
+ *                       verkeer dat dan niet van localhost komt loopt door
+ *                       dezelfde externe poort als http-api.ts (zie hieronder).
  *
  * ENDPOINTS:
  *   GET  /status    → { ok, mode, version }
@@ -19,7 +22,17 @@
  *                     Body: { goal, url?, domains?, maxSteps?, sync? }
  *
  * BEVEILIGING:
- *   - Rate-limit: 10 gelijktijdige runs max (daarboven 429)
+ *   - Standaard bindt aan 127.0.0.1, niet bereikbaar van buiten tenzij YAD_HOST
+ *     expliciet anders gezet wordt.
+ *   - Niet-lokaal verkeer (of een DNS-rebinding-poging die lokaal lijkt maar een
+ *     valse Host-header heeft) loopt door checkExternalGate() uit external-gate.ts:
+ *     standaard 403, en pas open met YAD_EXTERNAL_MODE=1 + YAD_API_KEYS
+ *     (X-API-Key-header, endpoint-allowlist /status+/goal, 20 req/min rate-limit,
+ *     audit-log). Zelfde poort als http-api.ts, geen los, ongeteste mechanisme.
+ *   - Concurrency-limiet: 10 gelijktijdige runs max (daarboven 429). Dit is GEEN
+ *     tijdvenster-rate-limit op zichzelf — die zit in checkExternalGate() voor
+ *     niet-lokaal verkeer.
+ *   - Request-body: max 10 MB, grotere bodies worden tijdens het lezen afgebroken (413).
  *   - Goal wordt gesaniteerd (max 1000 chars, inject-patronen geblokkeerd)
  *   - ScopeGuard blokkeert acties buiten de toewijzingsdomeinen
  *   - Harde deny-lijst (/payment, /checkout, ...) altijd actief
@@ -35,12 +48,13 @@ import { AgentLoop } from "./agent/loop.js";
 import { CacheStore } from "./memory/cache-store.js";
 import { PlaywrightHand } from "./playwright-hand.js";
 import { ScopeGuard } from "./gate/scope-guard.js";
+import { checkExternalGate } from "./external-gate.js";
 import type { Assignment } from "./gate/assignment.js";
 
 loadEnvFile();
 
 const PORT = parseInt(process.env["YAD_PORT"] ?? "3747", 10);
-const HOST = process.env["YAD_HOST"] ?? "0.0.0.0";
+const HOST = process.env["YAD_HOST"] ?? "127.0.0.1";
 const VERSION = "server-1.0";
 
 const log = (m: string): void => console.log(`[yad-server] ${m}`);
@@ -59,18 +73,63 @@ function json(res: ServerResponse, status: number, data: unknown): void {
   res.end(JSON.stringify(data));
 }
 
+const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB — een goal-body is normaal een paar honderd bytes.
+
+class BodyTooLargeError extends Error {}
+
 async function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = "";
-    req.on("data", (chunk) => { body += String(chunk); });
-    req.on("end", () => resolve(body));
+    let bytes = 0;
+    let tooLarge = false;
+    // Bij overschrijding stoppen we met het body-buffer te laten groeien (dat is het
+    // eigenlijke geheugenrisico), maar we breken de socket niet af — anders komt de
+    // 413-foutmelding hieronder nooit meer bij de client aan.
+    req.on("data", (chunk) => {
+      bytes += chunk.length;
+      if (bytes > MAX_BODY_BYTES) {
+        tooLarge = true;
+        return;
+      }
+      body += String(chunk);
+    });
+    req.on("end", () => {
+      if (tooLarge) {
+        reject(new BodyTooLargeError(`Request-body groter dan ${MAX_BODY_BYTES} bytes`));
+        return;
+      }
+      resolve(body);
+    });
     req.on("error", reject);
   });
+}
+
+/** Zelfde DNS-rebinding-check als http-api.ts: TCP-verbinding kan lokaal lijken
+ *  terwijl een kwaadwillige pagina in de browser van de gebruiker het verzoek op
+ *  afstand initieerde. Alleen een Host-header die exact op deze host:port wijst
+ *  telt als "echt lokaal". */
+function hasValidHostHeader(req: IncomingMessage): boolean {
+  const host = req.headers.host ?? "";
+  return host === `localhost:${PORT}` || host === `127.0.0.1:${PORT}`;
 }
 
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const url = req.url ?? "/";
   const method = req.method ?? "GET";
+
+  const remoteAddr = req.socket.remoteAddress;
+  const isLocalhost = remoteAddr === "127.0.0.1" || remoteAddr === "::1" || remoteAddr === "::ffff:127.0.0.1";
+  if (isLocalhost && !hasValidHostHeader(req)) {
+    json(res, 403, { ok: false, detail: "Ongeldige Host-header — verzoek geweigerd" });
+    return;
+  }
+  if (!isLocalhost) {
+    const gate = checkExternalGate(req, url, method);
+    if (!gate.allow) {
+      json(res, gate.status, gate.body);
+      return;
+    }
+  }
 
   // --- GET /status ---
   if (url === "/status" && method === "GET") {
@@ -96,7 +155,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     try {
       const body = await readBody(req);
       parsed = JSON.parse(body) as Record<string, unknown>;
-    } catch {
+    } catch (e) {
+      if (e instanceof BodyTooLargeError) {
+        json(res, 413, { ok: false, detail: e.message });
+        return;
+      }
       json(res, 400, { ok: false, detail: "Ongeldige JSON in request-body" });
       return;
     }

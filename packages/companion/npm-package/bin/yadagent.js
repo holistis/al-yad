@@ -42,7 +42,8 @@ function help() {
       Headless Chromium via Playwright, no carried-over logins, your own
       Ollama instance for the model. Cross-platform.
       Requires OLLAMA_BASE_URL to be set (e.g. http://localhost:11434).
-      Optional: OLLAMA_MODEL, YAD_PORT (default 3747), YAD_HOST (default 0.0.0.0).
+      Optional: OLLAMA_MODEL, YAD_PORT (default 3747), YAD_HOST (default 127.0.0.1,
+      only bound locally unless you set it and configure YAD_EXTERNAL_MODE + YAD_API_KEYS).
 
 Part A (the extension) and Part B (this package) are two separate things you
 install separately. This package is Part B only.

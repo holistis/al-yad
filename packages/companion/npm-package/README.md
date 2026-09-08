@@ -40,11 +40,11 @@ Environment variables:
 | `OLLAMA_BASE_URL` | yes | none | Where your Ollama instance is reachable |
 | `OLLAMA_MODEL` | no | `qwen2.5:7b` | Which model to use |
 | `YAD_PORT` | no | `3747` | Port to listen on |
-| `YAD_HOST` | no | `0.0.0.0` | Interface to bind to |
+| `YAD_HOST` | no | `127.0.0.1` | Interface to bind to. Set this explicitly (e.g. `0.0.0.0`) to reach the server from another machine. Non-local requests then still require `YAD_EXTERNAL_MODE=1` plus a valid `X-API-Key` from `YAD_API_KEYS` — set only `YAD_HOST`, without those, and remote requests keep getting a 403. |
 
 Endpoints once running: `GET /status`, `POST /goal` (body: `{ goal, url?, domains?, maxSteps?, sync? }`).
 
-Built-in guardrails, always on regardless of configuration: a hard concurrency limit, goal text sanitization, a scope guard that blocks actions outside domains you allow, and a hard deny-list on payment and checkout paths.
+Built-in guardrails, always on regardless of configuration: a hard concurrency limit, goal text sanitization, a scope guard that blocks actions outside domains you allow, a hard deny-list on payment and checkout paths, a 10 MB request-body cap, and a Host-header check against DNS-rebinding attempts.
 
 ## What this package will never do
 
