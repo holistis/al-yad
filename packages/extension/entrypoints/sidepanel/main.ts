@@ -59,7 +59,11 @@ const STRINGS = {
     langNl: "🇳🇱 Nederlands", langEn: "🇬🇧 English",
     langHint: "Yad antwoordt automatisch in de taal van je vraag, Duits in geeft Duits terug. Kies hier alleen de terugvaltaal voor als dat niet te bepalen is.",
     tierCautious: "Voorzichtig", tierNormal: "Normaal", tierFast: "Snel", tierDefault: "Standaard",
-    tierHint: "Voorzichtig = mensachtig tempo (LinkedIn). Snel = minimale pauze (eigen tools). Standaard = automatisch.",
+    tierCautiousHelp: "Wacht tussen elke stap zoals een mens dat zou doen. Kies dit op sites die snel, robotachtig gedrag kunnen opmerken en blokkeren.",
+    tierNormalHelp: "Gewoon tempo, geen extra wachttijd tussen stappen.",
+    tierFastHelp: "Zo min mogelijk pauze tussen stappen. Prima voor je eigen tools of interne systemen waar snelheid niet uitmaakt.",
+    tierDefaultHelp: "Yad kiest zelf het tempo, per site.",
+    tierHint: "Voorzichtig = mensachtig tempo. Snel = minimale pauze (eigen tools). Standaard = automatisch. Hover over het vraagtekentje voor uitleg.",
     saveSettings: "Opslaan & toepassen", savedMsg: "Opgeslagen en toegepast.",
     statsTitle: "Lokale statistieken", noStats: "Nog geen runs om te analyseren.",
     statsRuns: "Runs", statsSucceeded: "Geslaagd", statsAvgSteps: "Gem. stappen", statsFailed: "Mislukt",
@@ -71,17 +75,14 @@ const STRINGS = {
     claudeCaptureBtn: "🔗 Stuur naar Claude",
     claudeCapturingMsg: "Pagina sturen…",
     welcomeTitle: "Hallo, ik ben Yad. Je eigen hand in de browser.",
-    welcomeWhat: "Je zegt in gewone taal wat je wilt, en ik klik en typ het voor je op elke website. In jouw eigen browser, waar je al bent ingelogd. Ik leer een klus één keer en kan hem daarna zo herhalen.",
-    welcomeCanTitle: "Wat je me kunt vragen",
-    welcomeCan1: "Iets opzoeken en netjes op een rij zetten",
-    welcomeCan2: "Saaie stappen herhalen die je steeds opnieuw doet",
-    welcomeCan3: "Lezen wat er op een pagina staat en het teruggeven",
     welcomeTryTitle: "Probeer bijvoorbeeld",
     welcomeEx1: "Zoek 5 vacatures en zet ze op een rij",
     welcomeEx2: "Vat deze pagina kort voor me samen",
     welcomeEx3: "Verzamel de prijzen van de producten op deze pagina",
     welcomePrivacy: "Je wachtwoorden blijven op je computer, en jij kiest welke AI je gebruikt.",
     welcomeHint: "Typ hieronder wat ik moet doen, of klik een voorbeeld.",
+    mistakeDisclaimer: "Yad kan fouten maken. Controleer belangrijke stappen zelf.",
+    advancedTitle: "Geavanceerd",
     bizTitle: "Voor je bedrijf?",
     bizText: "YAD draait op je eigen computer. Wil je hem afgestemd op je team, of volledig op je eigen servers zodat je data binnen blijft?",
     bizCta: "Neem contact op",
@@ -104,7 +105,7 @@ const STRINGS = {
     killHint: "Blokkeert direct elke AI-aanroep tot je hem weer aanzet.",
     scanBtn: "Bekijk wat Yad op deze pagina ziet",
     qbConfirm: "Bevestig", qbAuto: "Auto",
-    attachBtn: "📎 Upload bijlage",
+    attachBtn: "📎",
     attachBtnTitle: "Bijlage uploaden (afbeelding, .txt, .rtf)",
     startTitle: "Taak starten",
     attachUnreadable: "niet leesbaar. Exporteer je CV als .txt (Word, Opslaan als, Tekst).",
@@ -157,7 +158,11 @@ const STRINGS = {
     langNl: "🇳🇱 Nederlands", langEn: "🇬🇧 English",
     langHint: "Yad automatically replies in the language of your request, type in German and it answers in German. Pick a fallback language here for when that cannot be detected.",
     tierCautious: "Cautious", tierNormal: "Normal", tierFast: "Fast", tierDefault: "Default",
-    tierHint: "Cautious = human-like pacing (LinkedIn). Fast = minimal delay (own tools). Default = automatic.",
+    tierCautiousHelp: "Waits between every step the way a human would. Use this on sites that can notice and block fast, robotic behavior.",
+    tierNormalHelp: "Normal pace, no extra wait between steps.",
+    tierFastHelp: "As little pause as possible between steps. Fine for your own tools or internal systems where speed doesn't matter.",
+    tierDefaultHelp: "Yad picks the pace itself, per site.",
+    tierHint: "Cautious = human-like pacing. Fast = minimal delay (own tools). Default = automatic. Hover the question mark for details.",
     saveSettings: "Save & apply", savedMsg: "Saved and applied.",
     statsTitle: "Local statistics", noStats: "No runs to analyze yet.",
     statsRuns: "Runs", statsSucceeded: "Succeeded", statsAvgSteps: "Avg. steps", statsFailed: "Failed",
@@ -169,17 +174,14 @@ const STRINGS = {
     claudeCaptureBtn: "🔗 Send to Claude",
     claudeCapturingMsg: "Sending page…",
     welcomeTitle: "Hi, I am Yad. Your own hand in the browser.",
-    welcomeWhat: "Tell me in plain words what you want, and I click and type it for you on any website. Inside your own browser, where you are already logged in. I learn a job once and can repeat it after that.",
-    welcomeCanTitle: "What you can ask me",
-    welcomeCan1: "Look something up and put it in a neat list",
-    welcomeCan2: "Repeat boring steps you do again and again",
-    welcomeCan3: "Read what is on a page and hand it back to you",
     welcomeTryTitle: "Try for example",
     welcomeEx1: "Find 5 job posts and list them",
     welcomeEx2: "Give me a short summary of this page",
     welcomeEx3: "Collect the prices of the products on this page",
     welcomePrivacy: "Your passwords stay on your computer, and you choose which AI to use.",
     welcomeHint: "Type what I should do below, or click an example.",
+    mistakeDisclaimer: "Yad can make mistakes. Double-check anything important yourself.",
+    advancedTitle: "Advanced",
     bizTitle: "For your company?",
     bizText: "YAD runs on your own computer. Want it tuned to your team, or fully on your own servers so your data stays in?",
     bizCta: "Get in touch",
@@ -202,7 +204,7 @@ const STRINGS = {
     killHint: "Instantly blocks every AI call until you turn it back on.",
     scanBtn: "See what Yad detects on this page",
     qbConfirm: "Confirm", qbAuto: "Auto",
-    attachBtn: "📎 Upload attachment",
+    attachBtn: "📎",
     attachBtnTitle: "Upload attachment (image, .txt, .rtf)",
     startTitle: "Start task",
     attachUnreadable: "not readable. Export your CV as .txt (Word, Save as, Text).",
@@ -347,7 +349,7 @@ async function showGate(): Promise<void> {
   if (currentLanguage === "en") {
     const notice = document.createElement("p");
     notice.id = "gate-notice";
-    notice.style.cssText = "font-size:12px;color:#6b7280;font-style:italic;margin:8px 0 0";
+    notice.style.cssText = "font-size:12px;color:#8891ab;font-style:italic;margin:8px 0 0";
     notice.textContent = "This is a translation for your convenience. The Dutch version is the legally binding one.";
     (document.getElementById("gate-summary") as HTMLElement).after(notice);
   }
@@ -477,22 +479,6 @@ function renderWelcome(): void {
   title.className = "wc-title";
   title.textContent = t("welcomeTitle");
 
-  const what = document.createElement("p");
-  what.className = "wc-what";
-  what.textContent = t("welcomeWhat");
-
-  const canTitle = document.createElement("p");
-  canTitle.className = "wc-sub";
-  canTitle.textContent = t("welcomeCanTitle");
-
-  const canList = document.createElement("ul");
-  canList.className = "wc-can";
-  (["welcomeCan1", "welcomeCan2", "welcomeCan3"] as const).forEach((k) => {
-    const li = document.createElement("li");
-    li.textContent = t(k);
-    canList.append(li);
-  });
-
   const tryTitle = document.createElement("p");
   tryTitle.className = "wc-sub";
   tryTitle.textContent = t("welcomeTryTitle");
@@ -523,27 +509,13 @@ function renderWelcome(): void {
   footText.textContent = t("welcomePrivacy");
   foot.append(lock, footText);
 
-  card.append(title, what, canTitle, canList, tryTitle, exWrap, foot);
+  card.append(title, tryTitle, exWrap, foot);
 
   const hint = document.createElement("p");
   hint.className = "wc-hint";
   hint.textContent = t("welcomeHint");
 
-  const biz = document.createElement("div");
-  biz.className = "wc-biz";
-  const bizTitle = document.createElement("p");
-  bizTitle.className = "wc-biz-title";
-  bizTitle.textContent = t("bizTitle");
-  const bizText = document.createElement("p");
-  bizText.className = "wc-biz-text";
-  bizText.textContent = t("bizText");
-  const bizCta = document.createElement("a");
-  bizCta.className = "wc-biz-cta";
-  bizCta.href = "mailto:info@mergefix.com";
-  bizCta.textContent = t("bizCta");
-  biz.append(bizTitle, bizText, bizCta);
-
-  wrap.append(card, hint, biz);
+  wrap.append(card, hint);
   chat.append(wrap);
 }
 
@@ -986,10 +958,15 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
   const header = document.createElement("div"); header.className = "provider-header";
   const chk = document.createElement("input"); chk.type = "checkbox";
   chk.id = `prov-${entry.id}-enabled`; chk.checked = config.enabled;
-  const nameLabel = document.createElement("label"); nameLabel.htmlFor = chk.id;
+  chk.onclick = (e): void => e.stopPropagation(); // niet ook de uitklap-toggle van de header triggeren
+  // Bewust een span, geen <label for>: klikken op de naam moet de kaart UITKLAPPEN, niet
+  // het vinkje omzetten. Dat zijn twee losse handelingen (aan/uit vs. kijken/instellen), en
+  // een <label for> zou ze onbedoeld aan elkaar knopen.
+  const nameLabel = document.createElement("span");
   nameLabel.className = "provider-name"; nameLabel.textContent = loc(entry.name);
   const badge = document.createElement("span"); badge.className = `provider-badge ${entry.tier}`; badge.textContent = loc(entry.badge);
-  header.append(chk, nameLabel, badge);
+  const chevron = document.createElement("span"); chevron.className = "provider-chevron"; chevron.textContent = "▾";
+  header.append(chk, nameLabel, badge, chevron);
   // Toon "✓ via companion" als de companion deze provider actief heeft vanuit zijn .env maar de gebruiker er geen sleutel voor heeft ingesteld
   if (companionActiveProviders.includes(entry.id) && !config.enabled) {
     const companionBadge = document.createElement("span");
@@ -998,7 +975,10 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
     companionBadge.textContent = t("provCompanionActive");
     header.append(companionBadge);
   }
-  const detail = document.createElement("div"); detail.className = "provider-detail";
+  // Standaard dicht, ook als de provider al aanstaat: alleen naam + badge + vinkje zichtbaar
+  // tot iemand er zelf op klikt. Dat was precies de klacht (alle info van elke provider stond
+  // meteen open, ook van providers die al lang geleden ingesteld waren).
+  const detail = document.createElement("div"); detail.className = "provider-detail hidden";
   const tagline = document.createElement("div"); tagline.className = "provider-tagline"; tagline.textContent = loc(entry.tagline);
   const meta = document.createElement("div"); meta.className = "provider-meta";
   if (entry.freeLimit) {
@@ -1010,8 +990,7 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
   signupBtn.className = "provider-signup"; signupBtn.textContent = t("provSignup");
   signupBtn.onclick = (): void => { window.open(entry.signupUrl, "_blank"); };
   meta.append(stars, signupBtn); detail.append(tagline, meta);
-  const fields = document.createElement("div"); fields.className = "provider-fields";
-  if (!config.enabled) fields.classList.add("hidden");
+  const fields = document.createElement("div"); fields.className = "provider-fields hidden";
   if (entry.requiresKey) {
     // Een versleutelde blob NOOIT in het veld tonen: leeg + duidelijke placeholder.
     const savedEncrypted = config.encrypted && !!config.key;
@@ -1053,11 +1032,22 @@ function buildProviderCard(entry: ProviderCatalogEntry, config: ProviderUserConf
     adv.append(advSummary, ...advFields);
     fields.append(adv);
   }
+  const setExpanded = (open: boolean): void => {
+    card.classList.toggle("expanded", open);
+    detail.classList.toggle("hidden", !open);
+    fields.classList.toggle("hidden", !open);
+    chevron.textContent = open ? "▴" : "▾";
+  };
+  header.onclick = (): void => setExpanded(!card.classList.contains("expanded"));
   chk.onchange = (): void => {
     card.classList.toggle("active", chk.checked);
-    fields.classList.toggle("hidden", !chk.checked);
     updateProviderVisibility();
-    if (chk.checked) fields.querySelector<HTMLInputElement>("input[type=password]")?.focus();
+    // Aanzetten is meteen ook de vraag "welke sleutel", dus meteen uitklappen; uitzetten
+    // laat de uitklap-staat met rust, dat is geen reden om iets te verbergen dat al open stond.
+    if (chk.checked) {
+      setExpanded(true);
+      fields.querySelector<HTMLInputElement>("input[type=password]")?.focus();
+    }
   };
   // Zodra iemand een sleutel plakt, zet de provider vanzelf aan. Dicht de stille val
   // waarbij een geplakte sleutel genegeerd werd omdat het vinkje uit stond.
