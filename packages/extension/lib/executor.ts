@@ -386,6 +386,15 @@ export async function executeAction(
         return { ok: true, extracted };
       }
       const text = (document.body?.innerText || "").replace(/\s+/g, " ").trim().slice(0, 2000);
+      // Zelfde reden als bij de ref-tak hierboven: een lege hele-pagina-lezing is bijna
+      // nooit een écht lege pagina, maar een pagina die nog aan het laden is, achter een
+      // consent-overlay zit, of waarvan de eigenlijke inhoud in een iframe zit dat
+      // innerText niet meeneemt. Stil ok:true met "" liet het taalmodel eerder een
+      // eerlijk klinkend maar misleidend "deze pagina heeft geen inhoud" verzinnen op
+      // een pagina die overduidelijk wel inhoud had (ServiceNow-marketingpagina, 2026-09-08).
+      if (!text) {
+        return { ok: false, detail: "pagina bevat geen zichtbare tekst — mogelijk nog niet geladen, achter een cookie-melding, of de inhoud rendert in een iframe" };
+      }
       return { ok: true, extracted: text };
     }
 
