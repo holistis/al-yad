@@ -425,14 +425,14 @@ async function startGoal(goal: string, maxSteps?: number, attachments?: Attachme
 /**
  * Bepaalt de tab waarop de taak draait.
  *
- * Regel: YAD kapt NOOIT de tab van de user. Twee gevallen:
+ * Regel: YAD kapt NOOIT de tab van de user — er wordt nooit geklikt, getypt of genavigeerd
+ * op een tab die de user zelf open heeft. Twee gevallen:
  *   1. stickyTabId aanwezig (user klikte YAD-icoon op die tab, of vorige run zat hier) → gebruik die tab.
- *   2. Geen stickyTabId → maak een EIGEN achtergrond-tab aan (active: false = geen focus-diefstal).
- *
- * De oude "Poging 1: actieve tab" en "Poging 2: lastWebTabId" zijn verwijderd — die
- * kapten de tab waar de user mee bezig was zodra er geen sticky-tab was.
+ *   2. Geen stickyTabId → maak een EIGEN achtergrond-tab aan (active: false = geen focus-diefstal),
+ *      gestart op dezelfde URL als de zichtbare tab (puur als leesstartpunt, geen actie op
+ *      de echte tab van de user zelf).
  */
-async function resolveRunTab(): Promise<number | null> {
+export async function resolveRunTab(): Promise<number | null> {
   // Poging 0: sticky tab — door user expliciet gekozen (klik op YAD-icoon op die tab)
   // of overgebleven van de vorige run (endRun() zet stickyTabId = runTabId).
   if (stickyTabId != null) {
@@ -445,9 +445,20 @@ async function resolveRunTab(): Promise<number | null> {
   }
 
   // Poging 1: maak een EIGEN YAD-tab aan in de achtergrond (active: false = user merkt niets).
-  // Eerste navigate-actie van de agent navigeert hem naar de juiste URL.
+  // Start 'm op de URL van de zichtbare tab als die er een heeft (bijv. de site naast het
+  // sidepanel) — dit is puur een LEES-startpunt voor de agent, geen actie op de echte tab
+  // van de user: we klikken/typen/navigeren nooit op zijn tab zelf, we lezen alleen welke
+  // URL hij al open heeft staan en laden diezelfde pagina in onze eigen, onzichtbare tab.
+  // Zonder dit begint elke vraag zonder expliciete URL ("waar gaat deze site over") altijd
+  // op about:blank, ook als de bedoelde site al gewoon open staat.
   try {
-    const created = await chrome.tabs.create({ url: "about:blank", active: false });
+    let seedUrl = "about:blank";
+    try {
+      const [visible] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (visible?.url && /^https?:\/\//i.test(visible.url)) seedUrl = visible.url;
+    } catch { /* query mislukt → blijf bij about:blank */ }
+
+    const created = await chrome.tabs.create({ url: seedUrl, active: false });
     if (typeof created.id === "number") {
       lastWebTabId = created.id;
       return created.id;
