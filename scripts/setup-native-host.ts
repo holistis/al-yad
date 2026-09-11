@@ -26,7 +26,7 @@ import {
   createPrivateKey,
   createPublicKey,
 } from "node:crypto";
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readFileSync, chmodSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -94,6 +94,9 @@ if (existsSync(privPath)) {
   const keyObj = createPrivateKey(privPem);
   publicDer = createPublicKey(keyObj).export({ type: "spki", format: "der" }) as Buffer;
   console.log("Bestaande extensie-sleutel hergebruikt.");
+  // Ook een bestaande sleutel opnieuw aantrekken, voor het geval die van voor
+  // deze fix dateert (world/group-readable geschreven op Linux/macOS). No-op op Windows.
+  try { chmodSync(privPath, 0o600); } catch { /* best effort */ }
 } else {
   const { publicKey, privateKey } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -102,6 +105,9 @@ if (existsSync(privPath)) {
   });
   publicDer = publicKey as Buffer;
   writeFileSync(privPath, privateKey as string, "utf8");
+  // Private sleutel: alleen de eigenaar. writeFileSync gebruikt de proces-umask,
+  // die op een gedeelde Linux/macOS-machine group/world-readable kan achterlaten.
+  try { chmodSync(privPath, 0o600); } catch { /* best effort */ }
   console.log("Nieuwe extensie-sleutel gegenereerd.");
 }
 

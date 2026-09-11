@@ -151,3 +151,67 @@ describe("Poort: fail-safe bij onbekende URL", () => {
     expect(checkDenied({ kind: "type", ref: "e1", text: "x" }, { currentUrl: "chrome://newtab" }).denied).toBe(true);
   });
 });
+
+describe("Poort: Nederlandse checkout-paden in DENY_PATHS (adversariele review 2026-09-11, finding 24)", () => {
+  it("weigert navigatie naar Nederlandse checkout-paden, niet alleen Engelse", () => {
+    expect(pathIsDenied("https://webshop.nl/afrekenen")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/bestellen")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/account/bestelling")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/betalen")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/kassa")).toBe(true);
+  });
+
+  it("weigert een SPA hash-route met een Nederlands checkout-pad", () => {
+    expect(pathIsDenied("https://webshop.nl/#/afrekenen")).toBe(true);
+  });
+});
+
+describe("Poort: betaalverwerker-hostname (adversariele review 2026-09-11)", () => {
+  it("weigert een Stripe-checkout-URL zonder 'checkout'/'payment' in het pad", () => {
+    expect(pathIsDenied("https://checkout.stripe.com/c/pay/cs_test_abc123")).toBe(true);
+  });
+
+  it("weigert bekende PayPal-, Adyen-, Mollie- en Google Pay-hostnamen", () => {
+    expect(pathIsDenied("https://www.paypal.com/checkoutnow")).toBe(true);
+    expect(pathIsDenied("https://checkoutshopper-live.adyen.com/checkoutshopper/checkout.shtml")).toBe(true);
+    expect(pathIsDenied("https://checkout.mollie.com/somepage")).toBe(true);
+    expect(pathIsDenied("https://pay.google.com/gp/w/u/0/home")).toBe(true);
+  });
+
+  it("laat een gewone subdomeinnaam die toevallig eindigt op een betaalhost niet valselijk falen", () => {
+    expect(pathIsDenied("https://notcheckout.stripe.com.evil.nl/producten")).toBe(false);
+  });
+
+  it("weigert elke schrijf-actie op een pagina die op een betaalverwerker-host draait", () => {
+    const a: Action = { kind: "click", ref: "e1" };
+    expect(checkDenied(a, { currentUrl: "https://checkout.stripe.com/c/pay/cs_test_abc123" }).denied).toBe(true);
+  });
+});
+
+describe("Poort: DENY_WORDS Nederlandse vervoegingen en Engelse koop-CTA's (adversariele review 2026-09-11)", () => {
+  it("weigert de infinitief 'Betalen' en vervoegingen, niet alleen de ik-vorm 'betaal'", () => {
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", targetName: "Betalen" }).denied).toBe(true);
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", targetName: "Nu betalen" }).denied).toBe(true);
+  });
+
+  it("weigert de infinitief 'Bestellen', niet alleen de ik-vorm 'bestel'", () => {
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", targetName: "Bestellen" }).denied).toBe(true);
+  });
+
+  it("weigert Engelse koop-CTA's die eerder ontbraken: Buy Now, Purchase, Complete Order, Finish Order", () => {
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", targetName: "Buy Now" }).denied).toBe(true);
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", targetName: "Purchase" }).denied).toBe(true);
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", targetName: "Complete Order" }).denied).toBe(true);
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", targetName: "Finish Order" }).denied).toBe(true);
+  });
+
+  it("weigert 'Confirm Payment' en 'Bevestig bestelling', maar laat een onschuldige 'Bevestig e-mailadres' door", () => {
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", targetName: "Confirm Payment" }).denied).toBe(true);
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/cart", targetName: "Bevestig bestelling" }).denied).toBe(true);
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/account", targetName: "Bevestig e-mailadres" }).denied).toBe(false);
+  });
+
+  it("blijft een niet-verwante klik met een onschuldig label doorlaten", () => {
+    expect(checkDenied({ kind: "click", ref: "e1" }, { currentUrl: "https://shop.nl/", targetName: "Lees meer" }).denied).toBe(false);
+  });
+});

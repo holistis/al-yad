@@ -635,4 +635,28 @@ describe("AgentLoop — RunRecord-getters", () => {
     await loop.run("wat is de titel van het artikel?");
     expect(hand.acts[0]).toEqual({ kind: "extract", what: "titel van het artikel", ref: "e1" });
   });
+
+  // Regressie op de adversariale review (2026-09-11): de Stop-knop zette voorheen alleen
+  // de uitgaven-poort dicht (blokkeert de VOLGENDE modelaanroep), maar een microPlan van
+  // meerdere al-besloten acties heeft voor de resterende stappen geen nieuwe modelaanroep
+  // nodig, dus die voerden gewoon door alsof Stop nooit was ingedrukt.
+  it("stopt direct midden in een microPlan zodra isAborted() waar wordt, ook zonder nieuwe modelaanroep", async () => {
+    const hand = new MockHand();
+    // Eén modelantwoord met een plan van twee stappen — de tweede mag NOOIT uitgevoerd
+    // worden, want isAborted() wordt na de eerste actie waar.
+    const router = new MockRouter([
+      '{"steps":[{"kind":"click","ref":"e1","expected":"opgeslagen"},{"kind":"click","ref":"e2","expected":"bevestigd"}],"rationale":"twee klikken"}',
+    ]);
+    let aborted = false;
+    const originalAct = hand.act.bind(hand);
+    hand.act = async (a) => {
+      const r = await originalAct(a);
+      aborted = true; // gebruiker klikt Stop vlak na de eerste, al-gebufferde actie
+      return r;
+    };
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, isAborted: () => aborted });
+    const out = await loop.run("sla het formulier op en bevestig");
+    expect(out.status).toBe("gestopt");
+    expect(hand.acts).toHaveLength(1); // de tweede, al-gebufferde actie mag niet meer lopen
+  });
 });

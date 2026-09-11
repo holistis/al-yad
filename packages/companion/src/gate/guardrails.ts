@@ -16,9 +16,44 @@ export const DENY_PATHS = [
   "/confirm",
   "/order/",
   "/order",
+  // Nederlandse webshops routeren checkout vaak onder een Nederlands pad in
+  // plaats van het Engelse "/checkout" (adversariele review 2026-09-11,
+  // finding 24: DENY_PATHS was Engels-only terwijl DENY_WORDS al wel
+  // Nederlandse knoptekst dekte).
+  "/afrekenen",
+  "/bestellen",
+  "/bestelling",
+  "/betalen",
+  "/kassa",
 ];
 
 const SAFE_SCHEMES = ["http:", "https:"];
+
+/**
+ * Bekende betaalverwerker-hostnamen. Hun eigen betaalpagina's volgen vaak geen
+ * /payment-/checkout-/order-padstructuur (Stripe's eigen checkout draait bv. op
+ * checkout.stripe.com/c/pay/cs_test_xxx, zonder "checkout" of "payment" in het pad
+ * zelf), dus DENY_PATHS mist deze structureel. Niet uitputtend: defense-in-depth
+ * naast de pad-check, niet de enige laag.
+ */
+const PAYMENT_HOSTS = [
+  "checkout.stripe.com",
+  "buy.stripe.com",
+  "paypal.com",
+  "www.paypal.com",
+  "checkout.mollie.com",
+  "checkoutshopper-live.adyen.com",
+  "checkoutshopper-test.adyen.com",
+  "secure.worldpay.com",
+  "pay.google.com",
+  "checkout.klarna.com",
+  "checkout.shopify.com",
+];
+
+function isPaymentHost(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+  return PAYMENT_HOSTS.some((h) => lower === h || lower.endsWith(`.${h}`));
+}
 
 const CONFIRM_WORDS =
   /\b(opslaan|save|verstuur|verzend|send|submit|bevestig|confirm|verwijder|delete|update|wijzig|aanmaken|create|betaal|bestel)\b/i;
@@ -73,6 +108,7 @@ function matchesDenyPath(segment: string): boolean {
 export function pathIsDenied(url: string, base?: string): boolean {
   try {
     const u = new URL(url, base ?? "http://local.invalid");
+    if (isPaymentHost(u.hostname)) return true;
     return matchesDenyPath(u.pathname) || matchesDenyPath(u.hash) || matchesDenyPath(u.search);
   } catch {
     const s = String(url).toLowerCase();
