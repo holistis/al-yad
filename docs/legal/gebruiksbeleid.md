@@ -6,11 +6,11 @@
 
 # Acceptable Use Policy (Gebruiksbeleid) — Yad
 
-**Uitgegeven door:** [RECHTSPERSOON], gevestigd te [VESTIGINGSPLAATS], ingeschreven bij de Kamer van Koophandel onder nummer [KVK] (hierna: **"Yad"**, "wij", "ons" of "onze").
+**Uitgegeven door:** Holistisch Adviseur, gevestigd te [VESTIGINGSPLAATS], ingeschreven bij de Kamer van Koophandel onder nummer 86816632 (hierna: **"Yad"**, "wij", "ons" of "onze").
 
 **Versie:** [VERSIE] — **Datum inwerkingtreding:** [DATUM]
 
-**Contact misbruikmeldingen en klachten:** [E-MAIL]
+**Contact misbruikmeldingen en klachten:** info@holistischadviseur.nl
 
 ---
 
@@ -168,7 +168,7 @@ Het is de Klant **niet** toegestaan de Dienst te gebruiken, te laten gebruiken o
 
 **9.1 — Monitoring.** Yad kan, als zelfstandig verwerkingsverantwoordelijke (artikel 8.2) en op grondslag van haar gerechtvaardigd belang bij beveiliging en misbruikdetectie (artikel 6 lid 1 sub f AVG), het gebruik van de Dienst monitoren om de naleving van deze AUP te bewaken, misbruik te detecteren en de veiligheid en integriteit van de Dienst en van derden te beschermen. Deze monitoring is **proportioneel** en blijft beperkt tot wat daarvoor noodzakelijk is; Yad kijkt niet verder of dieper in Sessiedata dan voor dat doel redelijkerwijs nodig is. De wijze van verwerking en de rechten van Betrokkenen zijn nader toegelicht in de privacyverklaring van Yad en, voor zover van toepassing, de DPA.
 
-**9.2 — Melding.** Vermoedens van schending van deze AUP kunnen worden gemeld via [E-MAIL]. Yad onderzoekt meldingen binnen een redelijke termijn.
+**9.2 — Melding.** Vermoedens van schending van deze AUP kunnen worden gemeld via info@holistischadviseur.nl. Yad onderzoekt meldingen binnen een redelijke termijn.
 
 **9.3 — Gevolgen van schending.** Bij een (vermoede) schending van deze AUP is Yad gerechtigd, met inachtneming van **proportionaliteit en dwingend recht**, één of meer van de volgende maatregelen te nemen:
 1. de Klant te **waarschuwen** en tot herstel te sommeren;
@@ -181,7 +181,7 @@ Het is de Klant **niet** toegestaan de Dienst te gebruiken, te laten gebruiken o
 
 **9.5 — Proportionaliteit en spoed.** De zwaarte van de maatregel staat in verhouding tot de aard en ernst van de schending. Bij een **acuut of ernstig risico** (zoals een dreigend datalek, onbevoegde toegang of dreigende schade aan derden) kan Yad de toegang **onmiddellijk** opschorten, zo nodig zonder voorafgaande waarschuwing; Yad informeert de Klant in dat geval zo spoedig als redelijkerwijs mogelijk.
 
-**9.6 — Klacht- en escalatieroute van de Klant.** De Klant kan tegen een op grond van dit artikel genomen maatregel binnen een redelijke termijn bezwaar maken via [E-MAIL]. Yad heroverweegt de maatregel binnen een redelijke termijn en heft deze op of past deze aan indien de maatregel niet (langer) gerechtvaardigd of niet proportioneel blijkt. Deze route laat de wettelijke rechten van de Klant onverlet.
+**9.6 — Klacht- en escalatieroute van de Klant.** De Klant kan tegen een op grond van dit artikel genomen maatregel binnen een redelijke termijn bezwaar maken via info@holistischadviseur.nl. Yad heroverweegt de maatregel binnen een redelijke termijn en heft deze op of past deze aan indien de maatregel niet (langer) gerechtvaardigd of niet proportioneel blijkt. Deze route laat de wettelijke rechten van de Klant onverlet.
 
 **9.7** Een rechtmatige opschorting of beëindiging op grond van dit artikel laat de betalingsverplichtingen van de Klant en de vrijwaringsverplichtingen uit de Algemene Voorwaarden onverlet.
 
@@ -194,7 +194,7 @@ Het is de Klant **niet** toegestaan de Dienst te gebruiken, te laten gebruiken o
 2. nieuwe of gewijzigde veiligheids- of beveiligingsrisico's, of nieuwe of gewijzigde functionaliteit van de Dienst die een aanpassing van het toegestane of verboden gebruik noodzakelijk maakt;
 3. niet-nadelige verduidelijkingen, redactionele correcties of aanvullingen die de positie van de Klant niet wezenlijk verslechteren.
 
-**10.2 — Aankondiging.** Wezenlijke wijzigingen worden vooraf en binnen een redelijke termijn (in beginsel ten minste 30 dagen voor inwerkingtreding) aangekondigd via [E-MAIL] of binnen de Dienst.
+**10.2 — Aankondiging.** Wezenlijke wijzigingen worden vooraf en binnen een redelijke termijn (in beginsel ten minste 30 dagen voor inwerkingtreding) aangekondigd via info@holistischadviseur.nl of binnen de Dienst.
 
 **10.3 — Opzeg-/ontbindingsrecht bij nadelige wijziging.** Verslechtert een wijziging de positie van de Klant wezenlijk en niet enkel als gevolg van een dwingende wettelijke verplichting, dan heeft de Klant het recht de Overeenkomst, voor zover deze door de wijziging wordt geraakt, **kosteloos** op te zeggen of te ontbinden door dit vóór de datum van inwerkingtreding van de wijziging schriftelijk of per e-mail aan Yad kenbaar te maken. Maakt de Klant van dit recht gebruik, dan blijft de oude versie van de AUP gelden tot het einde van de opzegtermijn. Dit recht geldt niet voor zover de wijziging uitsluitend voortvloeit uit een dwingende wettelijke verplichting waaraan ook de oude versie zou moeten worden aangepast.
 
