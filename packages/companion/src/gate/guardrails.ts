@@ -16,6 +16,15 @@ export const DENY_PATHS = [
   "/confirm",
   "/order/",
   "/order",
+  // Nederlandse webshops routeren checkout vaak onder een Nederlands pad in
+  // plaats van het Engelse "/checkout" (adversariele review 2026-09-11,
+  // finding 24: DENY_PATHS was Engels-only terwijl DENY_WORDS al wel
+  // Nederlandse knoptekst dekte).
+  "/afrekenen",
+  "/bestellen",
+  "/bestelling",
+  "/betalen",
+  "/kassa",
 ];
 
 const SAFE_SCHEMES = ["http:", "https:"];
