@@ -44,8 +44,9 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { extname, basename, join, resolve as resolvePath } from "node:path";
+import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, existsSync, chmodSync } from "node:fs";
+import { extname, basename, join, resolve as resolvePath, sep } from "node:path";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readSteps } from "./history/step-reader.js";
 import { verifySteps } from "./verify/verifier.js";
 import { checkExternalGate } from "./external-gate.js";
@@ -54,6 +55,7 @@ import { staatOpAlleenLokaal } from "./engine/pool.js";
 import type { BrainSession } from "./session.js";
 import type { Substate } from "./agent/substate.js";
 import type { LlmRouter } from "./engine/router.js";
+import type { SpendGuard } from "./engine/spend-guard.js";
 
 const PORT = (() => {
   const raw = process.env["YAD_PORT"];
@@ -73,7 +75,7 @@ function looksLikeRawDump(text: string): boolean {
   return !hasStructure && text.length > 400;
 }
 
-async function cleanWithGroq(goal: string, rawParts: string[], fallbackSummary?: string): Promise<string> {
+async function cleanWithGroq(goal: string, rawParts: string[], fallbackSummary: string | undefined, guard: SpendGuard | undefined): Promise<string> {
   // Deze aanroep gaat rechtstreeks naar Groq en niet via buildPool(), en ontsnapte daarmee
   // aan de harde lokale stand: met YAD_LOKAAL aan gingen de opdracht en 5000 tekens
   // paginatekst alsnog naar een Amerikaanse partij, met de sleutel van de eigenaar.
@@ -86,6 +88,14 @@ async function cleanWithGroq(goal: string, rawParts: string[], fallbackSummary?:
     allParts.push(fallbackSummary);
   }
   if (!apiKey || allParts.length === 0) return fallbackSummary ?? rawParts.join("\n");
+  // Zelfde uitgaven-poort als elke andere AI-aanroep in het systeem (router.ts): een
+  // gestopte of over-de-limiet gebruiker mag ook via dit tweede pad geen echte,
+  // betaalde aanroep meer doen. Voorheen liep dit volledig langs de SpendGuard heen.
+  try {
+    guard?.checkBefore();
+  } catch {
+    return fallbackSummary ?? rawParts.join("\n");
+  }
   try {
     const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -108,6 +118,7 @@ async function cleanWithGroq(goal: string, rawParts: string[], fallbackSummary?:
     });
     if (!resp.ok) return fallbackSummary ?? rawParts.join("\n");
     const data = await resp.json() as { choices?: Array<{ message?: { content?: string } }> };
+    guard?.record("groq");
     return data.choices?.[0]?.message?.content ?? (fallbackSummary ?? rawParts.join("\n"));
   } catch {
     return fallbackSummary ?? rawParts.join("\n");
@@ -145,6 +156,20 @@ function defaultSearchDirs(): string[] {
   ];
 }
 
+/**
+ * Een expliciet door de aanroeper opgegeven map/pad moet binnen defaultSearchDirs() vallen.
+ * Zonder deze grens kon /fs/read-file letterlijk elk bestand op de machine lezen dat de
+ * ingelogde gebruiker mag lezen, alleen beschermd door of een aanroeper al lokaal is,
+ * niet door welk bestand het is.
+ */
+function isWithinAllowedDirs(candidatePath: string): boolean {
+  const resolved = resolvePath(candidatePath);
+  return defaultSearchDirs().some((dir) => {
+    const resolvedDir = resolvePath(dir);
+    return resolved === resolvedDir || resolved.startsWith(resolvedDir + sep);
+  });
+}
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -171,7 +196,52 @@ function hasValidHostHeader(req: IncomingMessage): boolean {
   return host === `localhost:${PORT}` || host === `127.0.0.1:${PORT}`;
 }
 
-export function startHttpApi(session: BrainSession, log: (m: string) => void, externalRouter?: LlmRouter): void {
+/**
+ * Gedeeld geheim tussen de companion en een geautoriseerde lokale aanroeper (Claude Code /
+ * een ander lokaal script). Zonder dit kon LETTERLIJK elke pagina die de gebruiker ooit in
+ * dezelfde Chrome opende, met een gewone same-machine fetch() naar 127.0.0.1:3747, deze hele
+ * API bedienen: willekeurige JS in een YAD-tab laten draaien, lokale bestanden lezen, en de
+ * volledig autonome agent starten. De eerdere Host-header-check verdedigt alleen tegen
+ * DNS-rebinding, niet tegen een doodgewoon cross-origin verzoek — dat token doet dat wel.
+ * Wordt eenmalig gegenereerd en persistent opgeslagen; bestaande scripts/sessies moeten het
+ * token uit dit bestand lezen en meesturen als header X-Yad-Token.
+ */
+function tokenFilePath(): string {
+  const dataDir = process.env["YAD_DATA_DIR"] ?? join(process.cwd(), "data");
+  return join(dataDir, "companion-token.txt");
+}
+
+function loadOrCreateAuthToken(log: (m: string) => void): string {
+  const filePath = tokenFilePath();
+  try {
+    if (existsSync(filePath)) {
+      const existing = readFileSync(filePath, "utf8").trim();
+      if (existing.length >= 32) return existing;
+    }
+  } catch { /* val terug op nieuw genereren */ }
+  const token = randomBytes(32).toString("hex");
+  try {
+    mkdirSync(join(filePath, ".."), { recursive: true });
+    writeFileSync(filePath, token, { encoding: "utf8", mode: 0o600 });
+    try { chmodSync(filePath, 0o600); } catch { /* niet elk platform ondersteunt dit, mode hierboven dekt de meeste gevallen al */ }
+    log(`[http-api] nieuw auth-token aangemaakt: ${filePath}`);
+  } catch (e) {
+    log(`[http-api] kon auth-token niet wegschrijven (${(e as Error).message}), token geldt alleen voor dit proces`);
+  }
+  return token;
+}
+
+function hasValidToken(req: IncomingMessage, expected: string): boolean {
+  const provided = req.headers["x-yad-token"];
+  if (typeof provided !== "string" || provided.length === 0) return false;
+  const a = Buffer.from(provided, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+export function startHttpApi(session: BrainSession, log: (m: string) => void, externalRouter?: LlmRouter, spendGuard?: SpendGuard): void {
+  const authToken = loadOrCreateAuthToken(log);
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     const addr = req.socket.remoteAddress;
     const isLocalhost = addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
@@ -193,6 +263,20 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
 
     const url = req.url ?? "/";
     const method = req.method ?? "GET";
+
+    // Auth-token: een geldig loopback-adres + Host-header bewijst alleen dat het TCP-pakket
+    // van deze machine komt, niet WIE het stuurde. Zonder dit kon elke andere lokale tab of
+    // elk ander lokaal proces exact hetzelfde doen als de bedoelde aanroeper. GET /status
+    // blijft bewust open (geen enkele actie, alleen "leeft hij", zodat een simpele
+    // gezondheidscheck geen token hoeft te kennen).
+    const isStatusCheck = url === "/status" && method === "GET";
+    if (!isStatusCheck && !hasValidToken(req, authToken)) {
+      json(res, 401, {
+        ok: false,
+        detail: `Ongeldig of ontbrekend token. Stuur header X-Yad-Token met de inhoud van ${tokenFilePath()}.`,
+      });
+      return;
+    }
 
     // ── /status : leeft de verbinding, en kán hij ook echt iets? ─────────────
     //
@@ -288,7 +372,14 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
           json(res, 400, { ok: false, detail: "goal is verplicht" });
           return;
         }
-        // Saniteer goal: afkappen op 1000 chars, schadelijke instructie-patronen weigeren.
+        // Saniteer de DOOR DE AANROEPER GETYPTE goal-tekst: afkappen op 1000 chars,
+        // duidelijk instructie-omzeilende patronen weigeren. Dit is GEEN algemene
+        // prompt-injectie-verdediging (adversariele review 2026-09-11, finding 15
+        // wees terecht op die mismatch): het screent alleen wat Claude Code/de
+        // koning zelf als taak intypt, niet de paginatekst die later in hetzelfde
+        // prompt terechtkomt. Die kant wordt afgeschermd door de expliciete
+        // UNTRUSTED PAGE CONTENT-markering + instructiehierarchie in prompt.ts
+        // (SYSTEM-prompt), niet hier.
         const rawGoal = parsed.goal.slice(0, 1000);
         if (/ignore\s+(previous|all)\s+instructions?|system\s*prompt|reveal\s+(your\s+)?prompt|exfiltrat/i.test(rawGoal)) {
           json(res, 400, { ok: false, detail: "goal bevat een niet-toegestaan patroon" });
@@ -332,7 +423,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
               const extractedParts = steps
                 .filter((s) => typeof s.extracted === "string" && s.extracted.trim().length > 0)
                 .map((s) => s.extracted as string);
-              const cleaned = await cleanWithGroq(rawGoal, extractedParts, result.summary);
+              const cleaned = await cleanWithGroq(rawGoal, extractedParts, result.summary, spendGuard);
               json(res, 200, { ok: true, ...result, cleaned });
             } else {
               json(res, 200, { ok: true, ...result, cleaned: null });
@@ -1113,6 +1204,10 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       try {
         const raw = await readBody(req);
         const parsed = raw.trim() ? (JSON.parse(raw) as { dir?: string }) : {};
+        if (typeof parsed.dir === "string" && !isWithinAllowedDirs(parsed.dir)) {
+          json(res, 403, { ok: false, detail: "dir valt buiten de toegestane mappen (Desktop/Documents/Downloads)" });
+          return;
+        }
         const dirs = typeof parsed.dir === "string" ? [parsed.dir] : defaultSearchDirs();
         const files: Array<{ name: string; path: string; size: number; ext: string; mimeType: string }> = [];
         for (const dir of dirs) {
@@ -1143,6 +1238,10 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
         const parsed = JSON.parse(raw) as { q?: string; ext?: string; dir?: string };
         const query = (parsed.q ?? "").toLowerCase();
         const extFilter = parsed.ext ? (parsed.ext.startsWith(".") ? parsed.ext.toLowerCase() : "." + parsed.ext.toLowerCase()) : null;
+        if (typeof parsed.dir === "string" && !isWithinAllowedDirs(parsed.dir)) {
+          json(res, 403, { ok: false, detail: "dir valt buiten de toegestane mappen (Desktop/Documents/Downloads)" });
+          return;
+        }
         const dirs = typeof parsed.dir === "string" ? [parsed.dir] : defaultSearchDirs();
         const matches: Array<{ name: string; path: string; size: number; mimeType: string }> = [];
         for (const dir of dirs) {
@@ -1178,6 +1277,10 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
           return;
         }
         const filePath = resolvePath(parsed.path);
+        if (!isWithinAllowedDirs(filePath)) {
+          json(res, 403, { ok: false, detail: "path valt buiten de toegestane mappen (Desktop/Documents/Downloads)" });
+          return;
+        }
         const content = readFileSync(filePath);
         if (content.length > 10 * 1024 * 1024) {
           json(res, 413, { ok: false, detail: "Bestand te groot (max 10 MB)" });

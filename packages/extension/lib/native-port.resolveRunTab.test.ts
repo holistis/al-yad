@@ -92,4 +92,36 @@ describe("resolveRunTab — nooit de tab van de user kapen, wel z'n URL als lees
     expect(result).toBe(6);
     expect(tabsCreate).toHaveBeenCalledWith({ url: "about:blank", active: false });
   });
+
+  it("kaapt GEEN willekeurige, meest-recent-bezochte tab van de gebruiker als het aanmaken van een eigen tab mislukt (adversariele review 2026-09-11, finding 22: zelfde heuristiek als het mailbox-capture-lek van 2026-09-07)", async () => {
+    const queryAll = vi.fn(async (q: { url?: string[] }) =>
+      q.url
+        ? [
+            // Zou vroeger als "beste" gekozen worden (meest recent bezocht): de
+            // prive-inbox van de gebruiker, niet de tab die YAD hoort te besturen.
+            { id: 123, url: "https://webmail.voorbeeld.nl/inbox", lastAccessed: 999 },
+            { id: 456, url: "https://voorbeeld.nl/", lastAccessed: 1 },
+          ]
+        : []
+    );
+    const chromeStub = {
+      tabs: {
+        get: vi.fn(async () => { throw new Error("geen sticky tab"); }),
+        create: vi.fn(async () => { throw new Error("tabs.create mislukt (bv. no-permissions edge case)"); }),
+        query: queryAll,
+      },
+    };
+    const mod = await laadVersModule(chromeStub);
+
+    const result = await mod.resolveRunTab();
+
+    expect(result).toBeNull();
+    // Geen enkele http(s)-tab-query naar "alle tabs" om er willekeurig eentje
+    // te kapen — de enige toegestane query is naar de ene zichtbare tab (als
+    // leesstartpunt), die hier al faalde via chrome.tabs.create.
+    const calledWithAllTabsFilter = queryAll.mock.calls.some(
+      ([q]) => Array.isArray(q?.url) && q.url.includes("http://*/*"),
+    );
+    expect(calledWithAllTabsFilter).toBe(false);
+  });
 });

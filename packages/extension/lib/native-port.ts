@@ -271,6 +271,31 @@ export function setYadTabId(tabId: number): void {
   stickyTabId = tabId;
 }
 
+/** Bewust smal: alleen letters, cijfers, punt en streepje, dus geen pad/query/protocol. */
+const LOOKS_LIKE_BARE_HOSTNAME = /^[a-z0-9.-]+\.[a-z]{2,}$/i;
+
+/**
+ * /adopt-tab matchte voorheen met een kale `url.includes(pattern)`: een pattern
+ * "amazon.com" matchte dan ook "https://scam-amazon.com.evil.ru/phish", een
+ * kijk-alikedomein dat "amazon.com" toevallig als substring bevat. Als het
+ * pattern eruitziet als een kale hostname (geen protocol, pad of query), matchen
+ * we voortaan op de echte hostname (exact of als subdomein), niet als losse
+ * substring. Bevat het pattern wel een "/", "?" of "#" (bedoeld om op pad/query
+ * te matchen, bv. een sessie-id), dan blijft het oude substring-gedrag gelden.
+ */
+export function urlMatchesAdoptPattern(url: string, pattern: string): boolean {
+  if (!LOOKS_LIKE_BARE_HOSTNAME.test(pattern)) {
+    return url.includes(pattern);
+  }
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    const p = pattern.toLowerCase();
+    return hostname === p || hostname.endsWith(`.${p}`);
+  } catch {
+    return false;
+  }
+}
+
 export function startNativePort(): void {
   // Host-naam eenmalig laden voor de eerste connect(); als settings niet
   // (op tijd) leesbaar zijn, verbindt hij gewoon met de standaard-host in
@@ -463,20 +488,15 @@ export async function resolveRunTab(): Promise<number | null> {
       lastWebTabId = created.id;
       return created.id;
     }
-  } catch { /* aanmaken mislukt → noodval hieronder */ }
+  } catch { /* aanmaken mislukt → eerlijk falen hieronder, geen noodval */ }
 
-  // Noodval: tab aanmaken mislukt (bijv. no-permissions edge case) → gebruik bestaande tab.
-  // Dit is de enige situatie waarin een user-tab gebruikt mag worden.
-  const all = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
-  if (all.length) {
-    all.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
-    const best = all[0];
-    if (typeof best.id === "number") {
-      lastWebTabId = best.id;
-      return best.id;
-    }
-  }
-
+  // Met opzet GEEN terugval meer op "pak de meest recent bezochte tab van de
+  // gebruiker" (adversariele review 2026-09-11, finding 22): dat is precies de
+  // heuristiek van het capture-lek van 2026-09-07 dat de Roundcube-mailbox van
+  // de gebruiker uitlas (zie handleCaptureForClaude() hieronder), alleen nu
+  // bereikbaar via een zeldzamere weg (chrome.tabs.create() die faalt) in
+  // plaats van "geen lopende run". Een duidelijke fout is beter dan
+  // stilzwijgend acties uitvoeren op de prive-tab van de gebruiker.
   return null;
 }
 
@@ -637,7 +657,7 @@ function onMessage(raw: unknown): void {
         try {
           const tabs = await chrome.tabs.query({});
           const match = tabs.find(
-            (t) => typeof t.url === "string" && t.url.includes(p.pattern) && typeof t.id === "number"
+            (t) => typeof t.url === "string" && urlMatchesAdoptPattern(t.url, p.pattern) && typeof t.id === "number"
           );
           if (!match || typeof match.id !== "number") {
             replyToBrain("ADOPT_TAB_RESULT", { ok: false, detail: `geen open tab gevonden met '${p.pattern}' in de URL` }, raw.id);
@@ -929,6 +949,15 @@ async function sendConfigUpdate(): Promise<void> {
       killed: settings.killed,
     }),
   );
+  // "Stop Yad nu" mocht voorheen alleen de VOLGENDE AI-aanroep blokkeren (via de
+  // uitgaven-poort in de companion), terwijl een al lopende taak — inclusief een
+  // reeks acties die geen nieuwe AI-aanroep meer nodig heeft — gewoon doorliep tot
+  // hij vanzelf klaar was. Dat is niet "direct stoppen", dat is "straks stoppen".
+  // Een echt lopende run moet daarom hetzelfde harde afbreek-signaal krijgen als
+  // wanneer de gebruiker de tab zelf zou sluiten.
+  if (settings.killed && runInProgress) {
+    port.postMessage(handMessage("ABORT_RUN", { reason: "gebruiker klikte op Stop" }));
+  }
 }
 
 async function handleCaptureForClaude(): Promise<void> {

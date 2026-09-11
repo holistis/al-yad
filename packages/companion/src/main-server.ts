@@ -170,7 +170,10 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       return;
     }
 
-    // Prompt-injectie blokkeren
+    // Screent alleen de DOOR DE AANROEPER GETYPTE goal-tekst, GEEN algemene
+    // prompt-injectie-verdediging (adversariele review 2026-09-11, finding 15):
+    // paginatekst die later in hetzelfde prompt terechtkomt wordt hier niet
+    // gefilterd, dat gebeurt via de UNTRUSTED PAGE CONTENT-markering in prompt.ts.
     if (/ignore\s+(previous|all)\s+instructions?|system\s*prompt|reveal\s+(your\s+)?prompt|exfiltrat/i.test(rawGoal)) {
       json(res, 400, { ok: false, detail: "Goal bevat een niet-toegestaan patroon" });
       return;
