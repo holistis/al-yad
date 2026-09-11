@@ -2,12 +2,21 @@ const BASE_URL = process.env["YAD_COMPANION_URL"] ?? "http://127.0.0.1:3747";
 
 export class CompanionError extends Error {}
 
+// De companion eist sinds de adversariele-review-fix (2026-09-11) een geldig X-Yad-Token op elk
+// endpoint behalve GET /status: zonder dit brak deze client stilzwijgend op elke aanroep. De
+// koning stelt de waarde hier in (uit <YAD_DATA_DIR>/companion-token.txt), deze client onthoudt
+// geen eigen kopie van het bestandspad, want dat pad varieert per manier van opstarten.
+function tokenHeaders(): Record<string, string> {
+  const token = process.env["YAD_COMPANION_TOKEN"];
+  return token ? { "X-Yad-Token": token } : {};
+}
+
 async function request(path: string, opts: { method: "GET" | "POST"; body?: unknown }): Promise<unknown> {
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}${path}`, {
       method: opts.method,
-      headers: opts.body ? { "Content-Type": "application/json" } : undefined,
+      headers: { ...tokenHeaders(), ...(opts.body ? { "Content-Type": "application/json" } : {}) },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
   } catch (e) {

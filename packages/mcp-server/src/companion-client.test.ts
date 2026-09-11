@@ -75,4 +75,39 @@ describe("companion-client", () => {
     }) as unknown as typeof fetch;
     await expect(status()).rejects.toBeInstanceOf(CompanionError);
   });
+
+  describe("X-Yad-Token (adversariele review 2026-09-11: companion eist nu een token)", () => {
+    const originalToken = process.env["YAD_COMPANION_TOKEN"];
+
+    afterEach(() => {
+      if (originalToken === undefined) delete process.env["YAD_COMPANION_TOKEN"];
+      else process.env["YAD_COMPANION_TOKEN"] = originalToken;
+    });
+
+    it("stuurt X-Yad-Token mee zodra YAD_COMPANION_TOKEN gezet is", async () => {
+      process.env["YAD_COMPANION_TOKEN"] = "geheim-123";
+      const fn = mockFetchOnce({ ok: true, connected: true });
+      await status();
+      const [, init] = fn.mock.calls[0] as [string, RequestInit];
+      expect((init.headers as Record<string, string>)["X-Yad-Token"]).toBe("geheim-123");
+    });
+
+    it("stuurt geen X-Yad-Token header als YAD_COMPANION_TOKEN niet gezet is", async () => {
+      delete process.env["YAD_COMPANION_TOKEN"];
+      const fn = mockFetchOnce({ ok: true, connected: true });
+      await status();
+      const [, init] = fn.mock.calls[0] as [string, RequestInit];
+      expect(init.headers as Record<string, string>).not.toHaveProperty("X-Yad-Token");
+    });
+
+    it("stuurt het token ook mee op een POST met body, naast Content-Type", async () => {
+      process.env["YAD_COMPANION_TOKEN"] = "geheim-456";
+      const fn = mockFetchOnce({ ok: true });
+      await navigate("https://example.com");
+      const [, init] = fn.mock.calls[0] as [string, RequestInit];
+      const headers = init.headers as Record<string, string>;
+      expect(headers["X-Yad-Token"]).toBe("geheim-456");
+      expect(headers["Content-Type"]).toBe("application/json");
+    });
+  });
 });
