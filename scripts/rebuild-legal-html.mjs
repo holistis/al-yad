@@ -5,6 +5,9 @@ const docs = [
   { md: "docs/legal/privacyverklaring.md", html: "packages/extension/public/legal/privacyverklaring.html", title: "Privacyverklaring (Privacy Policy) — Yad" },
   { md: "docs/legal/algemene-voorwaarden.md", html: "packages/extension/public/legal/algemene-voorwaarden.html", title: "Algemene Voorwaarden (Terms of Service) — Yad" },
   { md: "docs/legal/gebruiksbeleid.md", html: "packages/extension/public/legal/gebruiksbeleid.html", title: "Gebruiksbeleid (Acceptable Use Policy) — Yad" },
+  { md: "docs/legal/privacyverklaring-en.md", html: "packages/extension/public/legal/privacyverklaring-en.html", title: "Privacy Policy — Yad" },
+  { md: "docs/legal/algemene-voorwaarden-en.md", html: "packages/extension/public/legal/algemene-voorwaarden-en.html", title: "Terms of Service — Yad" },
+  { md: "docs/legal/gebruiksbeleid-en.md", html: "packages/extension/public/legal/gebruiksbeleid-en.html", title: "Acceptable Use Policy — Yad" },
 ];
 
 const style = `
