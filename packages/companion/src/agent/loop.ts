@@ -546,6 +546,13 @@ export class AgentLoop {
     let rondes = 0;
 
     while (Date.now() - startedAt < timeoutMs) {
+      // Zonder deze check kon een gebruiker op Stop klikken (of de tab sluiten) en
+      // moest hij alsnog tot de volle timeout (tot 60s) wachten voor de run echt
+      // ophield te draaien — de enige bestaande isAborted-check zat vóór deze functie
+      // aangeroepen werd, niet erin.
+      if (this.isAborted()) {
+        return { ok: false, detail: "afgebroken tijdens wachten" };
+      }
       let snap: Snapshot;
       try {
         snap = await this.hand.requestSnapshot();
@@ -1005,6 +1012,15 @@ export class AgentLoop {
         this.log(`microPlan (${this.currentPlan.length} stap${this.currentPlan.length !== 1 ? "pen" : ""}): ${planResult.plan.rationale.slice(0, 80)}`);
       }
 
+      // Precies het gat dat de Stop-knop machteloos maakte: een microPlan bevat 1-3
+      // al-besloten acties die geen nieuwe modelaanroep meer nodig hebben, dus de
+      // uitgaven-poort (waar Stop eerder alleen op inhaakte) komt hier nooit aan te
+      // pas. Zonder deze check voerde een reeds-gebufferde actie, inclusief een
+      // schrijvende actie zoals "Opslaan", gewoon door na een Stop-klik.
+      if (this.isAborted()) {
+        this.hand.update({ status: "gestopt", step, message: "Gestopt door de gebruiker." });
+        return { status: "gestopt", steps: step };
+      }
       const planned = this.currentPlan.shift();
       if (!planned) continue; // defensief — zou nooit mogen
       let action = planned.action;
@@ -1500,6 +1516,10 @@ export class AgentLoop {
         await this.sleep(wait);
         if (this.isAborted()) throw new Error("afgebroken tijdens wachten op een vrij model");
       }
+      // De allereerste poging (wait === 0) sloeg deze check voorheen helemaal over, dus
+      // een Stop-klik vlak voor de allereerste modelaanroep van een stap werd genegeerd
+      // tot de aanroep zelf klaar was.
+      if (this.isAborted()) throw new Error("afgebroken vlak voor een modelaanroep");
       try {
         const res = await this.router.chat({
           messages: buildMessages(goal, snapshot, history, {

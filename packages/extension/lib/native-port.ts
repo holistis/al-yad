@@ -929,6 +929,15 @@ async function sendConfigUpdate(): Promise<void> {
       killed: settings.killed,
     }),
   );
+  // "Stop Yad nu" mocht voorheen alleen de VOLGENDE AI-aanroep blokkeren (via de
+  // uitgaven-poort in de companion), terwijl een al lopende taak — inclusief een
+  // reeks acties die geen nieuwe AI-aanroep meer nodig heeft — gewoon doorliep tot
+  // hij vanzelf klaar was. Dat is niet "direct stoppen", dat is "straks stoppen".
+  // Een echt lopende run moet daarom hetzelfde harde afbreek-signaal krijgen als
+  // wanneer de gebruiker de tab zelf zou sluiten.
+  if (settings.killed && runInProgress) {
+    port.postMessage(handMessage("ABORT_RUN", { reason: "gebruiker klikte op Stop" }));
+  }
 }
 
 async function handleCaptureForClaude(): Promise<void> {
