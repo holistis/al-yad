@@ -8,9 +8,9 @@
 
 **Versie:** [VERSIE]
 **Datum:** [DATUM]
-**Uitgegeven door:** [RECHTSPERSOON], statutair gevestigd te [VESTIGINGSPLAATS], ingeschreven in het handelsregister van de Kamer van Koophandel onder nummer [KVK], hierna te noemen **"Yad"**.
-**Contact (algemeen):** [E-MAIL]
-**Contact privacy:** [PRIVACY-E-MAIL]
+**Uitgegeven door:** Holistisch Adviseur, statutair gevestigd te [VESTIGINGSPLAATS], ingeschreven in het handelsregister van de Kamer van Koophandel onder nummer 86816632, hierna te noemen **"Yad"**.
+**Contact (algemeen):** info@holistischadviseur.nl
+**Contact privacy:** info@holistischadviseur.nl
 **Contact beveiliging / responsible disclosure:** [SECURITY-E-MAIL]
 
 ---
@@ -42,7 +42,7 @@
 
 In deze Algemene Voorwaarden (hierna: **"Voorwaarden"**) hebben de volgende begrippen, in enkelvoud en meervoud, de daarachter vermelde betekenis:
 
-1.1 **Yad**: [RECHTSPERSOON], zoals hierboven omschreven, leverancier van de Dienst.
+1.1 **Yad**: Holistisch Adviseur, zoals hierboven omschreven, leverancier van de Dienst.
 
 1.2 **Klant**: de rechtspersoon of de in de uitoefening van beroep of bedrijf handelende natuurlijke persoon die met Yad een Overeenkomst aangaat of de Dienst gebruikt. Deze Voorwaarden zijn uitsluitend bestemd voor zakelijk gebruik (B2B); de Dienst is niet bestemd voor consumenten.
 
@@ -226,7 +226,7 @@ Yad mag op deze verklaringen afgaan en is **niet gehouden de bevoegdheid van de 
 
 8.8 **EU AI Act.** Yad treedt naar verwachting op als **aanbieder** van een AI-systeem en de Klant als **gebruiksverantwoordelijke (deployer)** in de zin van de EU AI-verordening; partijen bevestigen de definitieve classificatie zodra deze is vastgesteld. Yad draagt de transparantieverplichtingen die als aanbieder op haar rusten (waaronder, waar van toepassing, het kenbaar maken dat met een AI-systeem wordt geïnteracteerd en het herkenbaar maken van AI-gegenereerde output, artikel 50 AI-verordening), en de Klant draagt de verplichtingen die als deployer op hem rusten. Een nadere AI-transparantiebijlage wordt opgesteld zodra de classificatie is bepaald. Niet alle aanbiedersverplichtingen kunnen contractueel naar de Klant worden doorgeschoven.
 
-8.9 **Privacyverklaring van Yad (eigen verantwoordelijkheid).** Voor de verwerkingen waarvoor Yad zelfstandig Verwerkingsverantwoordelijke is (artikel 8.1) geldt de **Privacyverklaring van Yad**, raadpleegbaar op [PRIVACY-URL]. Die Privacyverklaring beschrijft ten minste de doeleinden en grondslagen (waaronder uitvoering van de Overeenkomst, artikel 6 lid 1 sub b AVG, en gerechtvaardigd belang, artikel 6 lid 1 sub f AVG), de categorieën gegevens en ontvangers, de bewaartermijnen (waaronder die van de audit-records van artikel 2.3), eventuele doorgifte buiten de EER, de rechten van Betrokkenen, het privacy-contactpunt ([PRIVACY-E-MAIL] / een eventuele Functionaris Gegevensbescherming) en het recht om een klacht in te dienen bij de **Autoriteit Persoonsgegevens** (of een andere bevoegde toezichthouder). De Klant zal Betrokkenen binnen zijn organisatie waar nodig op het bestaan van deze Privacyverklaring wijzen.
+8.9 **Privacyverklaring van Yad (eigen verantwoordelijkheid).** Voor de verwerkingen waarvoor Yad zelfstandig Verwerkingsverantwoordelijke is (artikel 8.1) geldt de **Privacyverklaring van Yad**, raadpleegbaar op [PRIVACY-URL]. Die Privacyverklaring beschrijft ten minste de doeleinden en grondslagen (waaronder uitvoering van de Overeenkomst, artikel 6 lid 1 sub b AVG, en gerechtvaardigd belang, artikel 6 lid 1 sub f AVG), de categorieën gegevens en ontvangers, de bewaartermijnen (waaronder die van de audit-records van artikel 2.3), eventuele doorgifte buiten de EER, de rechten van Betrokkenen, het privacy-contactpunt (info@holistischadviseur.nl / een eventuele Functionaris Gegevensbescherming) en het recht om een klacht in te dienen bij de **Autoriteit Persoonsgegevens** (of een andere bevoegde toezichthouder). De Klant zal Betrokkenen binnen zijn organisatie waar nodig op het bestaan van deze Privacyverklaring wijzen.
 
 ---
 
@@ -314,7 +314,7 @@ In de onder (a) tot en met (c) genoemde gevallen geldt de wettelijke aansprakeli
 
 14.1 **Looptijd en verlenging.** De Overeenkomst wordt aangegaan voor de overeengekomen termijn van **[TERMIJN, bijv. 12 maanden]** en wordt daarna telkens stilzwijgend verlengd met **[VERLENGINGSPERIODE, bijv. 1 maand of 1 jaar]**, tenzij een partij **schriftelijk** opzegt met inachtneming van een opzegtermijn van **[OPZEGTERMIJN, bijv. 1 tot 3 maanden]** vóór het einde van de lopende termijn. Partijen kiezen redelijke termijnen en vermijden een combinatie van een lange initiële termijn, een lange verlengingsperiode en een lange opzegtermijn, mede met het oog op de redelijkheid jegens kleinere zakelijke wederpartijen.
 
-14.2 **Opzegging.** Opzegging geschiedt schriftelijk via het daartoe bestemde kanaal of per e-mail aan [E-MAIL].
+14.2 **Opzegging.** Opzegging geschiedt schriftelijk via het daartoe bestemde kanaal of per e-mail aan info@holistischadviseur.nl.
 
 14.3 **Ontbinding en opschorting.** Onverminderd haar overige rechten kan elke partij de Overeenkomst geheel of gedeeltelijk ontbinden indien de andere partij toerekenbaar tekortschiet en, waar herstel mogelijk is, na schriftelijke ingebrekestelling met een redelijke termijn niet herstelt. Yad kan de Dienst voorts **met onmiddellijke ingang opschorten of beëindigen** bij wanbetaling (na een redelijke hersteltermijn), bij overtreding van het AUP of artikel 7, of bij (vermoeden van) onrechtmatig gebruik.
 
@@ -370,7 +370,7 @@ In de onder (a) tot en met (c) genoemde gevallen geldt de wettelijke aansprakeli
 
 18.4 **Volledige overeenkomst.** De Overeenkomst (inclusief deze Voorwaarden, het AUP en de DPA) bevat de volledige afspraken tussen partijen ter zake en treedt in de plaats van eerdere afspraken, met inachtneming van de rangorde van artikel 2.5.
 
-18.5 **Kennisgevingen.** Kennisgevingen geschieden schriftelijk aan de in de Overeenkomst opgegeven contactgegevens, voor Yad: [E-MAIL]. Privacyvragen kunnen worden gericht aan [PRIVACY-E-MAIL]; meldingen van kwetsbaarheden of misbruik aan [SECURITY-E-MAIL] (responsible disclosure).
+18.5 **Kennisgevingen.** Kennisgevingen geschieden schriftelijk aan de in de Overeenkomst opgegeven contactgegevens, voor Yad: info@holistischadviseur.nl. Privacyvragen kunnen worden gericht aan info@holistischadviseur.nl; meldingen van kwetsbaarheden of misbruik aan [SECURITY-E-MAIL] (responsible disclosure).
 
 ---
 

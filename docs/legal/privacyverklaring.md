@@ -20,7 +20,7 @@
 
 ## 1. Inleiding, doel en reikwijdte van deze privacyverklaring
 
-1.1 Deze privacyverklaring legt in begrijpelijke taal uit hoe `[RECHTSPERSOON]` (hierna: **"Yad"**, **"wij"** of **"ons"**) omgaat met persoonsgegevens **in de rol van verwerkingsverantwoordelijke**, bij het aanbieden van de browser-automatiseringsdienst Yad (hierna: de **"Dienst"**).
+1.1 Deze privacyverklaring legt in begrijpelijke taal uit hoe `Holistisch Adviseur` (hierna: **"Yad"**, **"wij"** of **"ons"**) omgaat met persoonsgegevens **in de rol van verwerkingsverantwoordelijke**, bij het aanbieden van de browser-automatiseringsdienst Yad (hierna: de **"Dienst"**).
 
 1.2 **Reikwijdte — wat deze verklaring wél en níét regelt.**
 
@@ -39,14 +39,14 @@
 
 | | |
 |---|---|
-| **Rechtspersoon** | `[RECHTSPERSOON]` |
-| **KvK-nummer** | `[KVK]` |
-| **Vestigingsadres** | `[VESTIGINGSADRES]`, `[VESTIGINGSPLAATS]` |
-| **E-mail (privacy)** | `[PRIVACY-E-MAIL]` |
-| **Algemeen e-mail** | `[E-MAIL]` |
-| **Website** | `[WEBSITE]` |
+| **Rechtspersoon** | `Holistisch Adviseur` |
+| **KvK-nummer** | `86816632` |
+| **Vestigingsadres** | `Bramantestraat`, `[VESTIGINGSPLAATS]` |
+| **E-mail (privacy)** | `info@holistischadviseur.nl` |
+| **Algemeen e-mail** | `info@holistischadviseur.nl` |
+| **Website** | `https://yadagent.com` |
 
-2.2 `[KEUZE: Wij hebben een Functionaris voor Gegevensbescherming (FG) aangesteld. U kunt de FG bereiken via [FG-E-MAIL]. / Wij zijn niet wettelijk verplicht een Functionaris voor Gegevensbescherming aan te stellen en hebben dit ook niet gedaan; voor privacyvragen kunt u terecht via [PRIVACY-E-MAIL].]`
+2.2 `[KEUZE: Wij hebben een Functionaris voor Gegevensbescherming (FG) aangesteld. U kunt de FG bereiken via [FG-E-MAIL]. / Wij zijn niet wettelijk verplicht een Functionaris voor Gegevensbescherming aan te stellen en hebben dit ook niet gedaan; voor privacyvragen kunt u terecht via info@holistischadviseur.nl.]`
 
 2.3 `[INDIEN VAN TOEPASSING: Yad is gevestigd buiten de EU/EER en heeft een vertegenwoordiger in de Unie aangewezen op grond van artikel 27 AVG: [NAAM VERTEGENWOORDIGER], [ADRES].]`
 
@@ -122,7 +122,7 @@ Wij verwerken persoonsgegevens uitsluitend voor de hieronder genoemde doeleinden
 - c) Voor **prospects en andere niet-klanten** sturen wij pas elektronische marketing **nadat zij daarvoor toestemming (opt-in) hebben gegeven**.
 - d) Het recht van bezwaar tegen direct marketing (art. 21 lid 2 AVG) geldt te allen tijde en absoluut: na bezwaar stoppen wij de marketing aan u.
 
-4.8 **Gerechtvaardigd belang — afweging.** Waar wij ons baseren op gerechtvaardigd belang (sub f), hebben wij een afweging gemaakt tussen ons belang en uw rechten en vrijheden. U heeft het recht hiertegen bezwaar te maken (zie hoofdstuk 9). Op verzoek lichten wij de afweging nader toe via `[PRIVACY-E-MAIL]`.
+4.8 **Gerechtvaardigd belang — afweging.** Waar wij ons baseren op gerechtvaardigd belang (sub f), hebben wij een afweging gemaakt tussen ons belang en uw rechten en vrijheden. U heeft het recht hiertegen bezwaar te maken (zie hoofdstuk 9). Op verzoek lichten wij de afweging nader toe via `info@holistischadviseur.nl`.
 
 4.9 **Geautomatiseerde besluitvorming en geautomatiseerde handelingen.**
 
@@ -170,7 +170,7 @@ Wij delen persoonsgegevens alleen met partijen die ons helpen de Dienst te lever
 
 ### 6.2 Actueel subverwerkersregister
 
-Wij houden een **actueel, opvraagbaar register van alle subverwerkers** bij, met per subverwerker de naam, de soort dienst, de verwerkingslocatie, de doorgifte-waarborg **en of de subverwerker de gegevens voor eigen doeleinden mag gebruiken**. Dit register is beschikbaar `[via [URL/locatie] / op verzoek via [PRIVACY-E-MAIL]]`. Voor de verwerker-rol melden wij voorgenomen wijzigingen in subverwerkers vooraf aan de Klant, zodat deze bezwaar kan maken, overeenkomstig de verwerkersovereenkomst.
+Wij houden een **actueel, opvraagbaar register van alle subverwerkers** bij, met per subverwerker de naam, de soort dienst, de verwerkingslocatie, de doorgifte-waarborg **en of de subverwerker de gegevens voor eigen doeleinden mag gebruiken**. Dit register is beschikbaar `[via [URL/locatie] / op verzoek via info@holistischadviseur.nl]`. Voor de verwerker-rol melden wij voorgenomen wijzigingen in subverwerkers vooraf aan de Klant, zodat deze bezwaar kan maken, overeenkomstig de verwerkersovereenkomst.
 
 | Subverwerker | Dienst | Verwerkingslocatie | Doorgifte-waarborg | Gebruik voor eigen doeleinden? |
 |---|---|---|---|---|
@@ -199,7 +199,7 @@ Wij houden een **actueel, opvraagbaar register van alle subverwerkers** bij, met
 
 6.4.3 Wij vertrouwen niet uitsluitend op één doorgiftegrondslag: waar wij ons baseren op het Data Privacy Framework, houden wij **SCC's als terugvaloptie** achter de hand, voor het geval dat kader zou wijzigen of komen te vervallen.
 
-6.4.4 U kunt een kopie of nadere informatie over de toegepaste waarborgen en over het eigen gebruik door providers opvragen via `[PRIVACY-E-MAIL]`.
+6.4.4 U kunt een kopie of nadere informatie over de toegepaste waarborgen en over het eigen gebruik door providers opvragen via `info@holistischadviseur.nl`.
 
 ---
 
@@ -253,7 +253,7 @@ Wij houden een **actueel, opvraagbaar register van alle subverwerkers** bij, met
 - **Bezwaar** (art. 21) — tegen verwerkingen op basis van gerechtvaardigd belang, en altijd en absoluut tegen direct marketing;
 - **Intrekken van toestemming** — voor zover een verwerking op toestemming berust, met werking voor de toekomst.
 
-9.2 **Hoe uitoefenen.** Stuur uw verzoek naar `[PRIVACY-E-MAIL]`. Wij vragen u **uitsluitend wanneer wij redelijke twijfel hebben over uw identiteit** om die te bevestigen (art. 12 lid 6 AVG), en wij vragen daarbij **niet meer gegevens dan daarvoor strikt noodzakelijk is**. Wij reageren binnen één maand; bij complexiteit kan deze termijn met twee maanden worden verlengd, waarover wij u dan binnen de eerste maand informeren. Het uitoefenen van uw rechten is in beginsel kosteloos.
+9.2 **Hoe uitoefenen.** Stuur uw verzoek naar `info@holistischadviseur.nl`. Wij vragen u **uitsluitend wanneer wij redelijke twijfel hebben over uw identiteit** om die te bevestigen (art. 12 lid 6 AVG), en wij vragen daarbij **niet meer gegevens dan daarvoor strikt noodzakelijk is**. Wij reageren binnen één maand; bij complexiteit kan deze termijn met twee maanden worden verlengd, waarover wij u dan binnen de eerste maand informeren. Het uitoefenen van uw rechten is in beginsel kosteloos.
 
 9.3 **Verzoeken die de verwerker-rol betreffen.** Gaat uw verzoek over gegevens die wij **namens een Klant** verwerken (hoofdstuk 3.4), dan is die Klant de verwerkingsverantwoordelijke. Wij sturen uw verzoek dan zonder onnodige vertraging door naar de betreffende Klant of verwijzen u door, en verlenen de Klant de wettelijk vereiste bijstand om uw verzoek te kunnen behandelen.
 
@@ -291,7 +291,7 @@ Wij houden een **actueel, opvraagbaar register van alle subverwerkers** bij, met
 
 ## 12. Kinderen
 
-12.1 De Dienst is een zakelijke (B2B) dienst en niet gericht op kinderen. Wij verzamelen niet bewust persoonsgegevens van kinderen onder de 16 jaar. Vermoedt u dat wij toch zulke gegevens hebben verwerkt, neem dan contact met ons op via `[PRIVACY-E-MAIL]`, dan verwijderen wij deze.
+12.1 De Dienst is een zakelijke (B2B) dienst en niet gericht op kinderen. Wij verzamelen niet bewust persoonsgegevens van kinderen onder de 16 jaar. Vermoedt u dat wij toch zulke gegevens hebben verwerkt, neem dan contact met ons op via `info@holistischadviseur.nl`, dan verwijderen wij deze.
 
 ---
 
@@ -313,8 +313,8 @@ Wij houden een **actueel, opvraagbaar register van alle subverwerkers** bij, met
 
 15.1 Heeft u vragen over deze privacyverklaring of over de verwerking van uw persoonsgegevens? Neem dan contact op:
 
-- **E-mail (privacy):** `[PRIVACY-E-MAIL]`
-- **Post:** `[RECHTSPERSOON]`, t.a.v. `[afdeling/FG]`, `[VESTIGINGSADRES]`, `[VESTIGINGSPLAATS]`
+- **E-mail (privacy):** `info@holistischadviseur.nl`
+- **Post:** `Holistisch Adviseur`, t.a.v. `[afdeling/FG]`, `Bramantestraat`, `[VESTIGINGSPLAATS]`
 
 ---
 
