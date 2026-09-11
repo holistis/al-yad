@@ -488,20 +488,15 @@ export async function resolveRunTab(): Promise<number | null> {
       lastWebTabId = created.id;
       return created.id;
     }
-  } catch { /* aanmaken mislukt → noodval hieronder */ }
+  } catch { /* aanmaken mislukt → eerlijk falen hieronder, geen noodval */ }
 
-  // Noodval: tab aanmaken mislukt (bijv. no-permissions edge case) → gebruik bestaande tab.
-  // Dit is de enige situatie waarin een user-tab gebruikt mag worden.
-  const all = await chrome.tabs.query({ url: ["http://*/*", "https://*/*"] });
-  if (all.length) {
-    all.sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
-    const best = all[0];
-    if (typeof best.id === "number") {
-      lastWebTabId = best.id;
-      return best.id;
-    }
-  }
-
+  // Met opzet GEEN terugval meer op "pak de meest recent bezochte tab van de
+  // gebruiker" (adversariele review 2026-09-11, finding 22): dat is precies de
+  // heuristiek van het capture-lek van 2026-09-07 dat de Roundcube-mailbox van
+  // de gebruiker uitlas (zie handleCaptureForClaude() hieronder), alleen nu
+  // bereikbaar via een zeldzamere weg (chrome.tabs.create() die faalt) in
+  // plaats van "geen lopende run". Een duidelijke fout is beter dan
+  // stilzwijgend acties uitvoeren op de prive-tab van de gebruiker.
   return null;
 }
 
