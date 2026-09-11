@@ -1,6 +1,6 @@
 # Gebruiksbeleid (Acceptable Use Policy) — Yad
 
-**Uitgegeven door:** Holistisch Adviseur, KvK 86816632, Bramantestraat.
+**Uitgegeven door:** Holistisch Adviseur, KvK 86816632, Bramantestraat, Eindhoven.
 **Versie:** 1.0 — **Datum:** 11 september 2026
 **Contact misbruikmeldingen:** info@holistischadviseur.nl
 
