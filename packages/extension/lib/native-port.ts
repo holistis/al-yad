@@ -271,6 +271,31 @@ export function setYadTabId(tabId: number): void {
   stickyTabId = tabId;
 }
 
+/** Bewust smal: alleen letters, cijfers, punt en streepje, dus geen pad/query/protocol. */
+const LOOKS_LIKE_BARE_HOSTNAME = /^[a-z0-9.-]+\.[a-z]{2,}$/i;
+
+/**
+ * /adopt-tab matchte voorheen met een kale `url.includes(pattern)`: een pattern
+ * "amazon.com" matchte dan ook "https://scam-amazon.com.evil.ru/phish", een
+ * kijk-alikedomein dat "amazon.com" toevallig als substring bevat. Als het
+ * pattern eruitziet als een kale hostname (geen protocol, pad of query), matchen
+ * we voortaan op de echte hostname (exact of als subdomein), niet als losse
+ * substring. Bevat het pattern wel een "/", "?" of "#" (bedoeld om op pad/query
+ * te matchen, bv. een sessie-id), dan blijft het oude substring-gedrag gelden.
+ */
+export function urlMatchesAdoptPattern(url: string, pattern: string): boolean {
+  if (!LOOKS_LIKE_BARE_HOSTNAME.test(pattern)) {
+    return url.includes(pattern);
+  }
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    const p = pattern.toLowerCase();
+    return hostname === p || hostname.endsWith(`.${p}`);
+  } catch {
+    return false;
+  }
+}
+
 export function startNativePort(): void {
   // Host-naam eenmalig laden voor de eerste connect(); als settings niet
   // (op tijd) leesbaar zijn, verbindt hij gewoon met de standaard-host in
@@ -637,7 +662,7 @@ function onMessage(raw: unknown): void {
         try {
           const tabs = await chrome.tabs.query({});
           const match = tabs.find(
-            (t) => typeof t.url === "string" && t.url.includes(p.pattern) && typeof t.id === "number"
+            (t) => typeof t.url === "string" && urlMatchesAdoptPattern(t.url, p.pattern) && typeof t.id === "number"
           );
           if (!match || typeof match.id !== "number") {
             replyToBrain("ADOPT_TAB_RESULT", { ok: false, detail: `geen open tab gevonden met '${p.pattern}' in de URL` }, raw.id);
