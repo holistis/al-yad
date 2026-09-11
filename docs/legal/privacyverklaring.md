@@ -11,7 +11,7 @@
 |---|---|
 | **Rechtspersoon** | Holistisch Adviseur |
 | **KvK-nummer** | 86816632 |
-| **Vestigingsadres** | Bramantestraat |
+| **Vestigingsadres** | Bramantestraat, Eindhoven |
 | **E-mail (privacy en algemeen)** | info@holistischadviseur.nl |
 | **Website** | https://yadagent.com |
 

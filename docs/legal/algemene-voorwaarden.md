@@ -2,7 +2,7 @@
 
 **Versie:** 1.0
 **Datum:** 11 september 2026
-**Uitgegeven door:** Holistisch Adviseur, KvK 86816632, Bramantestraat, hierna "wij" of "Yad".
+**Uitgegeven door:** Holistisch Adviseur, KvK 86816632, Bramantestraat, Eindhoven, hierna "wij" of "Yad".
 **Contact:** info@holistischadviseur.nl
 
 > **Status van Yad.** Yad is een gratis, open source (MIT-licentie), lokaal draaiend hulpmiddel in een concept-/bètafase. Deze Voorwaarden beschrijven de huidige, feitelijke situatie: geen account, geen betaling, geen gehost aanbod. Ze zijn met opzet kort, precies omdat er weinig te regelen valt zolang dat zo blijft. Brengt Yad ooit een betaald, gehost aanbod met eigen accounts uit, dan komen daar eigen, uitgebreidere voorwaarden bij, met een duidelijke aankondiging vooraf.
