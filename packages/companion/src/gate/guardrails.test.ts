@@ -152,6 +152,20 @@ describe("Poort: fail-safe bij onbekende URL", () => {
   });
 });
 
+describe("Poort: Nederlandse checkout-paden in DENY_PATHS (adversariele review 2026-09-11, finding 24)", () => {
+  it("weigert navigatie naar Nederlandse checkout-paden, niet alleen Engelse", () => {
+    expect(pathIsDenied("https://webshop.nl/afrekenen")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/bestellen")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/account/bestelling")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/betalen")).toBe(true);
+    expect(pathIsDenied("https://webshop.nl/kassa")).toBe(true);
+  });
+
+  it("weigert een SPA hash-route met een Nederlands checkout-pad", () => {
+    expect(pathIsDenied("https://webshop.nl/#/afrekenen")).toBe(true);
+  });
+});
+
 describe("Poort: betaalverwerker-hostname (adversariele review 2026-09-11)", () => {
   it("weigert een Stripe-checkout-URL zonder 'checkout'/'payment' in het pad", () => {
     expect(pathIsDenied("https://checkout.stripe.com/c/pay/cs_test_abc123")).toBe(true);
