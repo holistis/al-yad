@@ -372,7 +372,14 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
           json(res, 400, { ok: false, detail: "goal is verplicht" });
           return;
         }
-        // Saniteer goal: afkappen op 1000 chars, schadelijke instructie-patronen weigeren.
+        // Saniteer de DOOR DE AANROEPER GETYPTE goal-tekst: afkappen op 1000 chars,
+        // duidelijk instructie-omzeilende patronen weigeren. Dit is GEEN algemene
+        // prompt-injectie-verdediging (adversariele review 2026-09-11, finding 15
+        // wees terecht op die mismatch): het screent alleen wat Claude Code/de
+        // koning zelf als taak intypt, niet de paginatekst die later in hetzelfde
+        // prompt terechtkomt. Die kant wordt afgeschermd door de expliciete
+        // UNTRUSTED PAGE CONTENT-markering + instructiehierarchie in prompt.ts
+        // (SYSTEM-prompt), niet hier.
         const rawGoal = parsed.goal.slice(0, 1000);
         if (/ignore\s+(previous|all)\s+instructions?|system\s*prompt|reveal\s+(your\s+)?prompt|exfiltrat/i.test(rawGoal)) {
           json(res, 400, { ok: false, detail: "goal bevat een niet-toegestaan patroon" });
