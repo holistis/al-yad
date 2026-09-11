@@ -6,4 +6,4 @@
  * Eén bron voorkomt dat de twee kopieen uit elkaar groeien.
  */
 export const DENY_WORDS =
-  /\b(betaal|afrekenen|kassa|naar\s*de\s*kassa|kasse|caisse|bestel|plaats\s*bestelling|checkout|pay\s*now|place\s*order|delete\s*account|account\s*verwijderen)\b/i;
+  /\b(betalen|betaal\w*|afrekenen|kassa|naar\s*de\s*kassa|kasse|caisse|bestel\w*|plaats\s*bestelling|bevestig\s*(en\s*)?(betaal\w*|bestelling|aankoop)|checkout|pay\s*now|buy\s*now|purchase|complete\s*(order|purchase|checkout)|finish\s*(order|purchase|checkout)|confirm\s*(and\s*)?(pay|payment|purchase|order)|place\s*order|delete\s*account|account\s*verwijderen)\b/i;
