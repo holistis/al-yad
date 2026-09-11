@@ -92,6 +92,13 @@ export function roleOf(el: Element): string {
     return "textbox";
   }
   if ((el as HTMLElement).isContentEditable) return "textbox";
+  // Niet-semantisch klikbaar element (bv. <div onclick="submitOrder()">), zonder
+  // enige ARIA-rol. Zonder deze regel matcht guardrails.ts's WRITE_ROLES nooit
+  // (die kent alleen echte rol-namen, geen kale tagnamen als "div"), en valt de
+  // fail-closed bevestig-poort helemaal weg voor een click-handler die net zo
+  // goed een betaling kan indienen als een echte <button>. Behandel 'm als het
+  // meest conservatieve gok: button (adversariele review 2026-09-11, finding 25).
+  if (el.hasAttribute("onclick")) return "button";
   return tag;
 }
 
