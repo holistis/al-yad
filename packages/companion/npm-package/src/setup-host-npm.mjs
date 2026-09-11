@@ -36,7 +36,7 @@ import {
   createPrivateKey,
   createPublicKey,
 } from "node:crypto";
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readFileSync, chmodSync } from "node:fs";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
@@ -126,6 +126,9 @@ if (existsSync(privPath)) {
   const keyObj = createPrivateKey(privPem);
   publicDer = createPublicKey(keyObj).export({ type: "spki", format: "der" });
   console.log(`Reusing existing extension key from ${privPath}.`);
+  // Re-tighten permissions on an existing key too, in case it predates this fix
+  // (created world/group-readable on a non-Windows machine). No-op on Windows.
+  try { chmodSync(privPath, 0o600); } catch { /* best effort */ }
 } else {
   const { publicKey, privateKey } = generateKeyPairSync("rsa", {
     modulusLength: 2048,
@@ -134,6 +137,9 @@ if (existsSync(privPath)) {
   });
   publicDer = publicKey;
   writeFileSync(privPath, privateKey, "utf8");
+  // Private key: owner-only. writeFileSync uses the process umask, which on a
+  // shared/multi-user Linux or macOS machine can leave this group/world-readable.
+  try { chmodSync(privPath, 0o600); } catch { /* best effort */ }
   console.log(`Generated a new extension key at ${privPath}. Keep this file: deleting it changes your extension ID and breaks pairing with an already-installed extension.`);
 }
 

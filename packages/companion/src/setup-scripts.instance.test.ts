@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, existsSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -135,6 +135,17 @@ describe("scripts/setup-native-host.ts — instantie-validatie (regressie)", () 
       expect.stringContaining("main.js"),
     ]);
   });
+
+  it("schrijft/hertrekt de private extensie-sleutel als owner-only (0600) op niet-Windows (adversariele review 2026-09-11, finding 16)", () => {
+    const { status } = runScript(setupNativeHostTs, "tsx", {}, repoRoot);
+    expect(status).toBe(0);
+    const privPath = join(repoRoot, "packages", "extension", ".keys", "ext-private.pem");
+    expect(existsSync(privPath)).toBe(true);
+    if (process.platform !== "win32") {
+      const mode = statSync(privPath).mode & 0o777;
+      expect(mode).toBe(0o600);
+    }
+  });
 });
 
 describe("setup-host-npm.mjs — instantie-validatie (regressie)", () => {
@@ -173,6 +184,32 @@ describe("setup-host-npm.mjs — instantie-validatie (regressie)", () => {
       expect(output).not.toContain("safe instance name");
       expect(output).not.toContain("must be a distinct port number");
     } finally {
+      rmSync(fakeHome, { force: true, recursive: true });
+    }
+  });
+
+  it("schrijft de private extensie-sleutel als owner-only (0600) op niet-Windows (adversariele review 2026-09-11, finding 16)", () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), "yad-npm-home-perm-"));
+    // De companionEntry-check verwacht een sibling pair-host.js naast het script
+    // zelf; zonder een echte build zetten we hier een lege stand-in neer zodat
+    // het script voorbij die check komt en echt een sleutel genereert.
+    const dummyPairHost = join(repoRoot, "packages", "companion", "npm-package", "src", "pair-host.js");
+    const dummyAlreadyExisted = existsSync(dummyPairHost);
+    if (!dummyAlreadyExisted) writeFileSync(dummyPairHost, "// test-stand-in\n", "utf8");
+    try {
+      const { status } = runScript(setupHostNpmMjs, "node", {
+        USERPROFILE: fakeHome,
+        HOME: fakeHome,
+      }, repoRoot);
+      expect(status).toBe(0);
+      const privPath = join(fakeHome, ".yadagent", "keys", "ext-private.pem");
+      expect(existsSync(privPath)).toBe(true);
+      if (process.platform !== "win32") {
+        const mode = statSync(privPath).mode & 0o777;
+        expect(mode).toBe(0o600);
+      }
+    } finally {
+      if (!dummyAlreadyExisted) rmSync(dummyPairHost, { force: true });
       rmSync(fakeHome, { force: true, recursive: true });
     }
   });
