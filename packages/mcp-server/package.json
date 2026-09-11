@@ -1,7 +1,8 @@
 {
   "name": "yad-agent-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server that lets an AI agent (Claude Code, Cursor, etc.) drive Yad, a local browser-automation companion, over its existing local HTTP API.",
+  "mcpName": "io.github.holistis/yad-agent-mcp",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
@@ -9,7 +10,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "keywords": [
     "mcp",
