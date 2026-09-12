@@ -75,6 +75,29 @@ function collectInteractive(
   }
 }
 
+/**
+ * Verzamelt zichtbare paginatekst INCLUSIEF open shadow DOM. `document.body.innerText`
+ * alleen stopt bij elke shadow-boundary — web components (Adobe Firefly/Express en
+ * vergelijkbare Lit/Spectrum-apps) tonen zo vrijwel geen tekst, ook al ziet
+ * collectInteractive() hierboven de klikbare elementen daarbinnen al wél. Live
+ * vastgelopen op beide Adobe-apps (2026-09-12): de agent kon knoppen zien maar niet
+ * lezen wat erop stond of wat de pagina zei, en `extract` gaf een vals "geen tekst".
+ * `innerText` (respecteert zichtbaarheid/CSS) voor het hoofddocument; `textContent`
+ * voor shadow roots zelf, want een ShadowRoot heeft geen `innerText`-eigenschap.
+ */
+export function collectDeepText(root: Document | ShadowRoot, budget = { n: 4000 }): string {
+  const parts: string[] = [
+    root === document ? (document.body?.innerText || "") : ((root as ShadowRoot).textContent || "").replace(/\s+/g, " "),
+  ];
+  const all = root.querySelectorAll("*");
+  for (const el of all) {
+    if (budget.n-- <= 0) break;
+    const sr = (el as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot;
+    if (sr) parts.push(collectDeepText(sr, budget));
+  }
+  return parts.filter(Boolean).join("\n");
+}
+
 export function roleOf(el: Element): string {
   const explicit = el.getAttribute("role");
   if (explicit) return explicit;
@@ -231,7 +254,7 @@ export function buildSnapshot(refMap: Map<string, Element>, maxNodes = SNAPSHOT_
     nodes.push(node);
   }
 
-  const textDigest = normalizeText(document.body?.innerText || "").slice(0, SNAPSHOT_LIMITS.DIGEST_LIMIT);
+  const textDigest = normalizeText(collectDeepText(document)).slice(0, SNAPSHOT_LIMITS.DIGEST_LIMIT);
 
   return {
     url: location.href,
