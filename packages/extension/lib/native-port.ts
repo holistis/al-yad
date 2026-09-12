@@ -992,10 +992,49 @@ async function handleCaptureForClaude(): Promise<void> {
     }
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
+      // Deze functie wordt door chrome.scripting.executeScript naar de pagina
+      // geserialiseerd (func.toString()) en draait daar volledig los van de rest
+      // van de extensie — hij kan dus NIET importeren uit perception.ts en moet
+      // zijn eigen shadow-DOM-doorkruising bevatten. Zelfde onderliggende logica
+      // als collectDeepText() in perception.ts, bewust gedupliceerd i.p.v. gedeeld.
+      // Zonder dit bleef /capture op web-component-apps (Adobe Firefly/Express,
+      // 2026-09-12) altijd lege tekst EN een lege linklijst opleveren, ook op een
+      // volledig geladen, ingelogde pagina — de hele UI zat achter een shadow-
+      // boundary die document.body.innerText/querySelectorAll niet doorkruist.
       func: () => {
-        const text = (document.body?.innerText ?? "").slice(0, 20000);
-        const links = Array.from(document.querySelectorAll("a[href]"))
-          .map((a) => ({ href: (a as HTMLAnchorElement).href, text: (a.textContent ?? "").trim() }))
+        function deepText(root: Document | ShadowRoot, budget: { n: number }): string {
+          const parts: string[] = [
+            root === document
+              ? (document.body?.innerText ?? "")
+              : ((root as ShadowRoot).textContent ?? "").replace(/\s+/g, " "),
+          ];
+          const all = root.querySelectorAll("*");
+          for (const el of all) {
+            if (budget.n-- <= 0) break;
+            const sr = (el as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot;
+            if (sr) parts.push(deepText(sr, budget));
+          }
+          return parts.filter(Boolean).join("\n");
+        }
+        function deepLinks(
+          root: Document | ShadowRoot,
+          out: Array<{ href: string; text: string }>,
+          budget: { n: number },
+        ): void {
+          root.querySelectorAll("a[href]").forEach((a) => {
+            out.push({ href: (a as HTMLAnchorElement).href, text: (a.textContent ?? "").trim() });
+          });
+          const all = root.querySelectorAll("*");
+          for (const el of all) {
+            if (budget.n-- <= 0) return;
+            const sr = (el as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot;
+            if (sr) deepLinks(sr, out, budget);
+          }
+        }
+        const text = deepText(document, { n: 4000 }).slice(0, 20000);
+        const rawLinks: Array<{ href: string; text: string }> = [];
+        deepLinks(document, rawLinks, { n: 4000 });
+        const links = rawLinks
           .filter((l) => l.href.startsWith("http") && l.text.length > 0)
           .slice(0, 100);
         return { text, links };
