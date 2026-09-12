@@ -1,5 +1,5 @@
 import { DENY_WORDS, type Action, type ActResult } from "@yad/shared";
-import { findFresh } from "./perception";
+import { collectDeepText, findFresh } from "./perception";
 
 /**
  * De uitvoerder (in de pagina-context): voert een Action deterministisch uit op
@@ -385,11 +385,14 @@ export async function executeAction(
         }
         return { ok: true, extracted };
       }
-      const text = (document.body?.innerText || "").replace(/\s+/g, " ").trim().slice(0, 2000);
+      const text = collectDeepText(document).replace(/\s+/g, " ").trim().slice(0, 2000);
       // Zelfde reden als bij de ref-tak hierboven: een lege hele-pagina-lezing is bijna
       // nooit een écht lege pagina, maar een pagina die nog aan het laden is, achter een
-      // consent-overlay zit, of waarvan de eigenlijke inhoud in een iframe zit dat
-      // innerText niet meeneemt. Stil ok:true met "" liet het taalmodel eerder een
+      // consent-overlay zit, of waarvan de eigenlijke inhoud in een iframe of open shadow
+      // DOM zit. Voor shadow DOM: collectDeepText() (zie perception.ts) doorkruist die
+      // boundary al, in tegenstelling tot de kale document.body.innerText van eerder, die
+      // op Adobe Firefly/Express (2026-09-12) altijd leeg terugkwam ondanks een volledig
+      // geladen, ingelogde app. Stil ok:true met "" liet het taalmodel eerder een
       // eerlijk klinkend maar misleidend "deze pagina heeft geen inhoud" verzinnen op
       // een pagina die overduidelijk wel inhoud had (ServiceNow-marketingpagina, 2026-09-08).
       if (!text) {
