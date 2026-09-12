@@ -36,15 +36,6 @@ Full technical detail for each finding: the commit history on `security/adversar
 - Findings 11 and 12 are documentation/comment corrections, not exploitable code paths. They're included here for completeness, not because they carry the same risk as the others.
 - This table covers the findings closed in PR #37, one wave of a broader adversarial review conducted the same day; it is not a claim that every candidate the review considered is listed here.
 
-## Open, ongoing work: a systematic pass, not a one-off read
+## Open, ongoing work
 
-A new internal tool built the day after this review, al-silsila (not yet public), reads an agent's own tool manifest and flags every candidate chain from a tool that ingests untrusted content to a tool with a real consequence, together with whether the sink's own description claims a confirmation gate. Run against Yad's MCP server (`yad_status`, `yad_navigate`, `yad_capture`, `yad_run_goal`, `yad_last_result`), it surfaced this:
-
-```
-POORT GECLAIMD (3), controleer of de claim de echte actie dekt:
-  - yad_navigate -> yad_run_goal: claim = "cannot check out, pay, or place orders without"
-  - yad_capture -> yad_run_goal: claim = "cannot check out, pay, or place orders without"
-  - yad_last_result -> yad_run_goal: claim = "cannot check out, pay, or place orders without"
-```
-
-Checked against the real guardrail code (`packages/companion/src/gate/guardrails.ts`): the claim is accurate as far as it goes, and the confirmation gate genuinely is scoped to payment and checkout specifically, not to browser actions in general, by design. This is a candidate, not a confirmed finding: it has not yet gone through a full reachability chain, a working proof of concept, or an adversarial second read. Listed here in the same spirit as the rest of this document, so a candidate under active investigation is visible rather than silent until it either survives verification or is refuted.
+An internal check run against Yad's own MCP tool descriptions the day after this review surfaced one candidate worth naming here: `yad_run_goal` both reads whatever page it lands on and acts on the browser, and its own description claims a confirmation gate. That gate is real, but scoped specifically to payment and checkout, not to browser actions in general, by design (checked against `packages/companion/src/gate/guardrails.ts`). This is a candidate, not a confirmed finding: it has not yet gone through a full reachability chain, a working proof of concept, or an adversarial second read. Listed here in the same spirit as the rest of this document, so a candidate under active investigation is visible rather than silent until it either survives verification or is refuted.
