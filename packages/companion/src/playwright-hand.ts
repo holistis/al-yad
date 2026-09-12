@@ -39,15 +39,34 @@ export interface PlaywrightHandOptions {
   demoCursor?: boolean;
 }
 
-/** JavaScript dat in de pagina-context draait om de snapshot te bouwen. */
-const SNAPSHOT_SCRIPT = `(() => {
+/**
+ * JavaScript dat in de pagina-context draait om de snapshot te bouwen. Dit is een
+ * kale in-page `page.evaluate`-string, GEEN Playwright-locator — Playwright se
+ * eigen locator-engine (page.locator(), gebruikt verderop voor act()) doorkruist
+ * open shadow DOM automatisch, maar document.querySelectorAll() hier NIET. Zonder
+ * de expliciete shadow-DOM-recursie hieronder blijft deze snapshot leeg op web-
+ * component-apps (Adobe Firefly/Express e.d., zelfde onderliggende gat als
+ * collectInteractive() in packages/extension/lib/perception.ts, 2026-09-12).
+ */
+// Geëxporteerd puur zodat playwright-hand.shadowDom.test.ts de shadow-DOM-doorkruising
+// rechtstreeks in jsdom kan uittesten zonder een echte Playwright-browser te starten.
+export const SNAPSHOT_SCRIPT = `(() => {
   const SELECTOR = [
     'a[href]', 'button', 'input:not([type="hidden"])',
     'select', 'textarea', '[role="button"]', '[role="link"]',
     '[role="checkbox"]', '[role="menuitem"]', '[role="tab"]',
     '[role="combobox"]', '[role="textbox"]',
   ].join(',');
-  const els = Array.from(document.querySelectorAll(SELECTOR)).slice(0, ${SNAPSHOT_LIMITS.MAX_NODES});
+  function collectDeep(root, out, budget) {
+    root.querySelectorAll('*').forEach((el) => {
+      if (budget.n-- <= 0) return;
+      if (el.matches(SELECTOR)) out.push(el);
+      if (el.shadowRoot) collectDeep(el.shadowRoot, out, budget);
+    });
+  }
+  const allEls = [];
+  collectDeep(document, allEls, { n: 4000 });
+  const els = allEls.slice(0, ${SNAPSHOT_LIMITS.MAX_NODES});
   let idx = 1;
   const nodes = [];
   for (const el of els) {
@@ -86,6 +105,31 @@ const SNAPSHOT_SCRIPT = `(() => {
     });
   }
   return nodes;
+})()`;
+
+/**
+ * JavaScript dat de zichtbare paginatekst ophaalt, met dezelfde shadow-DOM-recursie
+ * als SNAPSHOT_SCRIPT hierboven. Geëxporteerd voor playwright-hand.shadowDom.test.ts.
+ */
+export const TEXT_DIGEST_SCRIPT = `(function() {
+  function deepText(root, budget) {
+    const parts = [
+      root === document
+        ? (document.body?.innerText || '')
+        : ((root.textContent || '').replace(/\\s+/g, ' ')),
+    ];
+    root.querySelectorAll('*').forEach((el) => {
+      if (budget.n-- <= 0) return;
+      if (el.shadowRoot) parts.push(deepText(el.shadowRoot, budget));
+    });
+    return parts.filter(Boolean).join('\\n');
+  }
+  const main = document.querySelector('main, [role="main"], article');
+  if (main) {
+    const t = (main.innerText || '').trim();
+    if (t.length > 300) return t;
+  }
+  return deepText(document, { n: 4000 });
 })()`;
 
 export interface DemoTimelineEntry {
@@ -173,15 +217,10 @@ export class PlaywrightHand implements HandBridge {
     let textDigest = "";
     try {
       // Prefereer main-content boven volledige body — navigatie-blokken eten anders
-      // de textDigest-limiet op voor de echte pagina-inhoud komt.
-      const raw = await page.evaluate(`(function() {
-        const main = document.querySelector('main, [role="main"], article');
-        if (main) {
-          const t = (main.innerText || '').trim();
-          if (t.length > 300) return t;
-        }
-        return document.body?.innerText ?? '';
-      })()`) as string;
+      // de textDigest-limiet op voor de echte pagina-inhoud komt. Loopt daarna, net
+      // als SNAPSHOT_SCRIPT hierboven, expliciet open shadow roots af: zonder die
+      // recursie bleef dit altijd leeg op web-component-apps (2026-09-12).
+      const raw = (await page.evaluate(TEXT_DIGEST_SCRIPT)) as string;
       textDigest = normalizeText(raw).slice(0, SNAPSHOT_LIMITS.DIGEST_LIMIT);
     } catch {
       /* negeer */
