@@ -275,6 +275,51 @@ function refNode(snapshot: Snapshot, action: Action): SnapshotNode | undefined {
   return snapshot.nodes.find((n) => n.ref === ref);
 }
 
+/**
+ * Bouwt de GateContext waarmee checkDenied()/needsConfirm() (guardrails.ts) een actie
+ * beoordelen. Voor de meeste acties is dat gewoon de rol/naam uit de snapshot-node die
+ * bij de ref hoort (kan bekend zijn omdat de agent de ref net zelf uit een snapshot koos).
+ *
+ * click-at (vision-fallback) heeft GEEN ref en dus geen uit de snapshot bekende rol/naam.
+ * Restpunt uit de adversariële review 2026-09-13: `clickAtViewportPoint()` (packages/
+ * extension/lib/executor.ts) had voorheen alleen de smalle DENY_WORDS-check, geen
+ * equivalent van needsConfirm() voor write-rollen in het algemeen — de companion-poort
+ * kon voor click-at nooit iets over het doelwit zeggen. Deze functie vraagt de Hand
+ * daarom EERST (zonder te klikken, via `resolveOnly:true`) welk element ECHT op die
+ * positie staat, zodat de poort hieronder dezelfde write-role/CONFIRM_WORDS/DENY_WORDS-
+ * check kan toepassen als bij een gewone klik — VOORDAT er ooit een mens om bevestiging
+ * wordt gevraagd of geklikt wordt.
+ *
+ * Geeft bij een mislukte resolve (geen element op die positie) `resolveFailure` terug in
+ * plaats van een ctx, zodat de caller kan afzien van zowel de poort als de echte klik.
+ */
+export async function buildGateContext(
+  hand: Pick<HandBridge, "act">,
+  action: Action,
+  currentUrl: string,
+  node: SnapshotNode | undefined,
+): Promise<{ ctx: GateContext; resolveFailure?: ActResult }> {
+  if (action.kind !== "click-at") {
+    return { ctx: { currentUrl, targetName: node?.name, role: node?.role } };
+  }
+  let resolveResult: ActResult;
+  try {
+    resolveResult = await hand.act({ ...action, resolveOnly: true });
+  } catch (e) {
+    resolveResult = { ok: false, detail: (e as Error).message };
+  }
+  if (!resolveResult.ok) {
+    return { ctx: { currentUrl }, resolveFailure: resolveResult };
+  }
+  return {
+    ctx: {
+      currentUrl,
+      targetName: resolveResult.resolvedTarget?.name,
+      role: resolveResult.resolvedTarget?.role,
+    },
+  };
+}
+
 function describe(action: Action): string {
   switch (action.kind) {
     case "navigate":
@@ -1224,11 +1269,17 @@ export class AgentLoop {
       lastActionSig = sig;
 
       const node = refNode(snapshot, action);
-      const ctx: GateContext = {
-        currentUrl: snapshot.url,
-        targetName: node?.name,
-        role: node?.role,
-      };
+
+      // Voor click-at (vision-fallback, geen ref) vraagt buildGateContext() de Hand eerst
+      // (resolveOnly, geen klik) welk element ECHT op die positie staat, zodat de poort
+      // hieronder dezelfde write-role/CONFIRM_WORDS/DENY_WORDS-check kan toepassen als bij
+      // een gewone klik. Zie de uitgebreide toelichting bij buildGateContext() hierboven.
+      const { ctx, resolveFailure } = await buildGateContext(this.hand, action, snapshot.url, node);
+      if (resolveFailure) {
+        this.hand.update({ status: "bezig", step, message: `Klik-positie mislukt: ${resolveFailure.detail ?? "geen element gevonden"}`, action });
+        history.push({ action, ok: false, detail: resolveFailure.detail ?? "kon doelwit op deze positie niet vaststellen" });
+        continue;
+      }
 
       const denied = checkDenied(action, ctx);
       if (denied.denied) {
@@ -1250,9 +1301,16 @@ export class AgentLoop {
       // needsConfirm() sowieso al false teruggeeft (extract/wait/finish, same-origin
       // navigatie, niet-muterende klik/type zonder CONFIRM_WORDS) — dat gedrag is ongewijzigd.
       if (needsConfirm(action, ctx)) {
+        // Bij click-at heeft de mens anders geen enkel houvast ("Klik op positie (43%,
+        // 21%)" zegt niets) — laat de zojuist opgehaalde rol/naam expliciet zien zodat de
+        // bevestiging een geïnformeerde keuze is, geen blinde formaliteit.
+        const targetHint =
+          action.kind === "click-at" && (ctx.role || ctx.targetName)
+            ? ` (doelwit: ${ctx.role ?? "onbekende rol"}${ctx.targetName ? ` "${ctx.targetName.slice(0, 60)}"` : ""})`
+            : "";
         let approved = false;
         try {
-          approved = await this.hand.requestConfirm(action, `Deze actie wijzigt iets: ${describe(action)}`);
+          approved = await this.hand.requestConfirm(action, `Deze actie wijzigt iets: ${describe(action)}${targetHint}`);
         } catch {
           approved = false;
         }

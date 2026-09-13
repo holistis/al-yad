@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AgentLoop, type ChatLike, type HandBridge } from "./loop.js";
+import { AgentLoop, buildGateContext, type ChatLike, type HandBridge } from "./loop.js";
 import type { Action, ActResult, RunStatus, Snapshot } from "@yad/shared";
 import type { ChatRequest } from "../engine/types.js";
 
@@ -40,14 +40,31 @@ class MockHand implements HandBridge {
   updates: Array<{ status: RunStatus; message: string }> = [];
   confirmReturn = true;
   confirmCalls = 0;
+  /**
+   * Simuleert wat de extensie (packages/extension/lib/executor.ts,
+   * clickAtViewportPoint met resolveOnly:true) teruggeeft voor een click-at-
+   * resolve-ronde: welk element ECHT op de opgegeven positie staat. `undefined`
+   * (default) simuleert een element zonder duidelijke rol/naam (bv. platte tekst).
+   */
+  clickAtResolvesTo: { role?: string; name?: string } | undefined = undefined;
+  /** Simuleert dat de resolve-ronde zelf mislukt (geen element op die positie gevonden). */
+  clickAtResolveFails = false;
+  /** Standaard null (geen screenshot) — click-at wordt pas geldig ZODRA dit een string is
+   *  (zie loop.ts: sawScreenshotThisTurn), precies zoals een echte stuck-signaal-escalatie
+   *  pas een screenshot oplevert via requestScreenshot(). */
+  screenshotReturn: string | null = null;
   constructor(private readonly snap: Snapshot = SNAP) {}
   async requestSnapshot(): Promise<Snapshot> {
     return this.snap;
   }
-  async requestScreenshot(): Promise<string | null> { return null; }
+  async requestScreenshot(): Promise<string | null> { return this.screenshotReturn; }
   async act(a: Action): Promise<ActResult> {
     this.acts.push(a);
     if (a.kind === "extract") return { ok: true, extracted: "3 vacatures: Tolk A, Docent B, Helpdesk C" };
+    if (a.kind === "click-at" && a.resolveOnly === true) {
+      if (this.clickAtResolveFails) return { ok: false, detail: "geen element gevonden op deze positie" };
+      return { ok: true, resolvedTarget: this.clickAtResolvesTo };
+    }
     return { ok: true };
   }
   async requestConfirm(): Promise<boolean> {
@@ -60,6 +77,82 @@ class MockHand implements HandBridge {
 }
 
 const noSleep = async (): Promise<void> => {};
+
+// ── buildGateContext (click-at resolve-ronde) ────────────────────────────────
+//
+// Restpunt uit de adversariële review 2026-09-13: clickAtViewportPoint() in
+// packages/extension/lib/executor.ts had voorheen alleen de smalle DENY_WORDS-
+// check, geen equivalent van needsConfirm() voor write-rollen in het algemeen —
+// de companion-poort (guardrails.ts) kon voor click-at nooit iets over het
+// doelwit zeggen, want er is geen ref/naam bekend zoals bij een gewone klik.
+// buildGateContext() lost dit op door de Hand eerst (resolveOnly, geen klik) te
+// vragen welk element ECHT op die positie staat. Deze tests toetsen die functie
+// rechtstreeks — sneller en deterministischer dan de volledige stuck-signaal-
+// dans die nodig is om click-at door de hele AgentLoop.run()-lus te krijgen
+// (zie de aparte end-to-end-test verderop in dit bestand).
+describe("buildGateContext", () => {
+  class ResolveOnlyHand {
+    resolvedTarget: { role?: string; name?: string } | undefined = undefined;
+    resolveFails = false;
+    lastAct: Action | undefined;
+    async act(a: Action): Promise<ActResult> {
+      this.lastAct = a;
+      if (this.resolveFails) return { ok: false, detail: "geen element gevonden op deze positie" };
+      return { ok: true, resolvedTarget: this.resolvedTarget };
+    }
+  }
+
+  it("gebruikt voor 'click' gewoon de rol/naam uit de snapshot-node, zonder de Hand aan te roepen", async () => {
+    const hand = new ResolveOnlyHand();
+    const { ctx, resolveFailure } = await buildGateContext(
+      hand,
+      { kind: "click", ref: "e1" },
+      "https://x.nl/",
+      { ref: "e1", role: "button", name: "Opslaan" },
+    );
+    expect(resolveFailure).toBeUndefined();
+    expect(ctx).toEqual({ currentUrl: "https://x.nl/", targetName: "Opslaan", role: "button" });
+    expect(hand.lastAct).toBeUndefined(); // geen resolve-ronde nodig buiten click-at
+  });
+
+  it("vraagt voor click-at eerst een resolveOnly-ronde op en zet de rol/naam daarvan in de ctx", async () => {
+    const hand = new ResolveOnlyHand();
+    hand.resolvedTarget = { role: "button", name: "Verwijder account" };
+    const { ctx, resolveFailure } = await buildGateContext(
+      hand,
+      { kind: "click-at", xFraction: 0.4, yFraction: 0.6 },
+      "https://x.nl/",
+      undefined,
+    );
+    expect(resolveFailure).toBeUndefined();
+    expect(ctx).toEqual({ currentUrl: "https://x.nl/", targetName: "Verwijder account", role: "button" });
+    expect(hand.lastAct).toEqual({ kind: "click-at", xFraction: 0.4, yFraction: 0.6, resolveOnly: true });
+  });
+
+  it("geeft een benigne, niet-muterende click-at-resolve door zonder rol te verzinnen", async () => {
+    const hand = new ResolveOnlyHand();
+    hand.resolvedTarget = { role: "link", name: "Lees meer" };
+    const { ctx } = await buildGateContext(hand, { kind: "click-at", xFraction: 0.1, yFraction: 0.1 }, "https://x.nl/", undefined);
+    expect(ctx.role).toBe("link");
+    expect(ctx.targetName).toBe("Lees meer");
+  });
+
+  it("geeft resolveFailure terug als de resolve-ronde geen element vindt (nooit klikken op een gok)", async () => {
+    const hand = new ResolveOnlyHand();
+    hand.resolveFails = true;
+    const { ctx, resolveFailure } = await buildGateContext(hand, { kind: "click-at", xFraction: 0.9, yFraction: 0.9 }, "https://x.nl/", undefined);
+    expect(resolveFailure?.ok).toBe(false);
+    expect(ctx.role).toBeUndefined();
+    expect(ctx.targetName).toBeUndefined();
+  });
+
+  it("vangt een exception uit de resolve-ronde op als resolveFailure in plaats van te crashen", async () => {
+    const hand = { act: async () => { throw new Error("native-messaging weg"); } };
+    const { resolveFailure } = await buildGateContext(hand, { kind: "click-at", xFraction: 0.5, yFraction: 0.5 }, "https://x.nl/", undefined);
+    expect(resolveFailure?.ok).toBe(false);
+    expect(resolveFailure?.detail).toContain("native-messaging weg");
+  });
+});
 
 describe("AgentLoop", () => {
   it("voert een veilige navigatie uit en stopt bij finish", async () => {
@@ -256,6 +349,96 @@ describe("AgentLoop", () => {
     const out = await loop.run("klik op iets");
     expect(out.status).toBe("klaar"); // tweede beurt valt terug op default finish
     expect(hand.acts).toHaveLength(0); // click-at is NOOIT uitgevoerd
+  });
+
+  // ── End-to-end: click-at door de VOLLEDIGE lus (restpunt adversariële review 2026-09-13) ──
+  //
+  // click-at is alleen geldig op de beurt na een stuck-signaal (het model krijgt dan pas
+  // een screenshot). Deze drie tests forceren dat via een "repeat"-escalatie (dezelfde
+  // klik drie keer) met een onStuck-hint, precies zoals een echte Claude Code-escalatie
+  // dat zou doen, en controleren daarna het ECHTE click-at-gedrag door de hele lus heen:
+  // resolve-ronde -> poort -> (wel of geen) bevestiging -> pas dan de echte klik.
+  describe("click-at door de volledige AgentLoop.run()-lus", () => {
+    function makeEscalatedHand(): MockHand {
+      const hand = new MockHand();
+      hand.confirmReturn = true;
+      hand.screenshotReturn = "data:image/jpeg;base64,ZmFrZQ=="; // maakt click-at na escalatie geldig
+      return hand;
+    }
+    const REPEAT_THEN_CLICK_AT = (clickAt: string): string[] => [
+      '{"kind":"click","ref":"e2"}', // e2 = "Producten", niet-muterend (role=link) — geen ruis van confirm-dialogen
+      '{"kind":"click","ref":"e2"}',
+      '{"kind":"click","ref":"e2"}', // 3x identiek -> "repeat"-signaal -> escalatie -> screenshot beschikbaar
+      clickAt, // volgende beurt: click-at is nu toegestaan (sawScreenshotThisTurn)
+      // queue-uitputting -> MockRouter valt terug op finish
+    ];
+
+    it("een muterend click-at-doelwit (na resolve) vereist bevestiging, en klikt pas na goedkeuring", async () => {
+      const hand = makeEscalatedHand();
+      hand.clickAtResolvesTo = { role: "button", name: "Verwijder account" };
+      const router = new MockRouter(REPEAT_THEN_CLICK_AT('{"kind":"click-at","xFraction":0.5,"yFraction":0.5}'));
+      const loop = new AgentLoop(router, hand, { sleep: noSleep, onStuck: async () => "probeer de vision-fallback" });
+      const out = await loop.run("ruim iets op");
+
+      // hand.acts bevat naast de 3 clicks: de resolveOnly-ronde EN de echte klik (in die volgorde).
+      const clickAtActs = hand.acts.filter((a) => a.kind === "click-at");
+      expect(clickAtActs).toEqual([
+        { kind: "click-at", xFraction: 0.5, yFraction: 0.5, resolveOnly: true },
+        { kind: "click-at", xFraction: 0.5, yFraction: 0.5 },
+      ]);
+      // Confirm werd gevraagd voor het muterende click-at-doelwit (en de mens keurde goed).
+      expect(hand.confirmCalls).toBeGreaterThanOrEqual(1);
+      expect(out.status).toBe("klaar");
+    });
+
+    it("een muterend click-at-doelwit wordt NIET geklikt als de mens de bevestiging weigert", async () => {
+      const hand = makeEscalatedHand();
+      hand.clickAtResolvesTo = { role: "button", name: "Verwijder account" };
+      hand.confirmReturn = false; // weigert ELKE bevestiging, ook deze
+      const router = new MockRouter(REPEAT_THEN_CLICK_AT('{"kind":"click-at","xFraction":0.5,"yFraction":0.5}'));
+      const loop = new AgentLoop(router, hand, { sleep: noSleep, onStuck: async () => "probeer de vision-fallback" });
+      await loop.run("ruim iets op");
+
+      // Wel de resolve-ronde (dat klikt niet), maar NOOIT de echte klik.
+      const clickAtActs = hand.acts.filter((a) => a.kind === "click-at");
+      expect(clickAtActs).toEqual([{ kind: "click-at", xFraction: 0.5, yFraction: 0.5, resolveOnly: true }]);
+    });
+
+    it("een onschuldig, niet-muterend click-at-doelwit klikt direct door zonder extra bevestiging (geen regressie)", async () => {
+      const hand = makeEscalatedHand();
+      hand.clickAtResolvesTo = { role: "link", name: "Lees meer" }; // niet-muterend, geen CONFIRM_WORDS
+      const router = new MockRouter(REPEAT_THEN_CLICK_AT('{"kind":"click-at","xFraction":0.2,"yFraction":0.3}'));
+      const loop = new AgentLoop(router, hand, { sleep: noSleep, onStuck: async () => "probeer de vision-fallback" });
+      const confirmCallsBeforeClickAt = (() => {
+        // De 3 herhaalde "click" op e2 (role=link, "Producten") zijn zelf ook niet-muterend
+        // (WRITE_ROLES bevat geen "link"), dus die vragen ook al geen bevestiging — de test
+        // isoleert dus specifiek het click-at-gedrag zonder ruis van de repeat-escalatie.
+        return hand.confirmCalls;
+      })();
+      const out = await loop.run("lees iets");
+
+      const clickAtActs = hand.acts.filter((a) => a.kind === "click-at");
+      expect(clickAtActs).toEqual([
+        { kind: "click-at", xFraction: 0.2, yFraction: 0.3, resolveOnly: true },
+        { kind: "click-at", xFraction: 0.2, yFraction: 0.3 },
+      ]);
+      expect(hand.confirmCalls).toBe(confirmCallsBeforeClickAt); // geen bevestiging erbij gekomen
+      expect(out.status).toBe("klaar");
+    });
+
+    it("betaal-/bestel-achtig click-at-doelwit blijft hard geblokkeerd, ook na een gok-vrije resolve", async () => {
+      const hand = makeEscalatedHand();
+      hand.clickAtResolvesTo = { role: "button", name: "Plaats bestelling" }; // DENY_WORDS
+      const router = new MockRouter(REPEAT_THEN_CLICK_AT('{"kind":"click-at","xFraction":0.5,"yFraction":0.9}'));
+      const loop = new AgentLoop(router, hand, { sleep: noSleep, onStuck: async () => "probeer de vision-fallback" });
+      await loop.run("bestel iets");
+
+      // Alleen de resolve-ronde; checkDenied() blokkeert VOOR er ooit om bevestiging
+      // gevraagd wordt of geklikt wordt — zelfde rode lijn als bij een gewone klik.
+      const clickAtActs = hand.acts.filter((a) => a.kind === "click-at");
+      expect(clickAtActs).toEqual([{ kind: "click-at", xFraction: 0.5, yFraction: 0.9, resolveOnly: true }]);
+      expect(hand.updates.some((u) => u.status === "geweigerd")).toBe(true);
+    });
   });
 
   it("stopt met fout na drie onleesbare modelantwoorden", async () => {

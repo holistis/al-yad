@@ -1,5 +1,5 @@
-import { DENY_WORDS, type Action, type ActResult } from "@yad/shared";
-import { collectDeepText, findFresh } from "./perception";
+import { DENY_WORDS, normalizeText, SNAPSHOT_LIMITS, type Action, type ActResult } from "@yad/shared";
+import { collectDeepText, findFresh, nameOf, roleOf } from "./perception";
 
 /**
  * De uitvoerder (in de pagina-context): voert een Action deterministisch uit op
@@ -207,14 +207,24 @@ function accessibleTextNear(el: Element): string {
  *
  * VEILIGHEIDSGRENS: click-at heeft geen vooraf bekende ref/naam, dus de
  * companion-poort (guardrails.ts) kan de doeltekst niet vooraf checken zoals
- * bij een gewone klik. Dit is daarom de ENIGE plek waar de tekst van het
- * daadwerkelijke doelwit bekend is vóór de klik — de deny-check moet hier
- * blijven staan, niet alleen bovenstrooms.
+ * bij een gewone klik — TENZIJ de aanroeper eerst `resolveOnly:true` gebruikt
+ * (zie hieronder) om die rol/naam op te halen vóór er iets gebeurt. De
+ * DENY_WORDS-check hier blijft daarnaast bestaan als tweede laag (defense-in-
+ * depth): de pagina kan tussen een resolve-ronde en de menselijke bevestiging
+ * veranderen, dus dit blijft de plek waar het EXACTE doelwit vlak vóór de klik
+ * nog een laatste keer wordt getoetst.
+ *
+ * `resolveOnly:true` klikt NIET — hij zoekt alleen het doelwit op en geeft rol
+ * + toegankelijke naam terug (dezelfde berekening als een snapshot-node, via
+ * roleOf/nameOf), zodat de companion-lus (loop.ts) daarmee dezelfde write-
+ * role/CONFIRM_WORDS-poort kan draaien als bij een gewone klik, VOORDAT de
+ * mens om bevestiging wordt gevraagd en VOORDAT er geklikt wordt.
  */
 async function clickAtViewportPoint(
   cx: number,
   cy: number,
   fallbackEl?: Element,
+  resolveOnly = false,
 ): Promise<ActResult> {
   let topEl = document.elementFromPoint(cx, cy);
   if (topEl && fallbackEl && !fallbackEl.contains(topEl) && !topEl.contains(fallbackEl)) {
@@ -226,6 +236,18 @@ async function clickAtViewportPoint(
   }
   const target = (topEl ?? fallbackEl) as HTMLElement | null;
   if (!target) return { ok: false, detail: "geen element gevonden op deze positie" };
+
+  if (resolveOnly) {
+    // Geen klik: alleen vaststellen wat hier staat, zodat de companion-poort
+    // (checkDenied/needsConfirm) dat kan beoordelen vóór er iets gebeurt.
+    return {
+      ok: true,
+      resolvedTarget: {
+        role: roleOf(target),
+        name: normalizeText(nameOf(target)).slice(0, SNAPSHOT_LIMITS.NAME_LIMIT),
+      },
+    };
+  }
 
   const label = accessibleTextNear(target);
   if (DENY_WORDS.test(label)) {
@@ -439,7 +461,7 @@ export async function executeAction(
       const y = Math.max(0, Math.min(1, action.yFraction));
       const cx = Math.round(x * window.innerWidth);
       const cy = Math.round(y * window.innerHeight);
-      return clickAtViewportPoint(cx, cy);
+      return clickAtViewportPoint(cx, cy, undefined, action.resolveOnly === true);
     }
 
     case "type": {
