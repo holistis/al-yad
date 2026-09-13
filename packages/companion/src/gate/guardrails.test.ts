@@ -45,6 +45,16 @@ describe("Poort: deny-lijst", () => {
     const a: Action = { kind: "click-at", xFraction: 0.5, yFraction: 0.5 };
     expect(checkDenied(a, { currentUrl: "https://shop.nl/" }).denied).toBe(false);
   });
+
+  // Voorheen kreeg checkDenied() voor click-at NOOIT een targetName (de companion kende
+  // het doelwit pas na de klik zelf) -- de resolve-ronde (loop.ts) levert 'm nu vooraf,
+  // dus deze DENY_WORDS-tak (die al bestond voor "click") wordt voor het eerst ook echt
+  // voor click-at geraakt, VOOR er een mens om bevestiging gevraagd wordt.
+  it("weigert click-at op een 'plaats bestelling'-doelwit zodra de resolve-ronde dat label teruggeeft", () => {
+    const a: Action = { kind: "click-at", xFraction: 0.5, yFraction: 0.5 };
+    const v = checkDenied(a, { currentUrl: "https://shop.nl/cart", targetName: "Plaats bestelling" });
+    expect(v.denied).toBe(true);
+  });
 });
 
 describe("Poort: confirm-before-act", () => {
@@ -64,6 +74,34 @@ describe("Poort: confirm-before-act", () => {
 
   it("click-at vereist altijd bevestiging (fail-closed: geen targetName vooraf bekend)", () => {
     expect(needsConfirm({ kind: "click-at", xFraction: 0.5, yFraction: 0.5 }, { currentUrl: "https://x.nl/" })).toBe(true);
+  });
+
+  // Restpunt uit de adversariële review 2026-09-13: loop.ts vraagt de extensie nu eerst
+  // (via resolveOnly) welk element ECHT op de click-at-positie staat, en geeft die
+  // rol/naam hier mee als ctx — precies zoals bij een gewone klik. Deze tests dekken
+  // dat needsConfirm() met díe informatie dezelfde WRITE_ROLES/CONFIRM_WORDS-scoping
+  // toepast als "click" hierboven, in plaats van altijd blind te bevestigen.
+  it("click-at op een muterende ROL (na resolve) vereist bevestiging, ook zonder label", () => {
+    expect(needsConfirm({ kind: "click-at", xFraction: 0.5, yFraction: 0.5 }, { currentUrl: "https://x.nl/", role: "button" })).toBe(true);
+    expect(needsConfirm({ kind: "click-at", xFraction: 0.5, yFraction: 0.5 }, { currentUrl: "https://x.nl/", role: "checkbox" })).toBe(true);
+  });
+
+  it("click-at op een niet-muterend, onschuldig doelwit (na resolve) vereist GEEN bevestiging", () => {
+    expect(needsConfirm(
+      { kind: "click-at", xFraction: 0.5, yFraction: 0.5 },
+      { currentUrl: "https://x.nl/", role: "link", targetName: "Lees meer" },
+    )).toBe(false);
+    expect(needsConfirm(
+      { kind: "click-at", xFraction: 0.5, yFraction: 0.5 },
+      { currentUrl: "https://x.nl/", role: "heading", targetName: "Welkom" },
+    )).toBe(false);
+  });
+
+  it("click-at met een CONFIRM_WORDS-achtig label (na resolve) vereist bevestiging, ook zonder muterende rol", () => {
+    expect(needsConfirm(
+      { kind: "click-at", xFraction: 0.5, yFraction: 0.5 },
+      { currentUrl: "https://x.nl/", role: "link", targetName: "Verstuur" },
+    )).toBe(true);
   });
 
   it("cross-origin navigatie vereist bevestiging, zelfde origin niet", () => {

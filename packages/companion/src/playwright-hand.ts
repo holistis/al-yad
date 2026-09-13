@@ -132,6 +132,64 @@ export const TEXT_DIGEST_SCRIPT = `(function() {
   return deepText(document, { n: 4000 });
 })()`;
 
+/**
+ * In-page functie voor click-at's resolveOnly-modus: zoekt het element op (x, y) op en
+ * geeft rol + toegankelijke naam terug ZONDER te klikken — dezelfde, bewust simpele
+ * rol-berekening die SNAPSHOT_SCRIPT hierboven al gebruikt (geen import mogelijk in een
+ * page.evaluate-context). Nul (`null`) betekent: niets gevonden op die positie.
+ *
+ * Zonder deze functie zou de resolveOnly-ronde die loop.ts nu voor ELKE click-at
+ * aanvraagt (packages/companion/src/agent/loop.ts, buildGateContext) hier gewoon
+ * meteen op `page.mouse.click()` in de click-at-tak hieronder terechtkomen — een
+ * ECHTE klik voor de "peiling", gevolgd door een TWEEDE echte klik na goedkeuring.
+ *
+ * Geëxporteerd zodat playwright-hand.clickAtResolve.test.ts 'm rechtstreeks in jsdom
+ * kan aanroepen, zelfde patroon als SNAPSHOT_SCRIPT/TEXT_DIGEST_SCRIPT hierboven.
+ */
+/** Minimale vorm van een DOM-element — dit bestand draait onder Node (geen "dom" lib),
+ *  terwijl deze functie zelf enkel in de pagina-context wordt uitgevoerd (via
+ *  page.evaluate). Zelfde workaround als de bestaande scroll-actie hieronder. */
+interface MinimalElement {
+  getAttribute(name: string): string | null;
+  hasAttribute(name: string): boolean;
+  tagName: string;
+  textContent: string | null;
+  isContentEditable: boolean;
+}
+
+export function resolveClickAtTarget([x, y]: [number, number]): { role: string; name: string } | null {
+  const doc = (globalThis as unknown as { document: { elementFromPoint(x: number, y: number): MinimalElement | null } }).document;
+  const el = doc.elementFromPoint(x, y);
+  if (!el) return null;
+  const explicitRole = el.getAttribute("role");
+  const tag = el.tagName.toLowerCase();
+  let role: string;
+  if (explicitRole) role = explicitRole;
+  else if (tag === "a") role = "link";
+  else if (tag === "button" || tag === "summary") role = "button";
+  else if (tag === "select") role = "combobox";
+  else if (tag === "textarea") role = "textbox";
+  else if (tag === "input") {
+    const t = (el.getAttribute("type") || "text").toLowerCase();
+    if (t === "checkbox") role = "checkbox";
+    else if (t === "radio") role = "radio";
+    else if (t === "button" || t === "submit" || t === "reset") role = "button";
+    else if (t === "file") role = "file-input";
+    else role = "textbox";
+  } else if (el.isContentEditable) role = "textbox";
+  else if (el.hasAttribute("onclick")) role = "button";
+  else role = tag;
+  const name = (
+    el.getAttribute("aria-label") ||
+    (el.textContent || "").trim().slice(0, 120) ||
+    el.getAttribute("placeholder") ||
+    el.getAttribute("title") ||
+    el.getAttribute("alt") ||
+    ""
+  ).trim();
+  return { role, name };
+}
+
 export interface DemoTimelineEntry {
   label: string;
   tStartMs: number;
@@ -261,6 +319,19 @@ export class PlaywrightHand implements HandBridge {
           const size = page.viewportSize() ?? { width: 1280, height: 800 };
           const x = Math.max(0, Math.min(1, action.xFraction)) * size.width;
           const y = Math.max(0, Math.min(1, action.yFraction)) * size.height;
+          if (action.resolveOnly) {
+            // Zelfde contract als de Chrome-extensie (packages/extension/lib/executor.ts,
+            // clickAtViewportPoint): alleen vaststellen welk element ECHT op deze positie
+            // staat, NIET klikken — zodat de companion-poort (guardrails.ts, via
+            // buildGateContext in loop.ts) dezelfde write-role/CONFIRM_WORDS/DENY_WORDS-
+            // check kan toepassen als bij een gewone klik, vóór er iets gebeurt. Zonder
+            // deze tak zou de resolve-ronde die loop.ts nu voor ELKE click-at aanvraagt
+            // hieronder gewoon meteen een ECHTE `page.mouse.click()` uitvoeren — één keer
+            // voor de "peiling", nog een keer na goedkeuring: een dubbele klik.
+            const resolved = await page.evaluate(resolveClickAtTarget, [x, y] as [number, number]);
+            if (!resolved) return { ok: false, detail: "geen element gevonden op deze positie" };
+            return { ok: true, resolvedTarget: resolved };
+          }
           if (this.options.demoCursor && this.page) {
             await this.page.mouse.move(x, y, { steps: 18 });
             await this.page.waitForTimeout(450);

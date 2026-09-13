@@ -6,7 +6,15 @@
 export type Action =
   | { kind: "navigate"; url: string }
   | { kind: "click"; ref: string; scrollPause?: number }
-  | { kind: "click-at"; xFraction: number; yFraction: number }
+  /**
+   * `resolveOnly` (optioneel): vraagt de Hand alleen WELK element op deze positie staat
+   * (rol + toegankelijke naam via elementFromPoint), zonder te klikken. Gebruikt door de
+   * companion-lus om, vóórdat er iets gebeurt, dezelfde write-role/CONFIRM_WORDS-poort
+   * (guardrails.ts) toe te passen die een gewone `click` al vooraf uit de snapshot kent —
+   * click-at heeft géén ref en dus geen vooraf bekende rol/naam. Zie loop.ts en
+   * packages/extension/lib/executor.ts (clickAtViewportPoint).
+   */
+  | { kind: "click-at"; xFraction: number; yFraction: number; resolveOnly?: boolean }
   | { kind: "type"; ref: string; text: string; submit?: boolean; typeDelay?: number }
   | { kind: "paste"; ref: string; text: string; submit?: boolean }
   | { kind: "select"; ref: string; value: string }
@@ -70,4 +78,11 @@ export interface ActResult {
   detail?: string;
   /** geextraheerde inhoud bij een extract-actie */
   extracted?: string;
+  /**
+   * Bij `click-at` met `resolveOnly:true`: rol + toegankelijke naam van het element dat
+   * ECHT op die positie staat (dezelfde berekening als een snapshot-node), zodat de
+   * companion-poort (checkDenied/needsConfirm) er hetzelfde mee kan beslissen als bij
+   * een gewone klik, VOORDAT er daadwerkelijk geklikt wordt.
+   */
+  resolvedTarget?: { role: string; name: string };
 }
