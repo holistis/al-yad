@@ -111,13 +111,92 @@ describe("AgentLoop", () => {
     expect(out.status).toBe("klaar"); // queue leeg -> default finish
   });
 
-  it("auto-modus: voert een schrijf-actie uit zónder bevestiging te vragen", async () => {
+  // Bugfix 2026-09-13 (adversariële review): dit was voorheen "auto-modus: voert
+  // een schrijf-actie uit zónder bevestiging te vragen" en asserteerde confirmCalls
+  // === 0 -- precies het gat. De MCP-tool-interface die Claude Code zelf gebruikt
+  // (yad_run_goal → companion-client.ts) stuurt STRUCTUREEL altijd autonomy="auto"
+  // en de aanroeper kan geen andere waarde meegeven, dus "auto" was in de praktijk
+  // de ENIGE modus die die laag ooit gebruikte. Een pagina met verborgen/geïnjecteerde
+  // tekst kon zo elke niet-betaal muterende actie (klikken, verzenden, verwijderen,
+  // cross-origin navigeren, uploaden) laten uitvoeren zonder dat een mens het ooit
+  // zag. needsConfirm() wordt nu ALTIJD afgedwongen, ongeacht autonomy.
+  it("auto-modus: vraagt nu ook bevestiging bij een schrijf-actie en voert hem uit bij goedkeuring", async () => {
     const hand = new MockHand();
-    const router = new MockRouter(['{"kind":"click","ref":"e1"}']); // e1 = "Opslaan" (muterend)
+    hand.confirmReturn = true;
+    const router = new MockRouter(['{"kind":"click","ref":"e1"}']); // e1 = "Opslaan" (muterend, role=button)
     const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
     const out = await loop.run("sla op");
-    expect(hand.confirmCalls).toBe(0); // geen bevestiging gevraagd
+    expect(hand.confirmCalls).toBe(1); // bevestiging WEL gevraagd, ook in auto-modus
     expect(hand.acts).toEqual([{ kind: "click", ref: "e1" }]);
+    expect(out.status).toBe("klaar");
+  });
+
+  it("auto-modus: schrijf-actie wordt geblokkeerd als de gebruiker de bevestiging weigert", async () => {
+    const hand = new MockHand();
+    hand.confirmReturn = false;
+    const router = new MockRouter(['{"kind":"click","ref":"e1"}']); // e1 = "Opslaan"
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("sla op");
+    expect(hand.confirmCalls).toBe(1);
+    expect(hand.acts).toHaveLength(0); // nooit uitgevoerd zonder goedkeuring
+    expect(out.status).toBe("gestopt");
+  });
+
+  it("auto-modus: cross-origin navigatie vereist nu ook bevestiging", async () => {
+    const hand = new MockHand();
+    hand.confirmReturn = true;
+    const router = new MockRouter(['{"kind":"navigate","url":"https://andere-site.example/"}']);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("ga naar een andere site");
+    expect(hand.confirmCalls).toBe(1);
+    expect(hand.acts).toEqual([{ kind: "navigate", url: "https://andere-site.example/" }]);
+    expect(out.status).toBe("klaar");
+  });
+
+  it("auto-modus: select vereist nog steeds bevestiging (ongewijzigd, was al true ongeacht autonomy)", async () => {
+    const hand = new MockHand();
+    hand.confirmReturn = true;
+    const router = new MockRouter(['{"kind":"select","ref":"e1","value":"x"}']);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("kies een optie");
+    expect(hand.confirmCalls).toBe(1);
+    expect(hand.acts).toEqual([{ kind: "select", ref: "e1", value: "x" }]);
+    expect(out.status).toBe("klaar");
+  });
+
+  it("auto-modus: upload vereist nog steeds bevestiging (ongewijzigd, was al true ongeacht autonomy)", async () => {
+    const hand = new MockHand();
+    hand.confirmReturn = true;
+    const router = new MockRouter(['{"kind":"upload","ref":"e1","filename":"cv.pdf","content":"AAA=","base64":true}']);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("upload mijn cv");
+    expect(hand.confirmCalls).toBe(1);
+    expect(hand.acts).toHaveLength(1);
+    expect(out.status).toBe("klaar");
+  });
+
+  // Geen regressie: needsConfirm() geeft voor deze acties sowieso al false terug
+  // (extract is read-only), dus auto-modus mag hier, net als voorheen, gewoon
+  // doorlopen zonder een mens te storen.
+  it("auto-modus: read-only extract-actie blijft zonder bevestiging werken (geen regressie)", async () => {
+    const hand = new MockHand();
+    const router = new MockRouter(['{"kind":"extract","what":"titel","ref":"e2"}']);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("lees de titel");
+    expect(hand.confirmCalls).toBe(0);
+    expect(hand.acts).toEqual([{ kind: "extract", what: "titel", ref: "e2" }]);
+    expect(out.status).toBe("klaar");
+  });
+
+  // Geen regressie: same-origin navigatie vanaf een bekende pagina heeft geen
+  // confirm nodig (needsConfirm geeft false), ook niet in auto-modus.
+  it("auto-modus: same-origin navigatie blijft zonder bevestiging werken (geen regressie)", async () => {
+    const hand = new MockHand();
+    const router = new MockRouter(['{"kind":"navigate","url":"https://shop.nl/producten"}']);
+    const loop = new AgentLoop(router, hand, { sleep: noSleep, autonomy: "auto" });
+    const out = await loop.run("ga naar producten");
+    expect(hand.confirmCalls).toBe(0);
+    expect(hand.acts).toEqual([{ kind: "navigate", url: "https://shop.nl/producten" }]);
     expect(out.status).toBe("klaar");
   });
 

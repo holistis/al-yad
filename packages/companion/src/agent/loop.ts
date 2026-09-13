@@ -1237,10 +1237,19 @@ export class AgentLoop {
         continue;
       }
 
-      // In "auto" (volledig zelfstandig) slaan we de mens-bevestiging over. De harde
-      // deny-lijst hierboven (checkDenied + pathIsDenied) blijft áltijd actief — die
-      // is niet te omzeilen, ook niet in auto-modus.
-      if (this.autonomy !== "auto" && needsConfirm(action, ctx)) {
+      // needsConfirm() wordt ALTIJD afgedwongen, ongeacht autonomy. "auto" mag de
+      // mens-bevestiging nooit overslaan voor een schrijvende actie (write-role klik,
+      // cross-origin navigatie, upload, select, of type/paste met CONFIRM_WORDS/submit):
+      // de MCP-tool-interface die Claude Code zelf gebruikt (yad_run_goal) dwingt altijd
+      // autonomy="auto" af en kan geen andere waarde meegeven (companion-client.ts), dus
+      // "auto" was in de praktijk de ENIGE modus die de MCP-laag ooit gebruikt. Een pagina
+      // met verborgen/geïnjecteerde tekst kon daardoor elke niet-betaal muterende actie
+      // laten uitvoeren zonder dat een mens het ooit zag (adversariële review 2026-09-13).
+      // De harde deny-lijst hierboven (checkDenied + pathIsDenied) blijft daarnaast áltijd
+      // actief, in elke modus. "auto" blijft alleen vrijstelling geven voor acties waar
+      // needsConfirm() sowieso al false teruggeeft (extract/wait/finish, same-origin
+      // navigatie, niet-muterende klik/type zonder CONFIRM_WORDS) — dat gedrag is ongewijzigd.
+      if (needsConfirm(action, ctx)) {
         let approved = false;
         try {
           approved = await this.hand.requestConfirm(action, `Deze actie wijzigt iets: ${describe(action)}`);
