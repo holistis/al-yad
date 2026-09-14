@@ -24,7 +24,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20.12"
+          # 22, not ci.yml's 20.12: the latest npm (needed for trusted
+          # publishing/provenance) requires Node >=22.22.2 and refuses to
+          # install itself on Node 20 (EBADENGINE). The build/publish steps
+          # below only need Node >=20 per the workspace's own engines field,
+          # so this doesn't have to match ci.yml's target version.
+          node-version: 22
           cache: "pnpm"
           registry-url: https://registry.npmjs.org
 
