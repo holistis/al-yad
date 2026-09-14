@@ -1,0 +1,49 @@
+name: Publish yadagent
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "publish" to confirm publishing the current version in packages/companion/npm-package/package.json to npm'
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    if: github.event.inputs.confirm == 'publish'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.12"
+          cache: "pnpm"
+          registry-url: https://registry.npmjs.org
+
+      - name: Update npm (trusted publishing + provenance need npm >= 11.5.1)
+        run: npm install -g npm@latest
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace (produces packages/shared/dist and packages/companion/dist)
+        run: pnpm build
+
+      - name: Build + verify yadagent npm package
+        working-directory: packages/companion/npm-package
+        run: |
+          npm install
+          node scripts/build.mjs
+          node scripts/verify.mjs
+
+      - name: Publish to npm with provenance
+        working-directory: packages/companion/npm-package
+        run: npm publish --provenance --access public
