@@ -15,7 +15,7 @@
  *     aan de caller via de `onConfirm`-callback. Standaard auto-approve voor
  *     bug-bounty recon (readonly). De ScopeGuard blokkeert toch alles gevaarlijks.
  */
-import { chromium, type Browser, type Page } from "playwright";
+import { chromium, type Browser, type Page, type Frame } from "playwright";
 import { writeFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -37,6 +37,14 @@ export interface PlaywrightHandOptions {
   recordVideoDir?: string;
   /** optioneel: laat de muis zichtbaar naar het doelelement glijden vóór click/type (alleen voor demo-opnames) */
   demoCursor?: boolean;
+  /** CDP-endpoint (bv. http://127.0.0.1:9222) van een AL DRAAIENDE, echte Chrome
+   *  (gestart met --remote-debugging-port). Indien gezet: verbindt met die browser
+   *  in plaats van een nieuwe, lege Chromium te starten, zodat de echte, ingelogde
+   *  sessies van de gebruiker beschikbaar zijn. Opent altijd een NIEUW tabblad en
+   *  raakt nooit een bestaand tabblad aan — zelfde privacyles als de 2026-09-07
+   *  incident-fix in packages/extension (nooit blind meeliften op een tab die de
+   *  gebruiker toevallig open heeft staan). */
+  cdpEndpoint?: string;
 }
 
 /**
@@ -201,8 +209,15 @@ export class PlaywrightHand implements HandBridge {
   private page: Page | null = null;
   private videoStartTs = 0;
   public readonly demoTimeline: DemoTimelineEntry[] = [];
-  private readonly options: Required<Omit<PlaywrightHandOptions, "cookies">> & { cookies?: PlaywrightHandOptions["cookies"] };
+  private readonly options: Required<Omit<PlaywrightHandOptions, "cookies" | "cdpEndpoint">> & {
+    cookies?: PlaywrightHandOptions["cookies"];
+    cdpEndpoint?: PlaywrightHandOptions["cdpEndpoint"];
+  };
   private firstNav = true;
+  /** Frame-index → Playwright Frame, opnieuw opgebouwd bij elke requestSnapshot(). Laat
+   *  act() een ref uit een cross-origin sub-frame (bv. een Atlassian Forge-widget) terug-
+   *  vertalen naar het juiste frame, i.p.v. altijd op het hoofdframe te zoeken. */
+  private frameCache: Map<number, Frame> = new Map();
 
   constructor(opts: PlaywrightHandOptions = {}) {
     this.options = {
@@ -213,6 +228,7 @@ export class PlaywrightHand implements HandBridge {
       cookies: opts.cookies,
       recordVideoDir: opts.recordVideoDir ?? "",
       demoCursor: opts.demoCursor ?? false,
+      cdpEndpoint: opts.cdpEndpoint,
     };
   }
 
@@ -230,6 +246,18 @@ export class PlaywrightHand implements HandBridge {
   }
 
   async init(): Promise<void> {
+    if (this.options.cdpEndpoint) {
+      // Verbind met een AL DRAAIENDE, echte Chrome via CDP i.p.v. een lege Chromium te
+      // starten. Dit geeft volle Playwright-toegang (dus ook cross-origin sub-frames) op
+      // de echte, ingelogde sessie van de gebruiker. Altijd een NIEUW tabblad — nooit een
+      // bestaand tabblad "lenen", dat kan prive-inhoud lekken die de gebruiker toevallig
+      // open had staan (zelfde les als de 2026-09-07 incident-fix in packages/extension).
+      this.browser = await chromium.connectOverCDP(this.options.cdpEndpoint);
+      const ctx = this.browser.contexts()[0] ?? (await this.browser.newContext());
+      this.page = await ctx.newPage();
+      this.videoStartTs = Date.now();
+      return;
+    }
     this.browser = await chromium.launch({ headless: this.options.headless });
     const ctx = await this.browser.newContext({
       userAgent:
@@ -250,26 +278,70 @@ export class PlaywrightHand implements HandBridge {
   }
 
   async close(): Promise<void> {
+    if (this.options.cdpEndpoint) {
+      // Verbonden met de ECHTE Chrome van de gebruiker via CDP: NOOIT browser.close()
+      // aanroepen, dat zou zijn hele browser sluiten, elk venster, elk tabblad. Sluit
+      // alleen het tabblad dat WIJ zelf openden in init(), en laat de rest met rust.
+      await this.page?.close().catch(() => {});
+      this.browser = null;
+      this.page = null;
+      return;
+    }
     await this.browser?.close();
     this.browser = null;
     this.page = null;
   }
+
+  /** Max. aantal frames (hoofdpagina + sub-frames) dat een snapshot doorzoekt. Begrensd
+   *  zodat een pagina met tientallen advertentie/tracker-iframes de snapshot niet traag
+   *  en ruizig maakt — precies de frames die een gebruiker wil (widgets, site-pickers)
+   *  zitten vrijwel altijd in de eerste paar. */
+  private static readonly MAX_FRAMES = 12;
 
   async requestSnapshot(): Promise<Snapshot> {
     const page = this.requirePage();
     const url = page.url();
     const title = await page.title().catch(() => "");
 
+    const frames = page.frames();
+    this.frameCache.clear();
     let nodes: SnapshotNode[] = [];
-    try {
-      const raw = (await page.evaluate(SNAPSHOT_SCRIPT)) as SnapshotNode[];
-      nodes = raw.map((n) => ({
-        ...n,
-        name: normalizeText(n.name).slice(0, SNAPSHOT_LIMITS.NAME_LIMIT),
-        ...(n.value !== undefined ? { value: normalizeText(n.value).slice(0, SNAPSHOT_LIMITS.NAME_LIMIT) } : {}),
-      }));
-    } catch {
-      /* pagina blokkeert evaluate (bv. about:blank) — lege nodes */
+    let skippedFrames = 0;
+
+    for (let i = 0; i < frames.length; i++) {
+      if (nodes.length >= SNAPSHOT_LIMITS.MAX_NODES) {
+        skippedFrames += frames.length - i;
+        break;
+      }
+      if (i >= PlaywrightHand.MAX_FRAMES) {
+        skippedFrames += frames.length - i;
+        break;
+      }
+      const frame = frames[i]!;
+      if (!frame.url() || frame.url() === "about:blank") continue; // lege/verborgen tracker-iframes
+      this.frameCache.set(i, frame);
+      try {
+        // Frame-index vooraan in de ref gecodeerd ("f2:e5") zodat act() hieronder terug
+        // weet in welk frame het element staat. SNAPSHOT_SCRIPT zelf blijft ONGEWIJZIGD
+        // (produceert nog steeds kale "e5"-refs) — playwright-hand.shadowDom.test.ts
+        // evalueert dat script rechtstreeks in jsdom en zou breken als de scriptstring
+        // zelf een frame-prefix zou moeten kennen.
+        const raw = (await frame.evaluate(SNAPSHOT_SCRIPT)) as SnapshotNode[];
+        for (const n of raw) {
+          nodes.push({
+            ...n,
+            ref: `f${i}:${n.ref}`,
+            name: normalizeText(n.name).slice(0, SNAPSHOT_LIMITS.NAME_LIMIT),
+            ...(n.value !== undefined ? { value: normalizeText(n.value).slice(0, SNAPSHOT_LIMITS.NAME_LIMIT) } : {}),
+          });
+        }
+      } catch {
+        /* frame niet evalueerbaar (detached, nog aan het laden, about:blank-varianten) — overslaan */
+      }
+    }
+    nodes = nodes.slice(0, SNAPSHOT_LIMITS.MAX_NODES);
+    if (skippedFrames > 0) {
+      this.options.log(`snapshot: ${skippedFrames} extra frame(s) overgeslagen (budget ${PlaywrightHand.MAX_FRAMES})`);
     }
 
     let textDigest = "";
@@ -279,12 +351,41 @@ export class PlaywrightHand implements HandBridge {
       // als SNAPSHOT_SCRIPT hierboven, expliciet open shadow roots af: zonder die
       // recursie bleef dit altijd leeg op web-component-apps (2026-09-12).
       const raw = (await page.evaluate(TEXT_DIGEST_SCRIPT)) as string;
-      textDigest = normalizeText(raw).slice(0, SNAPSHOT_LIMITS.DIGEST_LIMIT);
+      textDigest = normalizeText(raw);
     } catch {
       /* negeer */
     }
+    // Tekst uit cross-origin sub-frames erbij (bv. een chatwidget in een iframe die de
+    // agent moet KUNNEN LEZEN, niet alleen erin kunnen klikken) — per frame begrensd
+    // zodat één grote widget niet de hele digest opeet.
+    for (let i = 1; i < frames.length && i < PlaywrightHand.MAX_FRAMES; i++) {
+      const frame = frames[i]!;
+      if (!frame.url() || frame.url() === "about:blank") continue;
+      try {
+        const raw = (await frame.evaluate(TEXT_DIGEST_SCRIPT)) as string;
+        const t = normalizeText(raw).slice(0, 500);
+        if (t) textDigest += `\n[iframe ${frame.url()}]\n${t}`;
+      } catch {
+        /* negeer */
+      }
+    }
+    textDigest = textDigest.slice(0, SNAPSHOT_LIMITS.DIGEST_LIMIT);
 
     return { url, title: normalizeText(title), nodes, textDigest };
+  }
+
+  /** Vertaalt een snapshot-ref ("f2:e5") terug naar een Locator op het JUISTE frame.
+   *  Zonder deze indirectie zou elke act()-tak hieronder altijd op het hoofdframe
+   *  zoeken, en dus nooit een element in een cross-origin sub-frame vinden — exact
+   *  het gat dat chrome.debugger niet kon dichten (zie memory yad-atlassian-
+   *  marketplace-site-picker-niet-automatiseerbaar-2026-09-15.md). Playwright lost
+   *  de onderliggende CDP-sessie-routing naar het sub-frame zelf op; wij hoeven
+   *  alleen de juiste Frame door te geven. */
+  private locatorFor(ref: string): import("playwright").Locator {
+    const m = /^f(\d+):(.+)$/.exec(ref);
+    const target: Page | Frame = m ? (this.frameCache.get(Number(m[1])) ?? this.requirePage()) : this.requirePage();
+    const localRef = m ? m[2]! : ref;
+    return target.locator(`[data-yad-ref="${localRef}"]`).first();
   }
 
   async act(action: Action): Promise<ActResult> {
@@ -305,7 +406,7 @@ export class PlaywrightHand implements HandBridge {
         }
         case "click": {
           const tStart = Date.now() - this.videoStartTs;
-          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const el = this.locatorFor(action.ref);
           await this.glideTo(el);
           await el.click({ timeout: 8_000 });
           await page.waitForTimeout(this.options.spaWaitMs / 2);
@@ -343,7 +444,7 @@ export class PlaywrightHand implements HandBridge {
         }
         case "type": {
           const tStart = Date.now() - this.videoStartTs;
-          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const el = this.locatorFor(action.ref);
           await this.glideTo(el);
           if (this.options.demoCursor) {
             // fill('') maakt het veld in één stap leeg (in plaats van klik + Control+a +
@@ -361,7 +462,7 @@ export class PlaywrightHand implements HandBridge {
         }
         case "paste": {
           const tStart = Date.now() - this.videoStartTs;
-          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const el = this.locatorFor(action.ref);
           await this.glideTo(el);
           await el.click({ timeout: 8_000 });
           await page.keyboard.press("Control+a");
@@ -372,14 +473,14 @@ export class PlaywrightHand implements HandBridge {
           return { ok: true };
         }
         case "hover": {
-          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const el = this.locatorFor(action.ref);
           await el.hover({ timeout: 8_000 });
           await page.waitForTimeout(120);
           return { ok: true };
         }
         case "keyboard": {
           const target = action.ref
-            ? page.locator(`[data-yad-ref="${action.ref}"]`).first()
+            ? this.locatorFor(action.ref)
             : null;
           if (target) await target.focus({ timeout: 5_000 });
           // Playwright accepteert "Control+a", "Shift+Tab", "Escape" direct als key-combinatie.
@@ -388,7 +489,7 @@ export class PlaywrightHand implements HandBridge {
           return { ok: true };
         }
         case "upload": {
-          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const el = this.locatorFor(action.ref);
           const safeName = action.filename.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100);
           const tmpPath = join(tmpdir(), `yad-upload-${Date.now()}-${safeName}`);
           await writeFile(tmpPath, action.content, "utf-8");
@@ -401,12 +502,12 @@ export class PlaywrightHand implements HandBridge {
         }
         case "upload-local": {
           // Playwright heeft directe bestandstoegang — gebruik setInputFiles met het lokale pad.
-          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const el = this.locatorFor(action.ref);
           await el.setInputFiles(action.path, { timeout: 8_000 });
           return { ok: true };
         }
         case "select": {
-          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const el = this.locatorFor(action.ref);
           await el.selectOption(action.value, { timeout: 8_000 });
           return { ok: true };
         }
@@ -414,7 +515,7 @@ export class PlaywrightHand implements HandBridge {
           const ref = action.ref;
           let extracted: string;
           if (ref) {
-            const el = page.locator(`[data-yad-ref="${ref}"]`).first();
+            const el = this.locatorFor(ref);
             extracted = ((await el.textContent({ timeout: 5_000 })) ?? "").trim();
             // Lege tekst op een gevonden ref is meestal een dropdown-trigger waarvan de opties
             // elders (portal) renderen, of content die nog niet geladen is — niet een "leeg
@@ -442,7 +543,7 @@ export class PlaywrightHand implements HandBridge {
         }
         case "scroll": {
           if (action.ref) {
-            await page.locator(`[data-yad-ref="${action.ref}"]`).scrollIntoViewIfNeeded();
+            await this.locatorFor(action.ref).scrollIntoViewIfNeeded();
           } else {
             const px = (action.amount ?? 3) * 120;
             const dy = action.direction === "down" ? px : action.direction === "up" ? -px : 0;
@@ -467,13 +568,13 @@ export class PlaywrightHand implements HandBridge {
         // gebeurtenissen: Playwright stuurt ze op driver-niveau, wat betrouwbaarder is
         // dan wat een content-script in de pagina kan doen.
         case "drag": {
-          const van = page.locator(`[data-yad-ref="${action.ref}"]`).first();
-          const naar = page.locator(`[data-yad-ref="${action.toRef}"]`).first();
+          const van = this.locatorFor(action.ref);
+          const naar = this.locatorFor(action.toRef);
           await van.dragTo(naar);
           return { ok: true };
         }
         case "right-click": {
-          await page.locator(`[data-yad-ref="${action.ref}"]`).first().click({ button: "right" });
+          await this.locatorFor(action.ref).click({ button: "right" });
           return { ok: true };
         }
         case "history": {
@@ -482,7 +583,7 @@ export class PlaywrightHand implements HandBridge {
           return { ok: true };
         }
         case "copy": {
-          const el = page.locator(`[data-yad-ref="${action.ref}"]`).first();
+          const el = this.locatorFor(action.ref);
           const waarde = (await el.inputValue().catch(() => null)) ?? (await el.textContent()) ?? "";
           if (!waarde) return { ok: false, detail: "element heeft geen tekst of waarde om te kopiëren" };
           // Het klembord is in een headless context vaak niet beschikbaar. De tekst gaat
