@@ -3,6 +3,8 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { request as httpRequest } from "node:http";
+import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 /**
  * Regressietest voor een externe security-audit (2026-09-08) die bevestigde:
@@ -23,6 +25,8 @@ const PORT = 37493;
 const BASE = `http://127.0.0.1:${PORT}`;
 
 let proc: ChildProcess;
+let dataDir: string;
+let token: string;
 
 /** fetch() in Node/undici verbiedt het overschrijven van de Host-header (forbidden
  *  header name, spec-conform net als in de browser). Om een vervalste Host-header
@@ -57,20 +61,24 @@ async function wachtOpServer(timeoutMs = 15_000): Promise<void> {
 }
 
 beforeAll(async () => {
+  dataDir = mkdtempSync(join(tmpdir(), "yad-main-server-security-test-"));
   proc = spawn(process.execPath, [SERVER_ENTRY], {
     env: {
       ...process.env,
       YAD_PORT: String(PORT),
       YAD_HOST: "127.0.0.1",
       YAD_LOKAAL: "1",
+      YAD_DATA_DIR: dataDir,
     },
     stdio: "pipe",
   });
   await wachtOpServer();
+  token = readFileSync(join(dataDir, "companion-token.txt"), "utf8").trim();
 }, 20_000);
 
 afterAll(() => {
   proc?.kill();
+  try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* opruimen mag falen */ }
 });
 
 describe("main-server.ts — exposure-fixes uit de externe audit", () => {
@@ -90,7 +98,7 @@ describe("main-server.ts — exposure-fixes uit de externe audit", () => {
     const groteBody = "x".repeat(11 * 1024 * 1024);
     const r = await fetch(`${BASE}/goal`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Yad-Token": token },
       body: groteBody,
     });
     expect(r.status).toBe(413);
@@ -101,7 +109,7 @@ describe("main-server.ts — exposure-fixes uit de externe audit", () => {
   it("blijft normaal valideren voor een kleine, geldige request (geen regressie op bestaand gedrag)", async () => {
     const r = await fetch(`${BASE}/goal`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Yad-Token": token },
       body: JSON.stringify({ goal: "" }),
     });
     expect(r.status).toBe(400);
@@ -112,8 +120,44 @@ describe("main-server.ts — exposure-fixes uit de externe audit", () => {
   it("geeft 400 (niet 413 of een crash) bij ongeldige JSON in een kleine body", async () => {
     const r = await fetch(`${BASE}/goal`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Yad-Token": token },
       body: "dit-is-geen-json",
+    });
+    expect(r.status).toBe(400);
+  });
+});
+
+describe("main-server.ts — auth-token (2026-09-15 audit: ontbrak hier, bestond al in http-api.ts)", () => {
+  it("weigert /goal zonder X-Yad-Token met 401, ook al komt het verzoek van localhost", async () => {
+    const r = await fetch(`${BASE}/goal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal: "test", url: "https://example.com" }),
+    });
+    expect(r.status).toBe(401);
+    const body = await r.json();
+    expect(body.detail).toMatch(/token/i);
+  });
+
+  it("weigert /goal met een verkeerd token met 401", async () => {
+    const r = await fetch(`${BASE}/goal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Yad-Token": "fout-token-1234567890123456789012" },
+      body: JSON.stringify({ goal: "test", url: "https://example.com" }),
+    });
+    expect(r.status).toBe(401);
+  });
+
+  it("GET /status blijft werken zonder token (bewuste uitzondering)", async () => {
+    const r = await fetch(`${BASE}/status`);
+    expect(r.status).toBe(200);
+  });
+
+  it("laat een verzoek MET het geldige token voorbij de auth-poort (400 op lege goal, niet 401)", async () => {
+    const r = await fetch(`${BASE}/goal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Yad-Token": token },
+      body: JSON.stringify({ goal: "" }),
     });
     expect(r.status).toBe(400);
   });
