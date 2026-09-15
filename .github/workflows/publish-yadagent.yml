@@ -14,7 +14,14 @@ permissions:
 jobs:
   publish:
     if: github.event.inputs.confirm == 'publish'
-    runs-on: windows-latest
+    # ubuntu-latest, not ci.yml's windows-latest: the two failed publish
+    # attempts on windows-latest both got a 404 on the actual `npm publish`
+    # PUT after the provenance statement signed successfully, which smells
+    # like an OIDC/trusted-publishing quirk specific to that runner OS. None
+    # of the steps below (esbuild bundling, file-existence checks in
+    # verify.mjs) need Windows — only the rest of ci.yml's suite does, for
+    # native-messaging-specific tests unrelated to building this package.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
