@@ -28,6 +28,8 @@
  *   GET  /cdp/cookies           → haal alle cookies op van de actieve tab
  *   POST /cdp/cookies/set       → set cookies voor de actieve tab (body: { cookies, url? })
  *   POST /cdp/fill-spa          → vul input-veld in React/Vue/Angular SPA via CDP (body: { selector, value, submit?, waitMs? })
+ *   POST /cdp/evaluate-in-frame → voer JS uit BINNEN een (ook cross-origin) iframe (body: { frameUrlContains, expression, tabId? })
+ *   POST /cdp/click-in-frame    → klik een element BINNEN een (ook cross-origin) iframe (body: { frameUrlContains, selector, tabId? })
  *
  * Beveiliging (Exposure-check):
  *   - Bindt ALLEEN aan 127.0.0.1 — niet bereikbaar van buiten de machine
@@ -660,7 +662,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       }
       try {
         const raw = await readBody(req);
-        const parsed = JSON.parse(raw) as { selector?: string; text?: string; tabId?: number; clearFirst?: boolean };
+        const parsed = JSON.parse(raw) as { selector?: string; text?: string; tabId?: number; clearFirst?: boolean; frameUrlContains?: string };
         if (typeof parsed.selector !== "string" || !parsed.selector.trim()) {
           json(res, 400, { ok: false, detail: "selector is verplicht" });
           return;
@@ -674,6 +676,71 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
           selector: parsed.selector,
           text: parsed.text,
           clearFirst: parsed.clearFirst === true,
+          frameUrlContains: typeof parsed.frameUrlContains === "string" ? parsed.frameUrlContains : undefined,
+          tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
+        }, 60_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    // ── /cdp/evaluate-in-frame : voert JS uit BINNEN een (ook cross-origin) iframe ──
+    // Body: { frameUrlContains, expression, tabId? }. Nodig voor Atlassian Forge/Connect-apps
+    // en vergelijkbare widgets die YAD via het gewone /cdp/evaluate (alleen hoofdpagina) nooit
+    // kon bereiken. Zie evaluateInFrame in cdp-manager.ts voor het CDP-mechanisme.
+    if (url === "/cdp/evaluate-in-frame" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { frameUrlContains?: string; expression?: string; tabId?: number };
+        if (typeof parsed.frameUrlContains !== "string" || !parsed.frameUrlContains.trim()) {
+          json(res, 400, { ok: false, detail: "frameUrlContains is verplicht" });
+          return;
+        }
+        if (typeof parsed.expression !== "string" || !parsed.expression.trim()) {
+          json(res, 400, { ok: false, detail: "expression is verplicht" });
+          return;
+        }
+        const result = await session.cdp({
+          command: "evaluate_in_frame",
+          frameUrlContains: parsed.frameUrlContains,
+          expression: parsed.expression.slice(0, 20_000),
+          tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
+        }, 60_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    // ── /cdp/click-in-frame : klikt op een element BINNEN een (ook cross-origin) iframe ──
+    // Body: { frameUrlContains, selector, tabId? }.
+    if (url === "/cdp/click-in-frame" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { frameUrlContains?: string; selector?: string; tabId?: number };
+        if (typeof parsed.frameUrlContains !== "string" || !parsed.frameUrlContains.trim()) {
+          json(res, 400, { ok: false, detail: "frameUrlContains is verplicht" });
+          return;
+        }
+        if (typeof parsed.selector !== "string" || !parsed.selector.trim()) {
+          json(res, 400, { ok: false, detail: "selector is verplicht" });
+          return;
+        }
+        const result = await session.cdp({
+          command: "click_in_frame",
+          frameUrlContains: parsed.frameUrlContains,
+          selector: parsed.selector,
           tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
         }, 60_000);
         json(res, result.ok ? 200 : 500, result);
@@ -1308,7 +1375,8 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
       "POST /cdp/idor-compare", "POST /cdp/intercept/start", "POST /cdp/intercept/stop",
       "POST /cdp/intercept/continue", "GET /cdp/cookies", "POST /cdp/cookies/set",
-      "POST /cdp/fill-spa", "POST /close-tabs", "POST /reload-extension",
+      "POST /cdp/fill-spa", "POST /cdp/evaluate-in-frame", "POST /cdp/click-in-frame",
+      "POST /close-tabs", "POST /reload-extension",
       "POST /fs/list-files", "POST /fs/search-files", "POST /fs/read-file",
     ] });
   });

@@ -2,7 +2,7 @@ import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, s
 import { isAccepted } from "./acceptance";
 import { getSettings, saveSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { injectCookies, injectLocalStorage } from "./session-inject";
-import { startCapture, stopCapture, evaluateInPage, insertRealTextInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
+import { startCapture, stopCapture, evaluateInPage, evaluateInFrame, clickInFrame, insertRealTextInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
 import { YadTabGroupManager, type TabGroupsChromeApi } from "./tab-groups";
 
 /**
@@ -719,6 +719,8 @@ function onMessage(raw: unknown): void {
         selector?: string;
         text?: string;
         clearFirst?: boolean;
+        /** URL-substring van een (ook cross-origin) iframe, voor evaluate_in_frame/click_in_frame/insert_text. */
+        frameUrlContains?: string;
         requestId?: string;
         responseBody?: string;
         modifiedHeaders?: Array<{ name: string; value: string }>;
@@ -826,11 +828,41 @@ function onMessage(raw: unknown): void {
                 replyToBrain("CDP_RESULT", { ok: false, command: "insert_text", detail: "selector en text zijn verplicht" }, raw.id);
                 break;
               }
-              const insertRes = await insertRealTextInPage(tabId, p.selector, p.text, { clearFirst: p.clearFirst === true });
+              const insertRes = await insertRealTextInPage(tabId, p.selector, p.text, {
+                clearFirst: p.clearFirst === true,
+                frameUrlContains: p.frameUrlContains,
+              });
               replyToBrain("CDP_RESULT", {
                 ok: insertRes.ok,
                 command: "insert_text",
                 ...(insertRes.detail ? { detail: insertRes.detail } : {}),
+              }, raw.id);
+              break;
+            }
+            case "evaluate_in_frame": {
+              if (!p.frameUrlContains || !p.expression) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "evaluate_in_frame", detail: "frameUrlContains en expression zijn verplicht" }, raw.id);
+                break;
+              }
+              const frameRes = await evaluateInFrame(tabId, p.frameUrlContains, p.expression);
+              replyToBrain("CDP_RESULT", {
+                ok: frameRes.ok,
+                command: "evaluate_in_frame",
+                value: frameRes.value,
+                ...(frameRes.detail ? { detail: frameRes.detail } : {}),
+              }, raw.id);
+              break;
+            }
+            case "click_in_frame": {
+              if (!p.frameUrlContains || !p.selector) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "click_in_frame", detail: "frameUrlContains en selector zijn verplicht" }, raw.id);
+                break;
+              }
+              const clickRes = await clickInFrame(tabId, p.frameUrlContains, p.selector);
+              replyToBrain("CDP_RESULT", {
+                ok: clickRes.ok,
+                command: "click_in_frame",
+                ...(clickRes.detail ? { detail: clickRes.detail } : {}),
               }, raw.id);
               break;
             }

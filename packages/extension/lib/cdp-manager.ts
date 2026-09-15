@@ -362,6 +362,155 @@ async function evalueerViaScripting(
   }
 }
 
+/**
+ * Zoekt het CDP target-id van een cross-origin iframe op basis van een URL-substring.
+ *
+ * `Page.getFrameTree` op de tab-sessie zelf levert cross-origin iframes NIET op: sinds
+ * site-isolation draait zo'n iframe in een eigen renderer-proces en is hij een eigen CDP
+ * **Target** (`type: "iframe"`), geen kind-node in de frame-tree van de hoofdpagina se sessie.
+ * Ontdekt 2026-09-15 door de eerste implementatie (Page.getFrameTree + createIsolatedWorld)
+ * simpelweg leeg terug te zien komen ondanks een zichtbaar `<iframe>`-element op de pagina.
+ * `Target.getTargets` ziet OOPIFs wel, browser-breed, ongeacht welke tab-sessie de aanroep doet.
+ */
+async function findOopifTargetId(tabId: number, urlContains: string): Promise<string | null> {
+  const result = (await chrome.debugger.sendCommand(
+    { tabId },
+    "Target.getTargets",
+    {},
+  )) as { targetInfos: Array<{ targetId: string; type: string; url: string }> };
+  const match = result.targetInfos.find((t) => t.type === "iframe" && t.url.includes(urlContains));
+  return match?.targetId ?? null;
+}
+
+/**
+ * Voert JS uit BINNEN een cross-origin iframe, door RECHTSTREEKS een tweede debugger-sessie
+ * op het OOPIF se eigen target aan te hangen (i.p.v. op de tab). Dat is precies de
+ * same-origin-restrictie die `document.querySelector` vanuit de hoofdpagina wél tegenkomt: een
+ * eigen CDP-sessie op het target zelf hoeft zich daar niets van aan te trekken.
+ *
+ * Nodig sinds 2026-09-15: Atlassian's Marketplace-installatiewizard (react-select
+ * site-picker) en de AI Ticket Assistant-chat draaien allebei in zo'n cross-origin iframe
+ * (`cdn.prod.atlassian-dev.net`), en `evaluateInPage`/`insertRealTextInPage` zonder deze
+ * uitbreiding konden daar principieel niet bij (zie yad-atlassian-marketplace-site-picker-
+ * niet-automatiseerbaar-2026-09-15.md in het geheugen).
+ */
+export async function evaluateInFrame(
+  tabId: number,
+  frameUrlContains: string,
+  expression: string,
+): Promise<{ ok: boolean; value?: unknown; detail?: string }> {
+  if (!heeftCdp()) {
+    return { ok: false, detail: "Frame-evaluatie vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
+  }
+  await ensureAttached(tabId);
+  try {
+    const targetId = await findOopifTargetId(tabId, frameUrlContains);
+    if (!targetId) {
+      return { ok: false, detail: `geen OOPIF-target gevonden met URL-substring: ${frameUrlContains}` };
+    }
+    // `chrome.debugger.attach({targetId})` op een OOPIF-target rechtstreeks geeft "Not allowed"
+    // (code -32000, gemeten 2026-09-15) — de extensie-API staat blijkbaar geen tweede,
+    // onafhankelijke sessie op een sub-frame-target toe. Chrome se eigen implementatie zet
+    // voor een OOPIF-type target het CDP `targetId` en het `frameId` intern gelijk, dus
+    // `Page.createIsolatedWorld` op de AL aangehechte tab-sessie, met dat targetId als
+    // frameId, werkt wél: geen tweede attach nodig, blijft binnen de al toegestane sessie.
+    const world = (await chrome.debugger.sendCommand(
+      { tabId },
+      "Page.createIsolatedWorld",
+      { frameId: targetId, worldName: "yad_frame_world" },
+    )) as { executionContextId: number };
+    const r = (await chrome.debugger.sendCommand(
+      { tabId },
+      "Runtime.evaluate",
+      {
+        expression: expression.slice(0, 8_000),
+        contextId: world.executionContextId,
+        returnByValue: true,
+        awaitPromise: true,
+        timeout: 10_000,
+      },
+    )) as {
+      result?: { value?: unknown };
+      exceptionDetails?: { text?: string };
+    };
+    if (r.exceptionDetails) {
+      return { ok: false, detail: r.exceptionDetails.text ?? "runtime error in frame" };
+    }
+    return { ok: true, value: r.result?.value };
+  } catch (e) {
+    return { ok: false, detail: String(e) };
+  } finally {
+    if (tabId !== captureTabId) await safeDetach(tabId);
+  }
+}
+
+/**
+ * Klikt op een element BINNEN een cross-origin iframe: leest eerst de offset van het
+ * `<iframe>`-tag zelf (hoort bij het hoofddocument, dus gewoon leesbaar), telt daar de positie
+ * van het element BINNEN dat frame bij op (via `evaluateInFrame`'s eigen OOPIF-sessie), en
+ * stuurt dan een ECHT `Input.dispatchMouseEvent` naar die viewport-coordinaat op de TAB-sessie.
+ * Input-events routeren op coordinaten via de compositor, niet op DOM-eigenaarschap, dus dit
+ * werkt ongeacht cross-origin — mits de coordinaat klopt.
+ */
+export async function clickInFrame(
+  tabId: number,
+  frameUrlContains: string,
+  selector: string,
+): Promise<{ ok: boolean; detail?: string }> {
+  if (!heeftCdp()) {
+    return { ok: false, detail: "Klikken-in-frame vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
+  }
+  await ensureAttached(tabId);
+  try {
+    const outerExpr = `(function() {
+      const frames = document.querySelectorAll("iframe");
+      for (const f of frames) {
+        if (f.src && f.src.includes(${JSON.stringify(frameUrlContains)})) {
+          const r = f.getBoundingClientRect();
+          return { ok: true, x: r.x, y: r.y };
+        }
+      }
+      return { ok: false };
+    })()`;
+    const outerRes = (await chrome.debugger.sendCommand(
+      { tabId },
+      "Runtime.evaluate",
+      { expression: outerExpr, returnByValue: true, awaitPromise: true, timeout: 10_000 },
+    )) as { result?: { value?: { ok: boolean; x?: number; y?: number } } };
+    const outer = outerRes.result?.value;
+    if (!outer?.ok || outer.x === undefined || outer.y === undefined) {
+      return { ok: false, detail: `geen <iframe> op de hoofdpagina gevonden met src-substring: ${frameUrlContains}` };
+    }
+
+    const innerExpr = `(function() {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (!el) return { ok: false };
+      const r = el.getBoundingClientRect();
+      return { ok: true, x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    })()`;
+    const inner = await evaluateInFrame(tabId, frameUrlContains, innerExpr);
+    const innerVal = inner.value as { ok: boolean; x?: number; y?: number } | undefined;
+    if (!inner.ok || !innerVal?.ok || innerVal.x === undefined || innerVal.y === undefined) {
+      return { ok: false, detail: inner.detail ?? `element niet gevonden in frame: ${selector}` };
+    }
+
+    const clickX = outer.x + innerVal.x;
+    const clickY = outer.y + innerVal.y;
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", { type: "mouseMoved", x: clickX, y: clickY });
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
+      type: "mousePressed", x: clickX, y: clickY, button: "left", clickCount: 1,
+    });
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
+      type: "mouseReleased", x: clickX, y: clickY, button: "left", clickCount: 1,
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, detail: String(e) };
+  } finally {
+    if (tabId !== captureTabId) await safeDetach(tabId);
+  }
+}
+
 export async function evaluateInPage(
   tabId: number,
   expression: string,
@@ -421,7 +570,7 @@ export async function insertRealTextInPage(
   tabId: number,
   selector: string,
   text: string,
-  opts?: { clearFirst?: boolean },
+  opts?: { clearFirst?: boolean; frameUrlContains?: string },
 ): Promise<{ ok: boolean; detail?: string }> {
   if (!heeftCdp()) {
     return { ok: false, detail: "Echte tekst-invoer vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
@@ -448,14 +597,29 @@ export async function insertRealTextInPage(
       ` : ""}
       return { ok: true };
     })()`;
-    const focusResult = (await chrome.debugger.sendCommand(
-      { tabId },
-      "Runtime.evaluate",
-      { expression: focusExpr, returnByValue: true, awaitPromise: true, timeout: 10_000 },
-    )) as { result?: { value?: { ok: boolean; detail?: string } }; exceptionDetails?: { text?: string } };
-    const focusValue = focusResult.result?.value;
-    if (focusResult.exceptionDetails || !focusValue?.ok) {
-      return { ok: false, detail: focusValue?.detail ?? focusResult.exceptionDetails?.text ?? "focus/selecteer-stap mislukte" };
+    // Bij een cross-origin iframe (frameUrlContains) focussen via een isolated world in dat
+    // frame — document.querySelector vanuit de hoofdpagina kan er principieel niet bij, zie
+    // evaluateInFrame hierboven. Het echte typen daarna (Input.insertText/dispatchKeyEvent)
+    // blijft ongewijzigd: dat routeert op wat er focus heeft, niet op DOM-eigenaarschap.
+    let focusValue: { ok: boolean; detail?: string } | undefined;
+    let focusExceptionText: string | undefined;
+    if (opts?.frameUrlContains) {
+      const frameRes = await evaluateInFrame(tabId, opts.frameUrlContains, focusExpr);
+      if (!frameRes.ok) {
+        return { ok: false, detail: frameRes.detail ?? "focus in frame mislukte" };
+      }
+      focusValue = frameRes.value as { ok: boolean; detail?: string } | undefined;
+    } else {
+      const focusResult = (await chrome.debugger.sendCommand(
+        { tabId },
+        "Runtime.evaluate",
+        { expression: focusExpr, returnByValue: true, awaitPromise: true, timeout: 10_000 },
+      )) as { result?: { value?: { ok: boolean; detail?: string } }; exceptionDetails?: { text?: string } };
+      focusValue = focusResult.result?.value;
+      focusExceptionText = focusResult.exceptionDetails?.text;
+    }
+    if (focusExceptionText || !focusValue?.ok) {
+      return { ok: false, detail: focusValue?.detail ?? focusExceptionText ?? "focus/selecteer-stap mislukte" };
     }
 
     const lines = text.split("\n");

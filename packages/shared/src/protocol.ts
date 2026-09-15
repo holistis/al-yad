@@ -209,7 +209,11 @@ export interface BrainPayloads {
       | "peek_network_requests" // lees captured Map zonder capture te stoppen (urlFilter = optioneel substring)
       | "close_other_tabs"      // chrome.tabs.remove: sluit alle tabbladen behalve die matchen op keepUrlContains
       | "list_downloads"        // chrome.downloads: welke bestanden zijn afgerond binnengekomen (naam, pad, grootte)
-      | "reload_extension";     // chrome.runtime.reload(): herlaad de extensie zelf na een codewijziging (geen chrome://extensions nodig)
+      | "reload_extension"      // chrome.runtime.reload(): herlaad de extensie zelf na een codewijziging (geen chrome://extensions nodig)
+      | "evaluate_in_frame"     // Runtime.evaluate BINNEN een (ook cross-origin) iframe via een isolated world
+                                 // (frameUrlContains = URL-substring van het iframe, expression = de JS)
+      | "click_in_frame";       // Input.dispatchMouseEvent op een element BINNEN een (ook cross-origin) iframe
+                                 // (frameUrlContains + selector)
     /** Doeltab; ontbreekt = meest recente web-tab */
     tabId?: number;
     /** Vang alleen URLs die dit patroon bevatten (voor start_capture/intercept_enable, optioneel) */
@@ -222,6 +226,11 @@ export interface BrainPayloads {
     text?: string;
     /** Als true: selecteer/wis de bestaande inhoud van het veld eerst (voor insert_text) */
     clearFirst?: boolean;
+    /**
+     * URL-substring van een (ook cross-origin) iframe (voor evaluate_in_frame/click_in_frame,
+     * en optioneel voor insert_text om binnen dat frame te focussen i.p.v. de hoofdpagina).
+     */
+    frameUrlContains?: string;
     /** requestId van een gevangen verzoek (voor get_response_body / intercept_continue) */
     requestId?: string;
     /** Overschreven response-body (voor intercept_continue met modified=true) */
