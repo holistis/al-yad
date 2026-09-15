@@ -64,6 +64,11 @@ export const SNAPSHOT_SCRIPT = `(() => {
     'select', 'textarea', '[role="button"]', '[role="link"]',
     '[role="checkbox"]', '[role="menuitem"]', '[role="tab"]',
     '[role="combobox"]', '[role="textbox"]',
+    // option/listbox ontbraken hier: een geopend react-select-menu (of vergelijkbare
+    // custom dropdown) was daardoor voor de agent onzichtbaar ook al werkte de klik
+    // die 'm opende prima — bevestigd 2026-09-15 tegen de echte Atlassian Marketplace
+    // site-picker (aria-expanded=true, 2 opties in de DOM, 0 in de snapshot).
+    '[role="option"]', '[role="listbox"]',
   ].join(',');
   function collectDeep(root, out, budget) {
     root.querySelectorAll('*').forEach((el) => {
