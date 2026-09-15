@@ -338,6 +338,11 @@ export class PlaywrightHand implements HandBridge {
             ref: `f${i}:${n.ref}`,
             name: normalizeText(n.name).slice(0, SNAPSHOT_LIMITS.NAME_LIMIT),
             ...(n.value !== undefined ? { value: normalizeText(n.value).slice(0, SNAPSHOT_LIMITS.NAME_LIMIT) } : {}),
+            // Zodat ScopeGuard een actie op dit element ook buiten navigate() om tegen de
+            // toewijzingsdomeinen kan toetsen — zonder dit veld was een cross-origin iframe
+            // (advertentie, gecompromitteerde widget) volledig buiten de scope-check om
+            // bereikbaar zodra dit frame-bewuste snapshot 'm uberhaupt kon vinden.
+            frameUrl: frame.url(),
           });
         }
       } catch {

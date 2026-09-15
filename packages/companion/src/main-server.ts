@@ -42,6 +42,11 @@
  *     standaard 403, en pas open met YAD_EXTERNAL_MODE=1 + YAD_API_KEYS
  *     (X-API-Key-header, endpoint-allowlist /status+/goal, 20 req/min rate-limit,
  *     audit-log). Zelfde poort als http-api.ts, geen los, ongeteste mechanisme.
+ *   - Auth-token (X-Yad-Token-header, zie auth-token.ts): VERPLICHT voor elk endpoint
+ *     behalve GET /status, ook voor "lokaal" verkeer — anders kan elke andere pagina
+ *     die toevallig open staat in dezelfde browser gewoon fetch() naar deze poort doen.
+ *     Zelfde mechanisme en tokenbestand als http-api.ts (2026-09-15 hierheen
+ *     gebracht, was hier eerder afwezig).
  *   - Concurrency-limiet: 10 gelijktijdige runs max (daarboven 429). Dit is GEEN
  *     tijdvenster-rate-limit op zichzelf — die zit in checkExternalGate() voor
  *     niet-lokaal verkeer.
@@ -65,6 +70,7 @@ import { CacheStore } from "./memory/cache-store.js";
 import { PlaywrightHand } from "./playwright-hand.js";
 import { ScopeGuard } from "./gate/scope-guard.js";
 import { checkExternalGate } from "./external-gate.js";
+import { tokenFilePath, loadOrCreateAuthToken, hasValidToken } from "./auth-token.js";
 import type { Assignment } from "./gate/assignment.js";
 
 loadEnvFile();
@@ -141,6 +147,8 @@ function hasValidHostHeader(req: IncomingMessage): boolean {
   return host === `localhost:${PORT}` || host === `127.0.0.1:${PORT}`;
 }
 
+const authToken = loadOrCreateAuthToken(log);
+
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const url = req.url ?? "/";
   const method = req.method ?? "GET";
@@ -157,6 +165,24 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       json(res, gate.status, gate.body);
       return;
     }
+  }
+
+  // Auth-token: een geldig loopback-adres + Host-header bewijst alleen dat het TCP-pakket
+  // van deze machine komt, niet WIE het stuurde. Zonder dit kon ELKE andere pagina die de
+  // gebruiker toevallig open heeft staan (of elk ander lokaal proces) een fetch() naar deze
+  // poort sturen en /goal laten uitvoeren — met YAD_CDP_ENDPOINT actief zou dat de ECHTE,
+  // ingelogde browsersessie van de gebruiker zijn (bank, e-mail, crypto-wallet, etc.), niet
+  // langer een onschuldige, wegwerpbare Chromium. Ontdekt bij de adversariele security-audit
+  // van 2026-09-15, exact het gat dat http-api.ts al in 2026-09-11 dichtte, hier gemist
+  // omdat main-server.ts een apart, zustereerd entry-point is. GET /status blijft open (geen
+  // enkele actie, alleen "leeft hij").
+  const isStatusCheck = url === "/status" && method === "GET";
+  if (!isStatusCheck && !hasValidToken(req, authToken)) {
+    json(res, 401, {
+      ok: false,
+      detail: `Ongeldig of ontbrekend token. Stuur header X-Yad-Token met de inhoud van ${tokenFilePath()}.`,
+    });
+    return;
   }
 
   // --- GET /status ---
