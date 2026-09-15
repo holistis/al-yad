@@ -15,6 +15,19 @@
  *                       bewust op 0.0.0.0 om van buiten bereikbaar te zijn —
  *                       verkeer dat dan niet van localhost komt loopt door
  *                       dezelfde externe poort als http-api.ts (zie hieronder).
+ *   YAD_CDP_ENDPOINT  — optioneel, bv. http://127.0.0.1:9222. Indien gezet:
+ *                       verbindt elke run met een AL DRAAIENDE, echte Chrome
+ *                       (gestart met --remote-debugging-port op een NIET-
+ *                       standaardprofiel — zie playwright-hand.ts) i.p.v. een
+ *                       lege Chromium te starten, zodat de run de echte,
+ *                       ingelogde sessie van de gebruiker heeft (en, via
+ *                       PlaywrightHand's frame-bewuste snapshot/act, ook
+ *                       cross-origin iframes bereikt). Elke run opent nog
+ *                       steeds een eigen, nieuw tabblad en sluit alleen dat
+ *                       tabblad, nooit de browser zelf. WEIGERT te starten
+ *                       in combinatie met YAD_EXTERNAL_MODE=1: de echte,
+ *                       persoonlijke browsersessie van de gebruiker mag nooit
+ *                       ook nog bereikbaar zijn voor extern/API-key-verkeer.
  *
  * ENDPOINTS:
  *   GET  /status    → { ok, mode, version }
@@ -36,7 +49,10 @@
  *   - Goal wordt gesaniteerd (max 1000 chars, inject-patronen geblokkeerd)
  *   - ScopeGuard blokkeert acties buiten de toewijzingsdomeinen
  *   - Harde deny-lijst (/payment, /checkout, ...) altijd actief
- *   - Elke request maakt een eigen browser-instantie (geïsoleerd, auto-sluit)
+ *   - Elke request maakt een eigen browser-instantie (geïsoleerd, auto-sluit) —
+ *     of, met YAD_CDP_ENDPOINT, een eigen NIEUW TABBLAD op een gedeelde, echte
+ *     browser (nog steeds per-request geïsoleerd wat betreft het tabblad, maar
+ *     wel gedeelde login-staat over requests heen — zie YAD_CDP_ENDPOINT hierboven)
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -55,7 +71,19 @@ loadEnvFile();
 
 const PORT = parseInt(process.env["YAD_PORT"] ?? "3747", 10);
 const HOST = process.env["YAD_HOST"] ?? "127.0.0.1";
+const CDP_ENDPOINT = process.env["YAD_CDP_ENDPOINT"] || undefined;
 const VERSION = "server-1.0";
+
+if (CDP_ENDPOINT && process.env["YAD_EXTERNAL_MODE"] === "1") {
+  // Harde weigering, geen waarschuwing: dit zou de echte, persoonlijke browsersessie
+  // van de gebruiker bereikbaar maken voor elk verzoek met een geldige API-key. De
+  // twee losse env-vars kunnen elk voor zich veilig zijn; de combinatie niet.
+  console.error(
+    "[yad-server] FATAAL: YAD_CDP_ENDPOINT en YAD_EXTERNAL_MODE=1 mogen nooit samen aan staan " +
+      "(dat zou de echte, ingelogde browsersessie van de gebruiker extern bereikbaar maken). Stop.",
+  );
+  process.exit(1);
+}
 
 const log = (m: string): void => console.log(`[yad-server] ${m}`);
 
@@ -207,7 +235,11 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     };
 
     activeRuns++;
-    const hand = new PlaywrightHand({ headless: true, log: (m) => log(`[hand] ${m}`) });
+    const hand = new PlaywrightHand({
+      headless: true,
+      log: (m) => log(`[hand] ${m}`),
+      ...(CDP_ENDPOINT ? { cdpEndpoint: CDP_ENDPOINT } : {}),
+    });
 
     try {
       await hand.init();
