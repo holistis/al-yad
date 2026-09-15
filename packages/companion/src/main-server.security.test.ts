@@ -118,3 +118,27 @@ describe("main-server.ts — exposure-fixes uit de externe audit", () => {
     expect(r.status).toBe(400);
   });
 });
+
+describe("main-server.ts — YAD_CDP_ENDPOINT weigert samen met YAD_EXTERNAL_MODE=1", () => {
+  it("start NIET (exit != 0) als beide tegelijk gezet zijn — de echte, ingelogde browsersessie mag nooit extern bereikbaar zijn", async () => {
+    const combiPort = PORT + 1;
+    const combiProc = spawn(process.execPath, [SERVER_ENTRY], {
+      env: {
+        ...process.env,
+        YAD_PORT: String(combiPort),
+        YAD_HOST: "127.0.0.1",
+        YAD_LOKAAL: "1",
+        YAD_CDP_ENDPOINT: "http://127.0.0.1:9222",
+        YAD_EXTERNAL_MODE: "1",
+        YAD_API_KEYS: "test-key",
+      },
+      stdio: "pipe",
+    });
+    const exitCode = await new Promise<number | null>((resolve) => {
+      combiProc.on("exit", (code) => resolve(code));
+    });
+    expect(exitCode).not.toBe(0);
+    // De server mag ook nooit daadwerkelijk zijn gaan luisteren op die poort.
+    await expect(fetch(`http://127.0.0.1:${combiPort}/status`, { signal: AbortSignal.timeout(500) })).rejects.toBeTruthy();
+  }, 10_000);
+});
