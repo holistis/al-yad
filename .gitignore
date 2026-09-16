@@ -30,6 +30,10 @@ data/benchmark-results-*.json
 **/data/recovery-store.jsonl
 # externe-toegang audit-log (machine-specifiek, kan gevoelige IP's bevatten)
 **/data/external-audit.jsonl
+# auth-token voor de lokale HTTP-API (X-Yad-Token) — beschermt in CDP-modus toegang tot
+# de ECHTE, ingelogde browsersessie. Ontdekt 2026-09-16 (Majlis al-Muraqaba): dit pad
+# was door GEEN gitignore-regel gedekt, met een echt, ongetrackt tokenbestand als gevolg.
+**/data/companion-token.txt
 # lokale SSH-sleutel voor ollama-tunnel (mag NOOIT de repo in)
 ollama_key
 ollama_key.pub

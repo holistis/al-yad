@@ -91,6 +91,27 @@ describe("ScopeGuard — live cross-origin agent-hijack-poging (echte browser, g
     expect(hijackAfter?.name).not.toContain("GEHACKT-GEKLIKT");
   });
 
+  it("blokkeert dezelfde hijack-poging ook via click-at (pixel-coördinaten, geen ref) — het gat dat de 2026-09-16-audit vond", async () => {
+    // click-at heeft geen ref, dus geen SnapshotNode.frameUrl om op te toetsen zoals
+    // hierboven. ScopeGuard moet dit zelf oplossen via een eigen resolve-probe op de
+    // ECHTE pixelpositie van de kwaadaardige knop in de iframe.
+    const page = (hand as unknown as { page: import("playwright").Page }).page;
+    const box = await page.frameLocator("iframe").locator("#hijack-btn").boundingBox();
+    expect(box).not.toBeNull();
+    const viewport = page.viewportSize()!;
+    const xFraction = (box!.x + box!.width / 2) / viewport.width;
+    const yFraction = (box!.y + box!.height / 2) / viewport.height;
+
+    const result = await guard.act({ kind: "click-at", xFraction, yFraction });
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain("SCOPE_VIOLATION");
+    expect(result.detail).toContain("click-at");
+
+    const after = await hand.requestSnapshot();
+    const hijackAfter = after.nodes.find((n) => n.name.includes("Doorgaan (verplicht)"));
+    expect(hijackAfter?.name).not.toContain("GEHACKT-GEKLIKT");
+  });
+
   it("laat de legitieme, binnen-scope actie op dezelfde pagina gewoon door (geen overblokkering)", async () => {
     const snap = await hand.requestSnapshot();
     const legitBtn = snap.nodes.find((n) => n.name.includes("Taak voltooien"));
