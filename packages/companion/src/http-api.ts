@@ -44,9 +44,9 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, existsSync, chmodSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, basename, join, resolve as resolvePath, sep } from "node:path";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { tokenFilePath, loadOrCreateAuthToken, hasValidToken } from "./auth-token.js";
 import { readSteps } from "./history/step-reader.js";
 import { verifySteps } from "./verify/verifier.js";
 import { checkExternalGate } from "./external-gate.js";
@@ -196,49 +196,9 @@ function hasValidHostHeader(req: IncomingMessage): boolean {
   return host === `localhost:${PORT}` || host === `127.0.0.1:${PORT}`;
 }
 
-/**
- * Gedeeld geheim tussen de companion en een geautoriseerde lokale aanroeper (Claude Code /
- * een ander lokaal script). Zonder dit kon LETTERLIJK elke pagina die de gebruiker ooit in
- * dezelfde Chrome opende, met een gewone same-machine fetch() naar 127.0.0.1:3747, deze hele
- * API bedienen: willekeurige JS in een YAD-tab laten draaien, lokale bestanden lezen, en de
- * volledig autonome agent starten. De eerdere Host-header-check verdedigt alleen tegen
- * DNS-rebinding, niet tegen een doodgewoon cross-origin verzoek — dat token doet dat wel.
- * Wordt eenmalig gegenereerd en persistent opgeslagen; bestaande scripts/sessies moeten het
- * token uit dit bestand lezen en meesturen als header X-Yad-Token.
- */
-function tokenFilePath(): string {
-  const dataDir = process.env["YAD_DATA_DIR"] ?? join(process.cwd(), "data");
-  return join(dataDir, "companion-token.txt");
-}
-
-function loadOrCreateAuthToken(log: (m: string) => void): string {
-  const filePath = tokenFilePath();
-  try {
-    if (existsSync(filePath)) {
-      const existing = readFileSync(filePath, "utf8").trim();
-      if (existing.length >= 32) return existing;
-    }
-  } catch { /* val terug op nieuw genereren */ }
-  const token = randomBytes(32).toString("hex");
-  try {
-    mkdirSync(join(filePath, ".."), { recursive: true });
-    writeFileSync(filePath, token, { encoding: "utf8", mode: 0o600 });
-    try { chmodSync(filePath, 0o600); } catch { /* niet elk platform ondersteunt dit, mode hierboven dekt de meeste gevallen al */ }
-    log(`[http-api] nieuw auth-token aangemaakt: ${filePath}`);
-  } catch (e) {
-    log(`[http-api] kon auth-token niet wegschrijven (${(e as Error).message}), token geldt alleen voor dit proces`);
-  }
-  return token;
-}
-
-function hasValidToken(req: IncomingMessage, expected: string): boolean {
-  const provided = req.headers["x-yad-token"];
-  if (typeof provided !== "string" || provided.length === 0) return false;
-  const a = Buffer.from(provided, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
+// tokenFilePath/loadOrCreateAuthToken/hasValidToken komen nu uit ./auth-token.js —
+// hierheen verplaatst (2026-09-15) zodat main-server.ts dezelfde bescherming kan
+// hergebruiken in plaats van een tweede, losse kopie te onderhouden.
 
 export function startHttpApi(session: BrainSession, log: (m: string) => void, externalRouter?: LlmRouter, spendGuard?: SpendGuard): void {
   const authToken = loadOrCreateAuthToken(log);
