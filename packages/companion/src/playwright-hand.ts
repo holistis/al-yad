@@ -258,7 +258,18 @@ export class PlaywrightHand implements HandBridge {
       // bestaand tabblad "lenen", dat kan prive-inhoud lekken die de gebruiker toevallig
       // open had staan (zelfde les als de 2026-09-07 incident-fix in packages/extension).
       this.browser = await chromium.connectOverCDP(this.options.cdpEndpoint);
-      const ctx = this.browser.contexts()[0] ?? (await this.browser.newContext());
+      let ctx = this.browser.contexts()[0];
+      if (!ctx) {
+        // 0 bestaande contexten is onverwacht voor een AL DRAAIENDE, ingelogde Chrome —
+        // een nieuwe, lege context heeft GEEN cookies/login, precies het tegenovergestelde
+        // van waar cdpEndpoint voor bedoeld is. Luid loggen i.p.v. dit stil te laten
+        // gebeuren, zodat een write-actie niet onopgemerkt tegen een uitgelogde sessie
+        // aanloopt (2026-09-15/16-audit).
+        this.options.log(
+          "WAARSCHUWING: CDP-verbinding gaf 0 bestaande browser-contexten terug — val terug op een NIEUWE, LEGE context zonder cookies/login. Dit is vrijwel zeker niet de bedoeling van cdpEndpoint.",
+        );
+        ctx = await this.browser.newContext();
+      }
       this.page = await ctx.newPage();
       this.videoStartTs = Date.now();
       return;
@@ -285,8 +296,20 @@ export class PlaywrightHand implements HandBridge {
   async close(): Promise<void> {
     if (this.options.cdpEndpoint) {
       // Verbonden met de ECHTE Chrome van de gebruiker via CDP: NOOIT browser.close()
-      // aanroepen, dat zou zijn hele browser sluiten, elk venster, elk tabblad. Sluit
-      // alleen het tabblad dat WIJ zelf openden in init(), en laat de rest met rust.
+      // aanroepen. Playwright's EIGEN documentatie zegt dat dit bij een connectOverCDP-
+      // browser "alle door DEZE Browser aangemaakte contexten" opruimt en de verbinding
+      // sluit — geen letterlijke "sluit de hele browser-app" zoals bij chromium.launch().
+      // Maar init() hierboven HERGEBRUIKT een AL BESTAANDE context (contexts()[0], niet
+      // zelf aangemaakt via newContext()), en of die meetelt als "door deze Browser
+      // aangemaakt" staat nergens hard genoeg omschreven om daar het risico op te nemen
+      // (2026-09-15/16-audit, expliciet uitgezocht, niet aangenomen). Sluit daarom alleen
+      // het tabblad dat WIJ zelf openden in init(), en laat de rest — inclusief de
+      // CDP-websocket-verbinding zelf, die niet expliciet wordt afgesloten — met rust.
+      // Bekend, geaccepteerd compromis: bij zeer veel opeenvolgende runs kunnen er
+      // meerdere onderliggende CDP-verbindingen open blijven staan (resource-gebruik,
+      // geen veiligheidsrisico). Nooit "oplossen" door hier alsnog browser.close() te
+      // gaan aanroepen zonder dit eerst zelf, empirisch, tegen een wegwerp-testprofiel
+      // te verifiëren.
       await this.page?.close().catch(() => {});
       this.browser = null;
       this.page = null;
@@ -384,18 +407,41 @@ export class PlaywrightHand implements HandBridge {
     return { url, title: normalizeText(title), nodes, textDigest };
   }
 
+  /** Een lokale ref (het deel na de dubbele punt) is ALTIJD 'e' + een getal — zo bouwt
+   *  SNAPSHOT_SCRIPT 'm op. Een ref die daar niet aan voldoet komt niet uit onze eigen
+   *  snapshot, bv. een LLM-agent die (via prompt-injectie in paginatekst) een ref
+   *  "verzint" met een aanhalingsteken erin om uit de CSS-attribuutselector hieronder
+   *  te breken. Zonder deze check zou zo'n ref een heel ander element kunnen raken dan
+   *  bedoeld (2026-09-15/16-audit). */
+  private static readonly SAFE_LOCAL_REF = /^e\d+$/;
+
   /** Vertaalt een snapshot-ref ("f2:e5") terug naar een Locator op het JUISTE frame.
    *  Zonder deze indirectie zou elke act()-tak hieronder altijd op het hoofdframe
    *  zoeken, en dus nooit een element in een cross-origin sub-frame vinden — exact
    *  het gat dat chrome.debugger niet kon dichten (zie memory yad-atlassian-
    *  marketplace-site-picker-niet-automatiseerbaar-2026-09-15.md). Playwright lost
    *  de onderliggende CDP-sessie-routing naar het sub-frame zelf op; wij hoeven
-   *  alleen de juiste Frame door te geven. */
+   *  alleen de juiste Frame door te geven.
+   *
+   *  Gooit een fout (afgevangen door de bestaande try/catch in act() hieronder, wordt
+   *  dus gewoon een eerlijke { ok: false, detail } i.p.v. een crash) bij: een ref die
+   *  niet aan het verwachte formaat voldoet, of een frame-index die niet meer in de
+   *  cache zit (de pagina veranderde tussen de laatste requestSnapshot() en deze
+   *  actie — vroeger viel dit stil terug op het hoofdframe, met kans op een actie op
+   *  het VERKEERDE element als dat toevallig ook een element met die ref had). */
   private locatorFor(ref: string): import("playwright").Locator {
     const m = /^f(\d+):(.+)$/.exec(ref);
-    const target: Page | Frame = m ? (this.frameCache.get(Number(m[1])) ?? this.requirePage()) : this.requirePage();
     const localRef = m ? m[2]! : ref;
-    return target.locator(`[data-yad-ref="${localRef}"]`).first();
+    if (!PlaywrightHand.SAFE_LOCAL_REF.test(localRef)) {
+      throw new Error(`Ongeldige ref geweigerd: ${JSON.stringify(ref)}`);
+    }
+    if (!m) return this.requirePage().locator(`[data-yad-ref="${localRef}"]`).first();
+    const frameIdx = Number(m[1]);
+    const frame = this.frameCache.get(frameIdx);
+    if (!frame) {
+      throw new Error(`Frame ${frameIdx} niet meer bekend — de pagina veranderde sinds de laatste snapshot, vraag een nieuwe aan`);
+    }
+    return frame.locator(`[data-yad-ref="${localRef}"]`).first();
   }
 
   async act(action: Action): Promise<ActResult> {
