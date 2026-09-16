@@ -6,6 +6,8 @@
  *   - navigate naar een verboden pad (/payment, /checkout, ...) → STOP
  *   - actie (click/type/etc.) op een ref uit een cross-origin iframe buiten de
  *     Assignment (bekend via SnapshotNode.frameUrl, indien de Hand dat meegeeft) → STOP
+ *   - click-at (viewport-coördinaten, geen ref) op een cross-origin iframe buiten de
+ *     Assignment (via een eigen resolve-probe, zie hieronder) → STOP
  *   - action-teller overschreden → STOP
  *
  * Het is NIET mogelijk deze guard te omzeilen: hij zit tussen het Brein en de
@@ -104,6 +106,28 @@ export class ScopeGuard implements HandBridge {
         return this.block(
           action,
           `Actie op element buiten toewijzingsscope (frame: "${frameUrl}") — toegestane domeinen: ${this.assignment.targetDomains.join(", ")}`,
+        );
+      }
+    }
+
+    // click-at (viewport-coördinaten, GEEN ref, dus refsOf() hierboven ziet 'm nooit):
+    // zelf eerst een resolve-probe doen en de frame-URL van het ECHTE geraakte element
+    // tegen de scope toetsen, vóór de daadwerkelijke klik. Zonder dit had een pixel-klik
+    // op een cross-origin iframe (advertentie, phishing-overlay) GEEN ENKELE domein-
+    // controle: page.mouse.click gaat dwars door de iframe-grens heen (browser-niveau
+    // hit-test), ook al kan de rest van deze guard dat element niet via een ref zien.
+    // Alleen bij een ECHTE klik (niet zelf al een resolveOnly-aanvraag van de aanroeper,
+    // die toch al niets uitvoert) — anders zou elke resolve-poging zichzelf verdubbelen.
+    if (action.kind === "click-at" && !action.resolveOnly) {
+      const probe = await this.inner.act({ ...action, resolveOnly: true });
+      const frameUrl = probe.resolvedTarget?.frameUrl;
+      if (frameUrl && pathIsDenied(frameUrl)) {
+        return this.block(action, `click-at op element in verboden pad: ${frameUrl}`);
+      }
+      if (frameUrl && !isUrlInAssignment(frameUrl, this.assignment)) {
+        return this.block(
+          action,
+          `click-at op element buiten toewijzingsscope (frame: "${frameUrl}") — toegestane domeinen: ${this.assignment.targetDomains.join(", ")}`,
         );
       }
     }

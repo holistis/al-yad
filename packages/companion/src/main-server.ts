@@ -264,7 +264,23 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     const hand = new PlaywrightHand({
       headless: true,
       log: (m) => log(`[hand] ${m}`),
-      ...(CDP_ENDPOINT ? { cdpEndpoint: CDP_ENDPOINT } : {}),
+      ...(CDP_ENDPOINT
+        ? {
+            cdpEndpoint: CDP_ENDPOINT,
+            // In CDP-modus draait dit tegen de ECHTE, ingelogde browsersessie van de
+            // gebruiker (bank/e-mail/wallet), en er is NIEMAND aanwezig om een
+            // bevestigingsvraag echt te beantwoorden — autonomy staat hier altijd op
+            // "auto". PlaywrightHand's DEFAULT onConfirm keurt in dat geval alles
+            // automatisch goed ("ScopeGuard blokkeert toch"), maar ScopeGuard checkt
+            // alleen domein-scope, niet OF een actie een schrijf-actie is. Zonder deze
+            // override was needsConfirm() dus een placebo: elke actie die om
+            // bevestiging vroeg, kreeg die zonder mens automatisch (2026-09-16-audit).
+            // Fail-safe: weiger i.p.v. goedkeuren als er niemand is om het echt te
+            // vragen. Alleen in CDP-modus, niet voor de bestaande, wegwerpbare
+            // Chromium-modus (die pentest-scripts al gebruiken voor schrijftests).
+            onConfirm: async () => false,
+          }
+        : {}),
     });
 
     try {
@@ -285,8 +301,24 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         },
       );
 
+      // Via guard.act(), NIET hand.act(): de kale Hand heeft geen eigen deny-lijst- of
+      // domein-check, dus een startUrl die naar een verboden pad (/payment, /checkout)
+      // of buiten de opgegeven 'domains' wijst, moet HIER al tegengehouden worden —
+      // vóór de browser er ooit naartoe navigeert. Voorheen liep dit via de kale hand
+      // en werd de "harde deny-lijst altijd actief"-claim hierboven niet waargemaakt
+      // voor precies deze ene, eerste navigatie (2026-09-16-audit).
       if (startUrl) {
-        await hand.act({ kind: "navigate", url: startUrl });
+        const navResult = await guard.act({ kind: "navigate", url: startUrl });
+        if (!navResult.ok) {
+          json(res, 200, {
+            ok: true,
+            status: "scope-violation",
+            steps: 0,
+            summary: navResult.detail ?? "Start-URL geweigerd door ScopeGuard.",
+            stuckSignal: null,
+          });
+          return;
+        }
       }
 
       const result = await loop.run(rawGoal);
@@ -299,8 +331,14 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         stuckSignal: result.stuckSignalId ?? null,
       });
     } catch (e) {
-      log(`Fout tijdens run: ${(e as Error).message}`);
-      json(res, 500, { ok: false, detail: (e as Error).message });
+      // CDP_ENDPOINT (kan een intern adres/poort verraden) verwijderen voor deze fout
+      // ooit in een geplakt bug-report of GitHub-issue belandt — een mislukte
+      // connectOverCDP() stopt het adres anders letterlijk in de foutmelding
+      // (2026-09-16-audit).
+      const raw = (e as Error).message;
+      const safeMsg = CDP_ENDPOINT ? raw.split(CDP_ENDPOINT).join("[cdp-endpoint]") : raw;
+      log(`Fout tijdens run: ${safeMsg}`);
+      json(res, 500, { ok: false, detail: safeMsg });
     } finally {
       await hand.close().catch(() => {});
       activeRuns--;

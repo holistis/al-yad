@@ -84,5 +84,13 @@ export interface ActResult {
    * companion-poort (checkDenied/needsConfirm) er hetzelfde mee kan beslissen als bij
    * een gewone klik, VOORDAT er daadwerkelijk geklikt wordt.
    */
-  resolvedTarget?: { role: string; name: string };
+  resolvedTarget?: {
+    role: string;
+    name: string;
+    /** URL van het frame waar dit punt ECHT in valt (kan een cross-origin sub-frame
+     *  zijn) — zodat ScopeGuard een click-at net als een ref-actie tegen de
+     *  toewijzingsscope kan toetsen. Ontbreekt dit veld, dan is de Hand niet
+     *  frame-bewust en geldt het hoofdframe (bestaand gedrag, geen regressie). */
+    frameUrl?: string;
+  };
 }

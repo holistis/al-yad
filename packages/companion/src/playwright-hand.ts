@@ -444,6 +444,36 @@ export class PlaywrightHand implements HandBridge {
     return frame.locator(`[data-yad-ref="${localRef}"]`).first();
   }
 
+  /** Lost een click-at-viewportpunt (x,y in pixels) frame-bewust op: valt het punt
+   *  binnen een bekend sub-frame (mogelijk cross-origin), dan wordt het element DAARIN
+   *  opgezocht (met die frame-URL erbij), niet alleen het kale <iframe>-element op het
+   *  hoofddocument. Zonder dit was resolveClickAtTarget hieronder blind voor alles
+   *  binnen een cross-origin iframe — document.elementFromPoint() op het hoofddocument
+   *  kan daar per browser-beveiliging nooit doorheen kijken, en zag dan hooguit het
+   *  lege <iframe>-element zelf (2026-09-16-audit: dit liet zowel de write-role/
+   *  CONFIRM_WORDS-poort in guardrails.ts als ScopeGuard's frame-scope-check volledig
+   *  buitenspel voor click-at, ook al werkte de daadwerkelijke klik — page.mouse.click,
+   *  een browser-niveau hit-test — wél gewoon dwars door de iframe-grens heen). */
+  private async resolveClickAtFrameAware(
+    x: number,
+    y: number,
+  ): Promise<{ role: string; name: string; frameUrl: string } | null> {
+    const page = this.requirePage();
+    for (const [idx, frame] of this.frameCache) {
+      if (idx === 0) continue; // hoofdframe: fallback hieronder
+      const frameEl = await frame.frameElement().catch(() => null);
+      if (!frameEl) continue;
+      const box = await frameEl.boundingBox().catch(() => null);
+      if (!box) continue;
+      if (x < box.x || x > box.x + box.width || y < box.y || y > box.y + box.height) continue;
+      const rel: [number, number] = [x - box.x, y - box.y];
+      const inner = await frame.evaluate(resolveClickAtTarget, rel).catch(() => null);
+      if (inner) return { ...inner, frameUrl: frame.url() };
+    }
+    const top = await page.evaluate(resolveClickAtTarget, [x, y] as [number, number]);
+    return top ? { ...top, frameUrl: page.url() } : null;
+  }
+
   async act(action: Action): Promise<ActResult> {
     const page = this.requirePage();
     try {
@@ -485,7 +515,7 @@ export class PlaywrightHand implements HandBridge {
             // deze tak zou de resolve-ronde die loop.ts nu voor ELKE click-at aanvraagt
             // hieronder gewoon meteen een ECHTE `page.mouse.click()` uitvoeren — één keer
             // voor de "peiling", nog een keer na goedkeuring: een dubbele klik.
-            const resolved = await page.evaluate(resolveClickAtTarget, [x, y] as [number, number]);
+            const resolved = await this.resolveClickAtFrameAware(x, y);
             if (!resolved) return { ok: false, detail: "geen element gevonden op deze positie" };
             return { ok: true, resolvedTarget: resolved };
           }
