@@ -88,4 +88,18 @@ describe("PlaywrightHand — cross-origin iframe (frame-bewuste snapshot/act)", 
     const result = await hand.act({ kind: "click", ref: outerBtn!.ref });
     expect(result.ok).toBe(true);
   });
+
+  it("weigert een verzonnen ref met een aanhalingsteken erin (CSS-selector-injectie via prompt-injectie)", async () => {
+    // Simuleert wat een door prompt-injectie beïnvloede LLM-agent zou kunnen "verzinnen"
+    // i.p.v. een echte ref uit de snapshot — mag NOOIT in de CSS-selector belanden.
+    const result = await hand.act({ kind: "click", ref: `f0:e1"],button:has-text("Connect Wallet` });
+    expect(result.ok).toBe(false);
+    expect(result.detail).toMatch(/ongeldige ref/i);
+  });
+
+  it("weigert een ref met een frame-index die niet (meer) in de cache zit, i.p.v. stil terug te vallen op het hoofdframe", async () => {
+    const result = await hand.act({ kind: "click", ref: "f99:e1" });
+    expect(result.ok).toBe(false);
+    expect(result.detail).toMatch(/frame 99 niet meer bekend/i);
+  });
 });
