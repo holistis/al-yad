@@ -28,6 +28,9 @@
  *   GET  /cdp/cookies           → haal alle cookies op van de actieve tab
  *   POST /cdp/cookies/set       → set cookies voor de actieve tab (body: { cookies, url? })
  *   POST /cdp/fill-spa          → vul input-veld in React/Vue/Angular SPA via CDP (body: { selector, value, submit?, waitMs? })
+ *   POST /cdp/click             → echte, vertrouwde muisklik via CDP Input-domein, voor
+ *                                 custom dropdowns/comboboxen die event.isTrusted checken
+ *                                 en een JS-click() of OS-niveau klik negeren (body: { selector, tabId? })
  *
  * Beveiliging (Exposure-check):
  *   - Bindt ALLEEN aan 127.0.0.1 — niet bereikbaar van buiten de machine
@@ -636,6 +639,39 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
           clearFirst: parsed.clearFirst === true,
           tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
         }, 60_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    // ── /cdp/click : echte, vertrouwde muisklik via CDP's Input-domein ─────────
+    // Body: { selector, tabId? }
+    // Voor custom dropdowns/comboboxen (React/MUI e.a.) die op event.isTrusted
+    // controleren en daarom een JS-niveau click() negeren — ontdekt 2026-09-16 bij
+    // Atlassian Marketplace, Telegram Web en een Freshworks MUI Select, waar zelfs
+    // een OS-niveau klik (user32.dll/PowerShell) onbetrouwbaar bleek zodra DPI-
+    // schaling, vensterfocus-timing of scroll-positie niet exact klopten. Deze
+    // route berekent de klik-coordinaten zelf, na scrollIntoView, dus geen los
+    // getBoundingClientRect()-round-trip vooraf nodig.
+    if (url === "/cdp/click" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { selector?: string; tabId?: number };
+        if (typeof parsed.selector !== "string" || !parsed.selector.trim()) {
+          json(res, 400, { ok: false, detail: "selector is verplicht" });
+          return;
+        }
+        const result = await session.cdp({
+          command: "real_click",
+          selector: parsed.selector,
+          tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
+        }, 30_000);
         json(res, result.ok ? 200 : 500, result);
       } catch (e) {
         json(res, 500, { ok: false, detail: (e as Error).message });
@@ -1268,7 +1304,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
       "POST /cdp/idor-compare", "POST /cdp/intercept/start", "POST /cdp/intercept/stop",
       "POST /cdp/intercept/continue", "GET /cdp/cookies", "POST /cdp/cookies/set",
-      "POST /cdp/fill-spa", "POST /close-tabs", "POST /reload-extension",
+      "POST /cdp/fill-spa", "POST /cdp/click", "POST /close-tabs", "POST /reload-extension",
       "POST /fs/list-files", "POST /fs/search-files", "POST /fs/read-file",
     ] });
   });

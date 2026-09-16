@@ -209,7 +209,10 @@ export interface BrainPayloads {
       | "peek_network_requests" // lees captured Map zonder capture te stoppen (urlFilter = optioneel substring)
       | "close_other_tabs"      // chrome.tabs.remove: sluit alle tabbladen behalve die matchen op keepUrlContains
       | "list_downloads"        // chrome.downloads: welke bestanden zijn afgerond binnengekomen (naam, pad, grootte)
-      | "reload_extension";     // chrome.runtime.reload(): herlaad de extensie zelf na een codewijziging (geen chrome://extensions nodig)
+      | "reload_extension"      // chrome.runtime.reload(): herlaad de extensie zelf na een codewijziging (geen chrome://extensions nodig)
+      | "real_click";           // Input.dispatchMouseEvent: ECHTE, vertrouwde muisklik (i.p.v. JS click()), voor
+                                 // custom dropdowns/comboboxen die event.isTrusted checken. Scrollt eerst in beeld
+                                 // en meet de coordinaten daarna opnieuw op. Vereist selector.
     /** Doeltab; ontbreekt = meest recente web-tab */
     tabId?: number;
     /** Vang alleen URLs die dit patroon bevatten (voor start_capture/intercept_enable, optioneel) */
