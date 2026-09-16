@@ -482,6 +482,77 @@ export async function insertRealTextInPage(
   }
 }
 
+/**
+ * Voert een ECHTE, vertrouwde muisklik uit via CDP's Input-domein, in plaats van een
+ * JS-niveau click()/dispatchEvent(). Nodig voor componenten die op `event.isTrusted`
+ * controleren voordat ze reageren (steeds gangbaarder bij React/MUI-achtige custom
+ * dropdowns/comboboxen — geconstateerd op 2026-09-16 bij Atlassian Marketplace,
+ * Telegram Web en een Freshworks MUI Select: dezelfde synthetische click werkte niet,
+ * en een OS-niveau klik via `user32.dll`/PowerShell bleek onbetrouwbaar zodra DPI-
+ * schaling, vensterfocus-timing of scroll-positie niet exact klopten).
+ *
+ * `Input.dispatchMouseEvent` loopt, net als `Input.insertText`, buiten de pagina-JS
+ * om via hetzelfde kanaal als een echte gebruiker-actie, en wordt daarom wél als
+ * trusted behandeld — zonder de coordinaten-omrekening (viewport → scherm-pixels)
+ * die een OS-niveau klik nodig heeft. `selector` wordt gebruikt om het element te
+ * vinden en zo nodig in beeld te scrollen; de klik-coordinaten worden pas ná die
+ * scroll opnieuw opgemeten, zodat een eerdere `getBoundingClientRect()`-meting nooit
+ * verstald raakt. Controleert daarna met `elementFromPoint` of het doelwit ook echt
+ * het TOPMOST element op die coordinaat is — anders wordt duidelijk gefaald met de
+ * naam van het overlappende element, in plaats van blind op iets anders te klikken
+ * (zoals vandaag gebeurde toen een cookie-banner boven een formulierveld lag).
+ */
+export async function clickRealPositionInPage(
+  tabId: number,
+  selector: string,
+): Promise<{ ok: boolean; detail?: string }> {
+  if (!heeftCdp()) {
+    return { ok: false, detail: "Echte klik vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
+  }
+  await ensureAttached(tabId);
+  try {
+    const rectExpr = `(function() {
+      const el = document.querySelector(${JSON.stringify(selector)});
+      if (!el) return { ok: false, detail: 'element niet gevonden: ' + ${JSON.stringify(selector)} };
+      el.scrollIntoView({ block: 'center', inline: 'center' });
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return { ok: false, detail: 'element heeft geen zichtbare afmeting (width/height 0)' };
+      const x = r.x + r.width / 2, y = r.y + r.height / 2;
+      const top = document.elementFromPoint(x, y);
+      if (!top || !(top === el || el.contains(top) || top.contains(el))) {
+        const beschrijving = top ? (top.tagName + (top.id ? '#' + top.id : '') + (top.className ? '.' + String(top.className).split(' ')[0] : '')) : 'niets';
+        return { ok: false, detail: 'een ander element (' + beschrijving + ') ligt boven op het doelwit op dit punt, klik zou het verkeerde element raken' };
+      }
+      return { ok: true, x, y };
+    })()`;
+    const rectResult = (await chrome.debugger.sendCommand(
+      { tabId },
+      "Runtime.evaluate",
+      { expression: rectExpr, returnByValue: true, awaitPromise: true, timeout: 10_000 },
+    )) as { result?: { value?: { ok: boolean; detail?: string; x?: number; y?: number } }; exceptionDetails?: { text?: string } };
+    const rectValue = rectResult.result?.value;
+    if (rectResult.exceptionDetails || !rectValue?.ok) {
+      return { ok: false, detail: rectValue?.detail ?? rectResult.exceptionDetails?.text ?? "coordinaten-opzoek mislukte" };
+    }
+    const { x, y } = rectValue as { x: number; y: number };
+
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
+      type: "mouseMoved", x, y,
+    });
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
+      type: "mousePressed", x, y, button: "left", clickCount: 1,
+    });
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
+      type: "mouseReleased", x, y, button: "left", clickCount: 1,
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, detail: String(e) };
+  } finally {
+    if (tabId !== captureTabId) await safeDetach(tabId);
+  }
+}
+
 export async function getResponseBody(
   tabId: number,
   requestId: string,
