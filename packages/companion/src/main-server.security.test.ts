@@ -117,6 +117,19 @@ describe("main-server.ts — exposure-fixes uit de externe audit", () => {
     expect(body.detail).toMatch(/goal.*verplicht/i);
   });
 
+  it("weigert een startUrl die naar een verboden pad wijst VOORDAT er ooit naartoe genavigeerd wordt (2026-09-16-audit: liep eerst via de kale Hand om ScopeGuard heen)", async () => {
+    const r = await fetch(`${BASE}/goal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Yad-Token": token },
+      body: JSON.stringify({ goal: "test", url: "https://example.com/checkout", maxSteps: 1 }),
+    });
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.status).toBe("scope-violation");
+    expect(body.steps).toBe(0);
+    expect(body.summary).toMatch(/verboden pad/i);
+  }, 15_000);
+
   it("geeft 400 (niet 413 of een crash) bij ongeldige JSON in een kleine body", async () => {
     const r = await fetch(`${BASE}/goal`, {
       method: "POST",
