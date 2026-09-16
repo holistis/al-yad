@@ -21,6 +21,7 @@ function mockChromeDebugger(rectResult: { value?: { ok: boolean; detail?: string
   });
   const attach = vi.fn(async () => {});
   const detach = vi.fn(async () => {});
+  const tabsUpdate = vi.fn(async () => {});
   const onEventListeners: Array<(...args: unknown[]) => void> = [];
   const onDetachListeners: Array<(...args: unknown[]) => void> = [];
   (globalThis as { chrome?: unknown }).chrome = {
@@ -31,8 +32,9 @@ function mockChromeDebugger(rectResult: { value?: { ok: boolean; detail?: string
       onEvent: { addListener: (fn: (...args: unknown[]) => void) => onEventListeners.push(fn) },
       onDetach: { addListener: (fn: (...args: unknown[]) => void) => onDetachListeners.push(fn) },
     },
+    tabs: { update: tabsUpdate },
   };
-  return { sendCommand, attach, detach };
+  return { sendCommand, attach, detach, tabsUpdate };
 }
 
 afterEach(() => {
@@ -40,6 +42,15 @@ afterEach(() => {
 });
 
 describe("clickRealPositionInPage — echte, vertrouwde klik via CDP Input-domein", () => {
+  it("activeert het tabblad voordat er geklikt wordt (hidden tabs ontvangen geen echte muis-events)", async () => {
+    const { tabsUpdate } = mockChromeDebugger({ value: { ok: true, x: 123, y: 45 } });
+
+    const result = await clickRealPositionInPage(1, "#organization-size-793");
+
+    expect(result.ok).toBe(true);
+    expect(tabsUpdate).toHaveBeenCalledWith(1, { active: true });
+  });
+
   it("dispatcht mouseMoved + mousePressed + mouseReleased op de opgemeten coordinaten", async () => {
     const { sendCommand } = mockChromeDebugger({ value: { ok: true, x: 123, y: 45 } });
 
