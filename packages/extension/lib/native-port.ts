@@ -2,7 +2,7 @@ import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, s
 import { isAccepted } from "./acceptance";
 import { getSettings, saveSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { injectCookies, injectLocalStorage } from "./session-inject";
-import { startCapture, stopCapture, evaluateInPage, insertRealTextInPage, clickRealPositionInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
+import { startCapture, stopCapture, evaluateInPage, evaluateInFrame, insertRealTextInPage, clickRealPositionInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
 import { YadTabGroupManager, type TabGroupsChromeApi } from "./tab-groups";
 
 /**
@@ -716,6 +716,7 @@ function onMessage(raw: unknown): void {
         tabId?: number;
         urlFilter?: string;
         expression?: string;
+        frameUrlContains?: string;
         selector?: string;
         text?: string;
         clearFirst?: boolean;
@@ -818,6 +819,21 @@ function onMessage(raw: unknown): void {
                 value: res.value,
                 valueType: res.valueType,
                 ...(res.error ? { detail: res.error } : {}),
+              }, raw.id);
+              break;
+            }
+            case "evaluate_frame": {
+              if (!p.expression || !p.frameUrlContains) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "evaluate_frame", detail: "expression en frameUrlContains zijn verplicht" }, raw.id);
+                break;
+              }
+              const frameRes = await evaluateInFrame(tabId, p.frameUrlContains, p.expression);
+              replyToBrain("CDP_RESULT", {
+                ok: !frameRes.error,
+                command: "evaluate_frame",
+                value: frameRes.value,
+                valueType: frameRes.valueType,
+                ...(frameRes.error ? { detail: frameRes.error } : {}),
               }, raw.id);
               break;
             }

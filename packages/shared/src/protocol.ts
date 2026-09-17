@@ -197,6 +197,10 @@ export interface BrainPayloads {
       | "start_capture"         // attach debugger + Network.enable, begin netwerkverkeer vastleggen
       | "stop_capture"          // stop vastleggen + return alle gevangen verzoeken + detach
       | "evaluate"              // Runtime.evaluate: voer JavaScript uit in de pagina-context
+      | "evaluate_frame"        // Page.createIsolatedWorld + Runtime.evaluate: voer JavaScript uit
+                                 // BINNEN een specifiek (ook cross-origin) iframe, gematcht op
+                                 // frameUrlContains. Nodig voor Forge/Connect-appinhoud die met
+                                 // gewone evaluate onzichtbaar blijft (same-origin-policy).
       | "insert_text"           // Input.insertText + Input.dispatchKeyEvent: voegt ECHTE, vertrouwde
                                  // tekst in (i.p.v. via JS), voor editors die JS-niveau invoer negeren
                                  // (Draft.js — X/Twitter, Medium). Focust eerst het element via selector.
@@ -217,8 +221,10 @@ export interface BrainPayloads {
     tabId?: number;
     /** Vang alleen URLs die dit patroon bevatten (voor start_capture/intercept_enable, optioneel) */
     urlFilter?: string;
-    /** JavaScript-expressie (voor evaluate) */
+    /** JavaScript-expressie (voor evaluate / evaluate_frame) */
     expression?: string;
+    /** Deel van de frame-URL om het doel-(i)frame te vinden (voor evaluate_frame) */
+    frameUrlContains?: string;
     /** CSS-selector van het doelveld (voor insert_text) */
     selector?: string;
     /** Tekst om echt te typen (voor insert_text) */

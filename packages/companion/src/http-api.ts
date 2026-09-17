@@ -16,6 +16,9 @@
  *   POST /cdp/capture/start     → begin netwerk vastleggen (body: { urlFilter?, tabId? })
  *   POST /cdp/capture/stop      → stop + geef alle verzoeken terug
  *   POST /cdp/evaluate          → voer JS uit in pagina (body: { expression, tabId? })
+ *   POST /cdp/evaluate-frame    → voer JS uit BINNEN een specifiek (ook cross-origin) iframe,
+ *                                 voor Forge/Connect-appinhoud die met /cdp/evaluate onzichtbaar
+ *                                 blijft (body: { frameUrlContains, expression, tabId? })
  *   POST /cdp/insert-text       → typ ECHTE, vertrouwde tekst via CDP Input-domein, voor
  *                                 editors (Draft.js: X/Twitter, Medium) die execCommand/
  *                                 fill-spa negeren (body: { selector, text, tabId?, clearFirst? })
@@ -616,6 +619,40 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
     // typt daarna écht via Input.insertText + Input.dispatchKeyEvent (voor Enter tussen
     // regels), wat door de browser als een vertrouwde gebruikers-actie wordt gezien —
     // in tegenstelling tot fill-spa's aanpak, die daarom hier NIET werkt.
+    // ── /cdp/evaluate-frame : voer JS uit BINNEN een specifiek (i)frame ─────────
+    // Body: { frameUrlContains, expression, tabId? }
+    // Voor Forge/Connect-appinhoud (o.a. Atlassian Marketplace-apps) die met gewone
+    // /cdp/evaluate onzichtbaar blijft omdat ze in een cross-origin iframe draaien —
+    // ontdekt 2026-09-17 bij zowel AI Insights als Automated Release Notes.
+    if (url === "/cdp/evaluate-frame" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { frameUrlContains?: string; expression?: string; tabId?: number };
+        if (typeof parsed.frameUrlContains !== "string" || !parsed.frameUrlContains.trim()) {
+          json(res, 400, { ok: false, detail: "frameUrlContains is verplicht" });
+          return;
+        }
+        if (typeof parsed.expression !== "string" || !parsed.expression.trim()) {
+          json(res, 400, { ok: false, detail: "expression is verplicht" });
+          return;
+        }
+        const result = await session.cdp({
+          command: "evaluate_frame",
+          frameUrlContains: parsed.frameUrlContains,
+          expression: parsed.expression.slice(0, 4_000),
+          tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
+        }, 30_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
     if (url === "/cdp/insert-text" && method === "POST") {
       if (!session.isConnected()) {
         json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
@@ -1304,7 +1341,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
       "POST /cdp/idor-compare", "POST /cdp/intercept/start", "POST /cdp/intercept/stop",
       "POST /cdp/intercept/continue", "GET /cdp/cookies", "POST /cdp/cookies/set",
-      "POST /cdp/fill-spa", "POST /cdp/click", "POST /close-tabs", "POST /reload-extension",
+      "POST /cdp/fill-spa", "POST /cdp/click", "POST /cdp/evaluate-frame", "POST /close-tabs", "POST /reload-extension",
       "POST /fs/list-files", "POST /fs/search-files", "POST /fs/read-file",
     ] });
   });

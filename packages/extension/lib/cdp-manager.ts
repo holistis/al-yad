@@ -402,6 +402,91 @@ export async function evaluateInPage(
   }
 }
 
+type FrameTreeNode = { frame: { id: string; url: string }; childFrames?: FrameTreeNode[] };
+
+function verzamelFrames(node: FrameTreeNode | undefined, out: Array<{ id: string; url: string }>): void {
+  if (!node) return;
+  out.push(node.frame);
+  for (const kind of node.childFrames ?? []) verzamelFrames(kind, out);
+}
+
+/**
+ * Voert JavaScript uit BINNEN een specifiek (ook cross-origin) iframe, in plaats
+ * van in het hoofdframe. Nodig voor Forge/Connect-apps (Atlassian Marketplace-apps
+ * draaien vrijwel altijd in zo'n iframe) waarvan de inhoud met gewone `evaluate`
+ * onzichtbaar blijft: het hoofdframe kan `iframe.contentDocument` niet uitlezen
+ * bij een andere origin (browser-eigen same-origin-policy, geen YAD-beperking),
+ * en zelfs `document.querySelector("iframe").contentDocument` geeft dan een lege
+ * of foutieve waarde terug — geconstateerd 2026-09-17 bij zowel AI Insights als
+ * Automated Release Notes (beide Atlassian Marketplace-apps).
+ *
+ * `Page.createIsolatedWorld` geeft een JS-context BINNEN het doelframe, met volledige
+ * toegang tot DIENS eigen document/DOM (isolated worlds delen de DOM met de pagina,
+ * alleen niet de JS-variabelen) — dit werkt ook cross-origin, omdat de debugger-sessie
+ * op tab-niveau draait en niet gebonden is aan de same-origin-policy van pagina-JS.
+ * `frameUrlContains` matcht op een deel van de URL van het gezochte (i)frame.
+ */
+export async function evaluateInFrame(
+  tabId: number,
+  frameUrlContains: string,
+  expression: string,
+): Promise<{ value: string; valueType: string; error?: string }> {
+  if (!heeftCdp()) {
+    return { value: "", valueType: "error", error: "Frame-evaluate vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
+  }
+  await ensureAttached(tabId);
+  try {
+    const frameTreeResult = (await chrome.debugger.sendCommand(
+      { tabId },
+      "Page.getFrameTree",
+      {},
+    )) as { frameTree?: FrameTreeNode };
+    const alleFrames: Array<{ id: string; url: string }> = [];
+    verzamelFrames(frameTreeResult.frameTree, alleFrames);
+    const doel = alleFrames.find((f) => f.url.includes(frameUrlContains));
+    if (!doel) {
+      return {
+        value: "",
+        valueType: "error",
+        error: `geen frame gevonden met url die bevat: ${frameUrlContains}. Gevonden frames: ${alleFrames.map((f) => f.url).join(", ")}`,
+      };
+    }
+
+    const wereld = (await chrome.debugger.sendCommand(
+      { tabId },
+      "Page.createIsolatedWorld",
+      { frameId: doel.id, worldName: "yad-frame-probe" },
+    )) as { executionContextId: number };
+
+    const r = (await chrome.debugger.sendCommand(
+      { tabId },
+      "Runtime.evaluate",
+      {
+        expression: expression.slice(0, 4_000),
+        contextId: wereld.executionContextId,
+        returnByValue: true,
+        awaitPromise: true,
+        timeout: 10_000,
+      },
+    )) as { result?: { type?: string; value?: unknown; description?: string }; exceptionDetails?: { text?: string } };
+    if (r.exceptionDetails) {
+      return { value: r.exceptionDetails.text ?? "runtime error", valueType: "error", error: r.exceptionDetails.text };
+    }
+    const val = r.result?.value;
+    return {
+      value:
+        val === undefined
+          ? (r.result?.description ?? "undefined")
+          : JSON.stringify(val).slice(0, 8_000),
+      valueType: r.result?.type ?? "undefined",
+    };
+  } catch (e) {
+    return { value: "", valueType: "error", error: String(e) };
+  } finally {
+    if (tabId !== captureTabId) await safeDetach(tabId);
+  }
+}
+
 /**
  * Voegt ECHTE, vertrouwde tekst in via CDP's Input-domein, in plaats van via JS
  * (execCommand/dispatchEvent). Nodig voor editors die hun eigen interne state
