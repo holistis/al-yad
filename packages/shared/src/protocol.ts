@@ -225,8 +225,14 @@ export interface BrainPayloads {
     expression?: string;
     /** Deel van de frame-URL om het doel-(i)frame te vinden (voor evaluate_frame) */
     frameUrlContains?: string;
-    /** CSS-selector van het doelveld (voor insert_text) */
+    /** CSS-selector van het doelveld (voor insert_text / real_click) */
     selector?: string;
+    /** Expliciete viewport-coordinaten voor real_click i.p.v. selector — nodig om te klikken
+     * binnen een cross-origin iframe (document.querySelector op het hoofdframe vindt dat
+     * element nooit, same-origin-policy). Reken zelf uit: element-rect BINNEN de iframe via
+     * evaluate_frame, plus de iframe-eigen positie op het hoofdframe. */
+    x?: number;
+    y?: number;
     /** Tekst om echt te typen (voor insert_text) */
     text?: string;
     /** Als true: selecteer/wis de bestaande inhoud van het veld eerst (voor insert_text) */

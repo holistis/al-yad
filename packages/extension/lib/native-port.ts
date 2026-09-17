@@ -718,6 +718,10 @@ function onMessage(raw: unknown): void {
         expression?: string;
         frameUrlContains?: string;
         selector?: string;
+        /** Expliciete viewport-coordinaten voor real_click, i.p.v. selector — nodig om te
+         * klikken binnen een cross-origin iframe (selector kan het element daar niet vinden). */
+        x?: number;
+        y?: number;
         text?: string;
         clearFirst?: boolean;
         requestId?: string;
@@ -851,11 +855,12 @@ function onMessage(raw: unknown): void {
               break;
             }
             case "real_click": {
-              if (!p.selector) {
-                replyToBrain("CDP_RESULT", { ok: false, command: "real_click", detail: "selector is verplicht" }, raw.id);
+              const hasExplicitCoords = typeof p.x === "number" && typeof p.y === "number";
+              if (!p.selector && !hasExplicitCoords) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "real_click", detail: "selector of x+y is verplicht" }, raw.id);
                 break;
               }
-              const clickRes = await clickRealPositionInPage(tabId, p.selector);
+              const clickRes = await clickRealPositionInPage(tabId, p.selector ?? "", hasExplicitCoords ? { x: p.x as number, y: p.y as number } : undefined);
               replyToBrain("CDP_RESULT", {
                 ok: clickRes.ok,
                 command: "real_click",

@@ -652,6 +652,7 @@ export async function insertRealTextInPage(
 export async function clickRealPositionInPage(
   tabId: number,
   selector: string,
+  explicitCoords?: { x: number; y: number },
 ): Promise<{ ok: boolean; detail?: string }> {
   if (!heeftCdp()) {
     return { ok: false, detail: "Echte klik vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
@@ -666,30 +667,45 @@ export async function clickRealPositionInPage(
   await chrome.tabs.update(tabId, { active: true });
   await ensureAttached(tabId);
   try {
-    const rectExpr = `(function() {
-      const el = document.querySelector(${JSON.stringify(selector)});
-      if (!el) return { ok: false, detail: 'element niet gevonden: ' + ${JSON.stringify(selector)} };
-      el.scrollIntoView({ block: 'center', inline: 'center' });
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) return { ok: false, detail: 'element heeft geen zichtbare afmeting (width/height 0)' };
-      const x = r.x + r.width / 2, y = r.y + r.height / 2;
-      const top = document.elementFromPoint(x, y);
-      if (!top || !(top === el || el.contains(top) || top.contains(el))) {
-        const beschrijving = top ? (top.tagName + (top.id ? '#' + top.id : '') + (top.className ? '.' + String(top.className).split(' ')[0] : '')) : 'niets';
-        return { ok: false, detail: 'een ander element (' + beschrijving + ') ligt boven op het doelwit op dit punt, klik zou het verkeerde element raken' };
+    let x: number, y: number;
+    if (explicitCoords) {
+      // `explicitCoords` slaat de selector-opzoek op het HOOFDframe helemaal over —
+      // nodig om te klikken op iets BINNEN een cross-origin iframe (document.querySelector
+      // op het hoofdframe kan dat element nooit vinden, same-origin-policy). De aanroeper
+      // rekent de coordinaat zelf uit (element-rect BINNEN de iframe via evaluate-frame,
+      // plus de iframe-eigen positie op het hoofdframe). Ontdekt 2026-09-17: een echte
+      // OS-niveau klik (user32.dll) op zo'n berekende coordinaat landt weliswaar op het
+      // juiste element (bevestigd met elementFromPoint), maar registreert niet — een CDP-
+      // niveau Input.dispatchMouseEvent (deze functie) werkt daar wél, vermoedelijk omdat
+      // een cross-process iframe een eigen compositor-surface heeft die anders reageert
+      // op OS-niveau input dan op browser-eigen CDP-input.
+      ({ x, y } = explicitCoords);
+    } else {
+      const rectExpr = `(function() {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return { ok: false, detail: 'element niet gevonden: ' + ${JSON.stringify(selector)} };
+        el.scrollIntoView({ block: 'center', inline: 'center' });
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return { ok: false, detail: 'element heeft geen zichtbare afmeting (width/height 0)' };
+        const x = r.x + r.width / 2, y = r.y + r.height / 2;
+        const top = document.elementFromPoint(x, y);
+        if (!top || !(top === el || el.contains(top) || top.contains(el))) {
+          const beschrijving = top ? (top.tagName + (top.id ? '#' + top.id : '') + (top.className ? '.' + String(top.className).split(' ')[0] : '')) : 'niets';
+          return { ok: false, detail: 'een ander element (' + beschrijving + ') ligt boven op het doelwit op dit punt, klik zou het verkeerde element raken' };
+        }
+        return { ok: true, x, y };
+      })()`;
+      const rectResult = (await chrome.debugger.sendCommand(
+        { tabId },
+        "Runtime.evaluate",
+        { expression: rectExpr, returnByValue: true, awaitPromise: true, timeout: 10_000 },
+      )) as { result?: { value?: { ok: boolean; detail?: string; x?: number; y?: number } }; exceptionDetails?: { text?: string } };
+      const rectValue = rectResult.result?.value;
+      if (rectResult.exceptionDetails || !rectValue?.ok) {
+        return { ok: false, detail: rectValue?.detail ?? rectResult.exceptionDetails?.text ?? "coordinaten-opzoek mislukte" };
       }
-      return { ok: true, x, y };
-    })()`;
-    const rectResult = (await chrome.debugger.sendCommand(
-      { tabId },
-      "Runtime.evaluate",
-      { expression: rectExpr, returnByValue: true, awaitPromise: true, timeout: 10_000 },
-    )) as { result?: { value?: { ok: boolean; detail?: string; x?: number; y?: number } }; exceptionDetails?: { text?: string } };
-    const rectValue = rectResult.result?.value;
-    if (rectResult.exceptionDetails || !rectValue?.ok) {
-      return { ok: false, detail: rectValue?.detail ?? rectResult.exceptionDetails?.text ?? "coordinaten-opzoek mislukte" };
+      ({ x, y } = rectValue as { x: number; y: number });
     }
-    const { x, y } = rectValue as { x: number; y: number };
 
     await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
       type: "mouseMoved", x, y,

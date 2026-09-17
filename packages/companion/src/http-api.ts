@@ -684,7 +684,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
     }
 
     // ── /cdp/click : echte, vertrouwde muisklik via CDP's Input-domein ─────────
-    // Body: { selector, tabId? }
+    // Body: { selector, tabId? } OF { x, y, tabId? }
     // Voor custom dropdowns/comboboxen (React/MUI e.a.) die op event.isTrusted
     // controleren en daarom een JS-niveau click() negeren — ontdekt 2026-09-16 bij
     // Atlassian Marketplace, Telegram Web en een Freshworks MUI Select, waar zelfs
@@ -692,6 +692,13 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
     // schaling, vensterfocus-timing of scroll-positie niet exact klopten. Deze
     // route berekent de klik-coordinaten zelf, na scrollIntoView, dus geen los
     // getBoundingClientRect()-round-trip vooraf nodig.
+    // Geef x+y i.p.v. selector om te klikken BINNEN een cross-origin iframe (2026-09-17,
+    // Automated Release Notes-app): een OS-niveau klik op zo'n berekende coordinaat landt
+    // wel op het juiste element (elementFromPoint bevestigt dit), maar registreert niet —
+    // vermoedelijk omdat een cross-process iframe een eigen compositor-surface heeft.
+    // CDP-niveau Input.dispatchMouseEvent (deze route) werkt daar wél. Reken x/y zelf uit:
+    // element-rect BINNEN de iframe via /cdp/evaluate-frame, plus de iframe-eigen positie
+    // op het hoofdframe via /cdp/evaluate.
     if (url === "/cdp/click" && method === "POST") {
       if (!session.isConnected()) {
         json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
@@ -699,14 +706,16 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       }
       try {
         const raw = await readBody(req);
-        const parsed = JSON.parse(raw) as { selector?: string; tabId?: number };
-        if (typeof parsed.selector !== "string" || !parsed.selector.trim()) {
-          json(res, 400, { ok: false, detail: "selector is verplicht" });
+        const parsed = JSON.parse(raw) as { selector?: string; x?: number; y?: number; tabId?: number };
+        const hasCoords = typeof parsed.x === "number" && typeof parsed.y === "number";
+        if (!hasCoords && (typeof parsed.selector !== "string" || !parsed.selector.trim())) {
+          json(res, 400, { ok: false, detail: "selector of x+y is verplicht" });
           return;
         }
         const result = await session.cdp({
           command: "real_click",
-          selector: parsed.selector,
+          ...(parsed.selector ? { selector: parsed.selector } : {}),
+          ...(hasCoords ? { x: parsed.x, y: parsed.y } : {}),
           tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
         }, 30_000);
         json(res, result.ok ? 200 : 500, result);
