@@ -402,6 +402,145 @@ export async function evaluateInPage(
   }
 }
 
+type FrameTreeNode = { frame: { id: string; url: string }; childFrames?: FrameTreeNode[] };
+
+function verzamelFrames(node: FrameTreeNode | undefined, out: Array<{ id: string; url: string }>): void {
+  if (!node) return;
+  out.push(node.frame);
+  for (const kind of node.childFrames ?? []) verzamelFrames(kind, out);
+}
+
+/**
+ * Voert JavaScript uit BINNEN een specifiek (ook cross-origin) iframe, in plaats
+ * van in het hoofdframe. Nodig voor Forge/Connect-apps (Atlassian Marketplace-apps
+ * draaien vrijwel altijd in zo'n iframe) waarvan de inhoud met gewone `evaluate`
+ * onzichtbaar blijft: het hoofdframe kan `iframe.contentDocument` niet uitlezen
+ * bij een andere origin (browser-eigen same-origin-policy, geen YAD-beperking),
+ * en zelfs `document.querySelector("iframe").contentDocument` geeft dan een lege
+ * of foutieve waarde terug — geconstateerd 2026-09-17 bij zowel AI Insights als
+ * Automated Release Notes (beide Atlassian Marketplace-apps).
+ *
+ * Probeert eerst `Page.createIsolatedWorld` (een JS-context BINNEN het doelframe,
+ * met volledige DOM-toegang, werkt cross-origin zolang het frame in hetzelfde
+ * renderer-proces zit). Chrome's site-isolation zet een cross-origin iframe naar
+ * een heel ander domein (zoals een Forge-app op *.atlassian-dev.net binnen een
+ * *.atlassian.net-pagina) echter vrijwel altijd in een EIGEN proces — zo'n frame
+ * verschijnt dan niet in `Page.getFrameTree` maar als los "target". Valt in dat
+ * geval terug op `Target.getTargets` + rechtstreeks attachen op dat target-id.
+ * `frameUrlContains` matcht op een deel van de URL van het gezochte (i)frame.
+ */
+export async function evaluateInFrame(
+  tabId: number,
+  frameUrlContains: string,
+  expression: string,
+): Promise<{ value: string; valueType: string; error?: string }> {
+  if (!heeftCdp()) {
+    return { value: "", valueType: "error", error: "Frame-evaluate vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
+  }
+  await ensureAttached(tabId);
+  try {
+    const frameTreeResult = (await chrome.debugger.sendCommand(
+      { tabId },
+      "Page.getFrameTree",
+      {},
+    )) as { frameTree?: FrameTreeNode };
+    const alleFrames: Array<{ id: string; url: string }> = [];
+    verzamelFrames(frameTreeResult.frameTree, alleFrames);
+    const doel = alleFrames.find((f) => f.url.includes(frameUrlContains));
+
+    if (doel) {
+      const wereld = (await chrome.debugger.sendCommand(
+        { tabId },
+        "Page.createIsolatedWorld",
+        { frameId: doel.id, worldName: "yad-frame-probe" },
+      )) as { executionContextId: number };
+      return await voerRuntimeEvaluateUit({ tabId }, expression, { contextId: wereld.executionContextId });
+    }
+
+    // Page.getFrameTree toont alleen frames in HETZELFDE renderer-proces als het
+    // hoofdframe. Een cross-origin iframe naar een heel ander domein (zoals een
+    // Forge-app op *.atlassian-dev.net binnen een *.atlassian.net-pagina) draait
+    // door Chrome's site-isolation vrijwel altijd in een EIGEN proces (out-of-process
+    // iframe/OOPIF) — ontdekt 2026-09-17 bij zowel AI Insights als Automated Release
+    // Notes. Een DIRECTE chrome.debugger.attach({targetId}) op zo'n sub-target gaf bij
+    // een live-test "Not allowed" (-32000): de chrome.debugger-EXTENSIE-API staat dat
+    // niet toe, dat is een Chrome-platformgrens, geen YAD-bug. De door Chrome zelf
+    // gedocumenteerde weg is Target.setAutoAttach + flat-mode sessionId-routing: blijf
+    // aangesloten op het tabblad, en stuur commando's naar het kind-target via
+    // {tabId, sessionId} in plaats van een los {targetId}.
+    const sessionId = await new Promise<string | null>((resolve) => {
+      let klaar = false;
+      const eindig = (waarde: string | null) => {
+        if (klaar) return;
+        klaar = true;
+        clearTimeout(timer);
+        chrome.debugger.onEvent.removeListener(luisteraar);
+        resolve(waarde);
+      };
+      const timer = setTimeout(() => eindig(null), 5_000);
+      const luisteraar = (
+        source: chrome.debugger.Debuggee,
+        method: string,
+        params?: object,
+      ): void => {
+        if (source.tabId !== tabId || method !== "Target.attachedToTarget") return;
+        const info = params as { sessionId?: string; targetInfo?: { url: string; type: string } };
+        if (info.targetInfo?.type === "iframe" && info.targetInfo.url.includes(frameUrlContains) && info.sessionId) {
+          eindig(info.sessionId);
+        }
+      };
+      chrome.debugger.onEvent.addListener(luisteraar);
+      chrome.debugger
+        .sendCommand({ tabId }, "Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: false, flatten: true })
+        .catch(() => eindig(null));
+    });
+
+    if (!sessionId) {
+      return {
+        value: "",
+        valueType: "error",
+        error:
+          `geen frame gevonden (ook niet via auto-attach) met url die bevat: ${frameUrlContains}. ` +
+          `Same-process frames: ${alleFrames.map((f) => f.url).join(", ") || "geen"}`,
+      };
+    }
+    return await voerRuntimeEvaluateUit({ tabId, sessionId }, expression, {});
+  } catch (e) {
+    return { value: "", valueType: "error", error: String(e) };
+  } finally {
+    if (tabId !== captureTabId) await safeDetach(tabId);
+  }
+}
+
+async function voerRuntimeEvaluateUit(
+  debuggee: { tabId: number } | { targetId: string } | { tabId: number; sessionId: string },
+  expression: string,
+  extra: { contextId?: number },
+): Promise<{ value: string; valueType: string; error?: string }> {
+  const r = (await chrome.debugger.sendCommand(
+    debuggee,
+    "Runtime.evaluate",
+    {
+      expression: expression.slice(0, 4_000),
+      ...extra,
+      returnByValue: true,
+      awaitPromise: true,
+      timeout: 10_000,
+    },
+  )) as { result?: { type?: string; value?: unknown; description?: string }; exceptionDetails?: { text?: string } };
+  if (r.exceptionDetails) {
+    return { value: r.exceptionDetails.text ?? "runtime error", valueType: "error", error: r.exceptionDetails.text };
+  }
+  const val = r.result?.value;
+  return {
+    value:
+      val === undefined
+        ? (r.result?.description ?? "undefined")
+        : JSON.stringify(val).slice(0, 8_000),
+    valueType: r.result?.type ?? "undefined",
+  };
+}
+
 /**
  * Voegt ECHTE, vertrouwde tekst in via CDP's Input-domein, in plaats van via JS
  * (execCommand/dispatchEvent). Nodig voor editors die hun eigen interne state
@@ -513,6 +652,7 @@ export async function insertRealTextInPage(
 export async function clickRealPositionInPage(
   tabId: number,
   selector: string,
+  explicitCoords?: { x: number; y: number },
 ): Promise<{ ok: boolean; detail?: string }> {
   if (!heeftCdp()) {
     return { ok: false, detail: "Echte klik vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
@@ -527,30 +667,45 @@ export async function clickRealPositionInPage(
   await chrome.tabs.update(tabId, { active: true });
   await ensureAttached(tabId);
   try {
-    const rectExpr = `(function() {
-      const el = document.querySelector(${JSON.stringify(selector)});
-      if (!el) return { ok: false, detail: 'element niet gevonden: ' + ${JSON.stringify(selector)} };
-      el.scrollIntoView({ block: 'center', inline: 'center' });
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) return { ok: false, detail: 'element heeft geen zichtbare afmeting (width/height 0)' };
-      const x = r.x + r.width / 2, y = r.y + r.height / 2;
-      const top = document.elementFromPoint(x, y);
-      if (!top || !(top === el || el.contains(top) || top.contains(el))) {
-        const beschrijving = top ? (top.tagName + (top.id ? '#' + top.id : '') + (top.className ? '.' + String(top.className).split(' ')[0] : '')) : 'niets';
-        return { ok: false, detail: 'een ander element (' + beschrijving + ') ligt boven op het doelwit op dit punt, klik zou het verkeerde element raken' };
+    let x: number, y: number;
+    if (explicitCoords) {
+      // `explicitCoords` slaat de selector-opzoek op het HOOFDframe helemaal over —
+      // nodig om te klikken op iets BINNEN een cross-origin iframe (document.querySelector
+      // op het hoofdframe kan dat element nooit vinden, same-origin-policy). De aanroeper
+      // rekent de coordinaat zelf uit (element-rect BINNEN de iframe via evaluate-frame,
+      // plus de iframe-eigen positie op het hoofdframe). Ontdekt 2026-09-17: een echte
+      // OS-niveau klik (user32.dll) op zo'n berekende coordinaat landt weliswaar op het
+      // juiste element (bevestigd met elementFromPoint), maar registreert niet — een CDP-
+      // niveau Input.dispatchMouseEvent (deze functie) werkt daar wél, vermoedelijk omdat
+      // een cross-process iframe een eigen compositor-surface heeft die anders reageert
+      // op OS-niveau input dan op browser-eigen CDP-input.
+      ({ x, y } = explicitCoords);
+    } else {
+      const rectExpr = `(function() {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return { ok: false, detail: 'element niet gevonden: ' + ${JSON.stringify(selector)} };
+        el.scrollIntoView({ block: 'center', inline: 'center' });
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return { ok: false, detail: 'element heeft geen zichtbare afmeting (width/height 0)' };
+        const x = r.x + r.width / 2, y = r.y + r.height / 2;
+        const top = document.elementFromPoint(x, y);
+        if (!top || !(top === el || el.contains(top) || top.contains(el))) {
+          const beschrijving = top ? (top.tagName + (top.id ? '#' + top.id : '') + (top.className ? '.' + String(top.className).split(' ')[0] : '')) : 'niets';
+          return { ok: false, detail: 'een ander element (' + beschrijving + ') ligt boven op het doelwit op dit punt, klik zou het verkeerde element raken' };
+        }
+        return { ok: true, x, y };
+      })()`;
+      const rectResult = (await chrome.debugger.sendCommand(
+        { tabId },
+        "Runtime.evaluate",
+        { expression: rectExpr, returnByValue: true, awaitPromise: true, timeout: 10_000 },
+      )) as { result?: { value?: { ok: boolean; detail?: string; x?: number; y?: number } }; exceptionDetails?: { text?: string } };
+      const rectValue = rectResult.result?.value;
+      if (rectResult.exceptionDetails || !rectValue?.ok) {
+        return { ok: false, detail: rectValue?.detail ?? rectResult.exceptionDetails?.text ?? "coordinaten-opzoek mislukte" };
       }
-      return { ok: true, x, y };
-    })()`;
-    const rectResult = (await chrome.debugger.sendCommand(
-      { tabId },
-      "Runtime.evaluate",
-      { expression: rectExpr, returnByValue: true, awaitPromise: true, timeout: 10_000 },
-    )) as { result?: { value?: { ok: boolean; detail?: string; x?: number; y?: number } }; exceptionDetails?: { text?: string } };
-    const rectValue = rectResult.result?.value;
-    if (rectResult.exceptionDetails || !rectValue?.ok) {
-      return { ok: false, detail: rectValue?.detail ?? rectResult.exceptionDetails?.text ?? "coordinaten-opzoek mislukte" };
+      ({ x, y } = rectValue as { x: number; y: number });
     }
-    const { x, y } = rectValue as { x: number; y: number };
 
     await chrome.debugger.sendCommand({ tabId }, "Input.dispatchMouseEvent", {
       type: "mouseMoved", x, y,
