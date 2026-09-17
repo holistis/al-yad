@@ -420,10 +420,13 @@ function verzamelFrames(node: FrameTreeNode | undefined, out: Array<{ id: string
  * of foutieve waarde terug — geconstateerd 2026-09-17 bij zowel AI Insights als
  * Automated Release Notes (beide Atlassian Marketplace-apps).
  *
- * `Page.createIsolatedWorld` geeft een JS-context BINNEN het doelframe, met volledige
- * toegang tot DIENS eigen document/DOM (isolated worlds delen de DOM met de pagina,
- * alleen niet de JS-variabelen) — dit werkt ook cross-origin, omdat de debugger-sessie
- * op tab-niveau draait en niet gebonden is aan de same-origin-policy van pagina-JS.
+ * Probeert eerst `Page.createIsolatedWorld` (een JS-context BINNEN het doelframe,
+ * met volledige DOM-toegang, werkt cross-origin zolang het frame in hetzelfde
+ * renderer-proces zit). Chrome's site-isolation zet een cross-origin iframe naar
+ * een heel ander domein (zoals een Forge-app op *.atlassian-dev.net binnen een
+ * *.atlassian.net-pagina) echter vrijwel altijd in een EIGEN proces — zo'n frame
+ * verschijnt dan niet in `Page.getFrameTree` maar als los "target". Valt in dat
+ * geval terug op `Target.getTargets` + rechtstreeks attachen op dat target-id.
  * `frameUrlContains` matcht op een deel van de URL van het gezochte (i)frame.
  */
 export async function evaluateInFrame(
@@ -444,47 +447,98 @@ export async function evaluateInFrame(
     const alleFrames: Array<{ id: string; url: string }> = [];
     verzamelFrames(frameTreeResult.frameTree, alleFrames);
     const doel = alleFrames.find((f) => f.url.includes(frameUrlContains));
-    if (!doel) {
+
+    if (doel) {
+      const wereld = (await chrome.debugger.sendCommand(
+        { tabId },
+        "Page.createIsolatedWorld",
+        { frameId: doel.id, worldName: "yad-frame-probe" },
+      )) as { executionContextId: number };
+      return await voerRuntimeEvaluateUit({ tabId }, expression, { contextId: wereld.executionContextId });
+    }
+
+    // Page.getFrameTree toont alleen frames in HETZELFDE renderer-proces als het
+    // hoofdframe. Een cross-origin iframe naar een heel ander domein (zoals een
+    // Forge-app op *.atlassian-dev.net binnen een *.atlassian.net-pagina) draait
+    // door Chrome's site-isolation vrijwel altijd in een EIGEN proces (out-of-process
+    // iframe/OOPIF) — ontdekt 2026-09-17 bij zowel AI Insights als Automated Release
+    // Notes. Een DIRECTE chrome.debugger.attach({targetId}) op zo'n sub-target gaf bij
+    // een live-test "Not allowed" (-32000): de chrome.debugger-EXTENSIE-API staat dat
+    // niet toe, dat is een Chrome-platformgrens, geen YAD-bug. De door Chrome zelf
+    // gedocumenteerde weg is Target.setAutoAttach + flat-mode sessionId-routing: blijf
+    // aangesloten op het tabblad, en stuur commando's naar het kind-target via
+    // {tabId, sessionId} in plaats van een los {targetId}.
+    const sessionId = await new Promise<string | null>((resolve) => {
+      let klaar = false;
+      const eindig = (waarde: string | null) => {
+        if (klaar) return;
+        klaar = true;
+        clearTimeout(timer);
+        chrome.debugger.onEvent.removeListener(luisteraar);
+        resolve(waarde);
+      };
+      const timer = setTimeout(() => eindig(null), 5_000);
+      const luisteraar = (
+        source: chrome.debugger.Debuggee,
+        method: string,
+        params?: object,
+      ): void => {
+        if (source.tabId !== tabId || method !== "Target.attachedToTarget") return;
+        const info = params as { sessionId?: string; targetInfo?: { url: string; type: string } };
+        if (info.targetInfo?.type === "iframe" && info.targetInfo.url.includes(frameUrlContains) && info.sessionId) {
+          eindig(info.sessionId);
+        }
+      };
+      chrome.debugger.onEvent.addListener(luisteraar);
+      chrome.debugger
+        .sendCommand({ tabId }, "Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: false, flatten: true })
+        .catch(() => eindig(null));
+    });
+
+    if (!sessionId) {
       return {
         value: "",
         valueType: "error",
-        error: `geen frame gevonden met url die bevat: ${frameUrlContains}. Gevonden frames: ${alleFrames.map((f) => f.url).join(", ")}`,
+        error:
+          `geen frame gevonden (ook niet via auto-attach) met url die bevat: ${frameUrlContains}. ` +
+          `Same-process frames: ${alleFrames.map((f) => f.url).join(", ") || "geen"}`,
       };
     }
-
-    const wereld = (await chrome.debugger.sendCommand(
-      { tabId },
-      "Page.createIsolatedWorld",
-      { frameId: doel.id, worldName: "yad-frame-probe" },
-    )) as { executionContextId: number };
-
-    const r = (await chrome.debugger.sendCommand(
-      { tabId },
-      "Runtime.evaluate",
-      {
-        expression: expression.slice(0, 4_000),
-        contextId: wereld.executionContextId,
-        returnByValue: true,
-        awaitPromise: true,
-        timeout: 10_000,
-      },
-    )) as { result?: { type?: string; value?: unknown; description?: string }; exceptionDetails?: { text?: string } };
-    if (r.exceptionDetails) {
-      return { value: r.exceptionDetails.text ?? "runtime error", valueType: "error", error: r.exceptionDetails.text };
-    }
-    const val = r.result?.value;
-    return {
-      value:
-        val === undefined
-          ? (r.result?.description ?? "undefined")
-          : JSON.stringify(val).slice(0, 8_000),
-      valueType: r.result?.type ?? "undefined",
-    };
+    return await voerRuntimeEvaluateUit({ tabId, sessionId }, expression, {});
   } catch (e) {
     return { value: "", valueType: "error", error: String(e) };
   } finally {
     if (tabId !== captureTabId) await safeDetach(tabId);
   }
+}
+
+async function voerRuntimeEvaluateUit(
+  debuggee: { tabId: number } | { targetId: string } | { tabId: number; sessionId: string },
+  expression: string,
+  extra: { contextId?: number },
+): Promise<{ value: string; valueType: string; error?: string }> {
+  const r = (await chrome.debugger.sendCommand(
+    debuggee,
+    "Runtime.evaluate",
+    {
+      expression: expression.slice(0, 4_000),
+      ...extra,
+      returnByValue: true,
+      awaitPromise: true,
+      timeout: 10_000,
+    },
+  )) as { result?: { type?: string; value?: unknown; description?: string }; exceptionDetails?: { text?: string } };
+  if (r.exceptionDetails) {
+    return { value: r.exceptionDetails.text ?? "runtime error", valueType: "error", error: r.exceptionDetails.text };
+  }
+  const val = r.result?.value;
+  return {
+    value:
+      val === undefined
+        ? (r.result?.description ?? "undefined")
+        : JSON.stringify(val).slice(0, 8_000),
+    valueType: r.result?.type ?? "undefined",
+  };
 }
 
 /**
