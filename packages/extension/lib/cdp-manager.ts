@@ -501,6 +501,14 @@ export async function insertRealTextInPage(
  * het TOPMOST element op die coordinaat is — anders wordt duidelijk gefaald met de
  * naam van het overlappende element, in plaats van blind op iets anders te klikken
  * (zoals vandaag gebeurde toen een cookie-banner boven een formulierveld lag).
+ *
+ * Activeert het tabblad EERST (`chrome.tabs.update({ active: true })`): een
+ * tabblad met `document.visibilityState === 'hidden'` (bijvoorbeeld geopend via
+ * `/navigate`, dat bewust een onzichtbaar tabblad aanmaakt) doet niet mee aan
+ * Chrome's echte input/hit-testing-pipeline — `Input.dispatchMouseEvent` compileert
+ * dan zonder fout, maar er komt geen enkel muis-event op de pagina aan, ongeacht de
+ * coordinaten. `Runtime.evaluate` heeft dit probleem niet (puur JS, geen rendering
+ * nodig), wat het bij een eerste live-test leek alsof alleen deze functie kapot was.
  */
 export async function clickRealPositionInPage(
   tabId: number,
@@ -509,6 +517,14 @@ export async function clickRealPositionInPage(
   if (!heeftCdp()) {
     return { ok: false, detail: "Echte klik vereist de volledige (niet-Store) versie van Yad (debugger-permissie)." };
   }
+  // Input.dispatchMouseEvent werkt alleen op het ECHT zichtbare tabblad — een tabblad
+  // met document.visibilityState 'hidden' (bijvoorbeeld geopend via /navigate, dat
+  // bewust een onzichtbaar tabblad aanmaakt) neemt niet deel aan Chrome's echte
+  // input/hit-testing-pipeline, ongeacht welke coordinaten je meestuurt. Ontdekt
+  // 2026-09-16 bij de live-test van deze functie: Runtime.evaluate werkte prima op de
+  // achtergrond-tab (puur JS, geen rendering nodig), maar geen van de gedispatchte
+  // muis-events kwam ooit aan op de pagina, ook niet op een simpel <body>-element.
+  await chrome.tabs.update(tabId, { active: true });
   await ensureAttached(tabId);
   try {
     const rectExpr = `(function() {
