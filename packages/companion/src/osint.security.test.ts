@@ -13,19 +13,22 @@ import { tmpdir } from "node:os";
  * Draait de ECHTE gecompileerde server (dist/server-playwright.js) als kindproces,
  * geen mock — zelfde discipline als main-server.security.test.ts.
  *
- * NIET gedekt: de echte, succesvolle /osint/read-page-navigatie tegen een levende
- * x.com/discord.com-pagina. Dat zou een test afhankelijk maken van een extern,
- * niet-gecontroleerd systeem (traag, flaky, en een echte netwerkaanroep vanuit een
- * testrun). Wel volledig gedekt: alle validatie/weigerpaden VOOR chromium.launch()
- * ooit wordt aangeroepen (site-allowlist, SSRF-host-check, ontbrekende sessie) —
- * dat is precies waar de beveiligingslogica zit.
+ * NIET gedekt (bewust, na de Majlis al-Muraqaba-audit van 2026-09-24):
+ * - de echte, succesvolle /osint/read-page-navigatie tegen een levende x.com/
+ *   discord.com-pagina, inclusief de post-redirect-hercontrole en de concurrency-
+ *   limiet — dat zou echte chromium.launch()-aanroepen en/of een extern, niet-
+ *   gecontroleerd systeem vereisen (traag, flaky). Wel volledig gedekt: alle
+ *   validatie/weigerpaden VOOR chromium.launch() ooit wordt aangeroepen.
+ * Wel toegevoegd na diezelfde audit: de auth-scheiding tussen /goal en /osint/*
+ * (aparte sleutelpools) en de cookie-domain-smokkel-validatie.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER_ENTRY = join(HERE, "..", "dist", "server-playwright.js");
 const PORT = 37494;
 const BASE = `http://127.0.0.1:${PORT}`;
-const API_KEY = "test-osint-key-1234567890";
+const OSINT_KEY = "test-osint-key-1234567890";
+const GOAL_ONLY_KEY = "test-goal-only-key-0987654321";
 
 let proc: ChildProcess;
 let sessionsDir: string;
@@ -37,7 +40,7 @@ async function wachtOpServer(timeoutMs = 15_000): Promise<void> {
       // Let op: /status vereist HIER ook X-API-Key (checkExternalGate kent geen
       // uitzondering voor /status, anders dan de X-Yad-Token-poort in http-api.ts) —
       // zonder header krijg je hier altijd 401, nooit ok, en loopt dit in een timeout.
-      const r = await fetch(`${BASE}/status`, { headers: { "X-API-Key": API_KEY } });
+      const r = await fetch(`${BASE}/status`, { headers: { "X-API-Key": GOAL_ONLY_KEY } });
       if (r.ok) return;
     } catch {
       // server nog niet klaar, opnieuw proberen
@@ -53,7 +56,10 @@ beforeAll(async () => {
     env: {
       ...process.env,
       YAD_SERVER_PORT: String(PORT),
-      YAD_API_KEYS: API_KEY,
+      // Bewust TWEE aparte sleutels, zoals na de auditfix: YAD_API_KEYS (voor /status,
+      // /goal) en YAD_OSINT_API_KEYS (voor /osint/*) delen géén sleutel met elkaar.
+      YAD_API_KEYS: GOAL_ONLY_KEY,
+      YAD_OSINT_API_KEYS: OSINT_KEY,
       YAD_OSINT_SESSIONS_DIR: sessionsDir,
     },
     stdio: "pipe",
@@ -67,10 +73,10 @@ afterAll(() => {
 });
 
 function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  return { "Content-Type": "application/json", "X-API-Key": API_KEY, ...extra };
+  return { "Content-Type": "application/json", "X-API-Key": OSINT_KEY, ...extra };
 }
 
-describe("/osint/* — auth (dezelfde poort als /goal, geen los geheim)", () => {
+describe("/osint/* — auth, EIGEN sleutelpool (YAD_OSINT_API_KEYS), los van /goal se YAD_API_KEYS", () => {
   it("weigert /osint/status zonder X-API-Key met 401", async () => {
     const r = await fetch(`${BASE}/osint/status`);
     expect(r.status).toBe(401);
@@ -85,9 +91,41 @@ describe("/osint/* — auth (dezelfde poort als /goal, geen los geheim)", () => 
     expect(r.status).toBe(401);
   });
 
-  it("laat /osint/status door met de juiste sleutel", async () => {
+  it("weigert /osint/read-page zonder X-API-Key met 401 (de gevoeligste van de drie routes, moet ook zonder sleutel dicht zitten)", async () => {
+    const r = await fetch(`${BASE}/osint/read-page`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ site: "x.com", url: "https://x.com/" }),
+    });
+    expect(r.status).toBe(401);
+  });
+
+  it("weigert /osint/read-page met een verkeerde sleutel met 401", async () => {
+    const r = await fetch(`${BASE}/osint/read-page`, {
+      method: "POST",
+      headers: authHeaders({ "X-API-Key": "verkeerde-sleutel" }),
+      body: JSON.stringify({ site: "x.com", url: "https://x.com/" }),
+    });
+    expect(r.status).toBe(401);
+  });
+
+  it("laat /osint/status door met de juiste OSINT-sleutel", async () => {
     const r = await fetch(`${BASE}/osint/status`, { headers: authHeaders() });
     expect(r.status).toBe(200);
+  });
+
+  it("een geldige /goal-sleutel werkt NIET voor /osint/* — de kern van de scheiding tussen de twee sleutelpools", async () => {
+    const r = await fetch(`${BASE}/osint/status`, { headers: { "X-API-Key": GOAL_ONLY_KEY } });
+    expect(r.status).toBe(401);
+  });
+
+  it("de OSINT-sleutel werkt op zijn beurt niet voor /goal (scheiding werkt in beide richtingen)", async () => {
+    const r = await fetch(`${BASE}/goal`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ goal: "test" }),
+    });
+    expect(r.status).toBe(401);
   });
 });
 
@@ -129,6 +167,45 @@ describe("/osint/import-session — validatie", () => {
       body: JSON.stringify({ site: "x.com", cookies: [{ name: "a" }] }),
     });
     expect(r.status).toBe(400);
+  });
+
+  it("weigert een cookie met een 'domain' die niet bij de opgegeven site hoort (voorkomt cross-site cookie-smokkel)", async () => {
+    const r = await fetch(`${BASE}/osint/import-session`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        site: "x.com",
+        cookies: [
+          { name: "sess", value: "echt" },
+          { name: "planted", value: "kwaad", domain: "attacker-domain.example", path: "/" },
+        ],
+      }),
+    });
+    expect(r.status).toBe(400);
+    const body = await r.json();
+    expect(body.detail).toMatch(/bij de opgegeven site horen/);
+  });
+
+  it("weigert een cookie met een 'url' die niet bij de opgegeven site hoort", async () => {
+    const r = await fetch(`${BASE}/osint/import-session`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ site: "x.com", cookies: [{ name: "a", value: "b", url: "https://attacker.example/" }] }),
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it("accepteert een cookie met een 'domain' die WEL bij de site hoort (inclusief het gebruikelijke leidende punt-voorvoegsel)", async () => {
+    // Bewust discord.com i.p.v. x.com hier: de latere /osint/read-page-tests hieronder
+    // gaan er specifiek van uit dat x.com GEEN sessie heeft (409-pad, nooit een echte
+    // browser). Een succesvolle import voor x.com in DEZE test zou die aanname breken
+    // en die tests per ongeluk een echte chromium.launch() laten doen.
+    const r = await fetch(`${BASE}/osint/import-session`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ site: "discord.com", cookies: [{ name: "sess2", value: "echt", domain: ".discord.com", path: "/" }] }),
+    });
+    expect(r.status).toBe(200);
   });
 
   it("accepteert een geldige site+cookies en de sessie is daarna zichtbaar in /osint/status", async () => {
@@ -207,5 +284,26 @@ describe("/osint/read-page — weigeringen VOOR er ooit een browser opstart", ()
     expect(r.status).toBe(409);
     const body = await r.json();
     expect(body.detail).toMatch(/geen opgeslagen sessie/);
+  });
+});
+
+describe("/osint/import-session — body-groottelimiet (Majlis al-Muraqaba-fix: onbeperkte buffering kon het hele proces laten crashen)", () => {
+  it("geeft 413 (niet een crash, niet een hang) bij een body groter dan 10 MB", async () => {
+    const groteBody = JSON.stringify({ site: "x.com", cookies: [{ name: "a", value: "x".repeat(11 * 1024 * 1024) }] });
+    const r = await fetch(`${BASE}/osint/import-session`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: groteBody,
+    });
+    expect(r.status).toBe(413);
+  }, 15_000);
+
+  it("blijft normaal werken voor een kleine, geldige body (geen regressie door de limiet)", async () => {
+    const r = await fetch(`${BASE}/osint/import-session`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ site: "discord.com", cookies: [{ name: "klein", value: "ok" }] }),
+    });
+    expect(r.status).toBe(200);
   });
 });
