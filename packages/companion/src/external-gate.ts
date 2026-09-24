@@ -36,10 +36,17 @@ import type { IncomingMessage } from "node:http";
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 20;
 
-/** MVP-scope: alleen read-only status + gestuurd doel. Alle cdp/*, fs/*, save-session etc. blijven dicht. */
+/**
+ * MVP-scope: alleen read-only status + gestuurd doel, plus (sinds 2026-09-24) de
+ * osint/*-route voor het generaliseerde sessie-importpatroon (zie server-playwright.ts).
+ * Alle cdp/*, fs/*, save-session etc. blijven dicht.
+ */
 const ALLOWED_EXTERNAL_ROUTES: ReadonlyArray<{ url: string; method: string }> = [
   { url: "/status", method: "GET" },
   { url: "/goal", method: "POST" },
+  { url: "/osint/status", method: "GET" },
+  { url: "/osint/import-session", method: "POST" },
+  { url: "/osint/read-page", method: "POST" },
 ];
 
 const hitLog = new Map<string, number[]>();

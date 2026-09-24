@@ -353,6 +353,47 @@ function ycAuthorized(req: IncomingMessage): boolean {
   return !!key && key === ycSecret();
 }
 
+// ── OSINT sessie-import (generalisatie van /yc/import-session, sinds 2026-09-24) ────
+// Zelfde patroon (cookies eenmalig importeren, later server-side hergebruiken zonder
+// dat er een mens hoeft in te loggen), maar site-onafhankelijk en achter de AL BESTAANDE,
+// geauditeerde externe poort (checkExternalGate/X-API-Key) i.p.v. een nieuw, los geheim
+// zoals ycSecret() — minder losse auth-paden om te moeten controleren bij een audit.
+// Vaste allowlist i.p.v. een vrij site-veld: voorkomt zowel pad-traversal bij het
+// opslaan (site wordt nooit ongecontroleerd in een bestandspad geplakt) als dat iemand
+// met een geldige API-key deze route gebruikt om een sessie voor een willekeurige,
+// niet-bedoelde site te bewaren.
+const OSINT_ALLOWED_SITES: readonly string[] = ["x.com", "discord.com"];
+// Overschrijfbaar via env zodat tests een geïsoleerde tijdelijke map kunnen gebruiken
+// i.p.v. het echte, gedeelde /opt/al-yad-pad op schijf te raken.
+const OSINT_SESSIONS_DIR = process.env["YAD_OSINT_SESSIONS_DIR"] ?? "/opt/al-yad/osint/sessions";
+
+function osintSessionPath(site: string): string {
+  return join(OSINT_SESSIONS_DIR, `${site}.json`);
+}
+
+function osintSaveSession(site: string, cookies: Record<string, unknown>[]): void {
+  if (!existsSync(OSINT_SESSIONS_DIR)) mkdirSync(OSINT_SESSIONS_DIR, { recursive: true });
+  writeFileSync(osintSessionPath(site), JSON.stringify({ cookies, importedAt: new Date().toISOString() }, null, 2), "utf8");
+}
+
+function osintSessionStatus(): Array<{ site: string; hasSession: boolean; cookieCount: number; importedAt: string | null }> {
+  return OSINT_ALLOWED_SITES.map((site) => {
+    const path = osintSessionPath(site);
+    if (!existsSync(path)) return { site, hasSession: false, cookieCount: 0, importedAt: null };
+    try {
+      const data = JSON.parse(readFileSync(path, "utf8")) as { cookies?: unknown[]; importedAt?: string };
+      return {
+        site,
+        hasSession: Array.isArray(data.cookies) && data.cookies.length > 0,
+        cookieCount: Array.isArray(data.cookies) ? data.cookies.length : 0,
+        importedAt: data.importedAt ?? null,
+      };
+    } catch {
+      return { site, hasSession: false, cookieCount: 0, importedAt: null };
+    }
+  });
+}
+
 function checkRecentContact(datumMatches: string[] | null): { recentContact: boolean; contactDatum: string | null } {
   if (!datumMatches) return { recentContact: false, contactDatum: null };
   for (const d of datumMatches) {
@@ -540,6 +581,129 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       json(res, 500, { ok: false, detail: (e as Error).message });
     } finally {
       releaseLock();
+    }
+    return;
+  }
+
+  // ── OSINT: sessie importeren (eenmalig, door een mens) ──────────────────────
+  if (url === "/osint/import-session" && method === "POST") {
+    let body: { site?: unknown; cookies?: unknown } = {};
+    try {
+      body = JSON.parse(await readBody(req)) as { site?: unknown; cookies?: unknown };
+    } catch {
+      json(res, 400, { ok: false, detail: "Ongeldige JSON in request body" });
+      return;
+    }
+
+    const site = typeof body.site === "string" ? body.site.toLowerCase().trim() : "";
+    if (!OSINT_ALLOWED_SITES.includes(site)) {
+      json(res, 400, { ok: false, detail: `'site' moet een van deze zijn: ${OSINT_ALLOWED_SITES.join(", ")}` });
+      return;
+    }
+    if (!Array.isArray(body.cookies) || body.cookies.length === 0) {
+      json(res, 400, { ok: false, detail: "'cookies' moet een niet-lege array zijn" });
+      return;
+    }
+    if (body.cookies.length > 200) {
+      json(res, 400, { ok: false, detail: "te veel cookies (max 200) — waarschijnlijk het verkeerde bestand geplakt" });
+      return;
+    }
+    const cookiesGeldig = body.cookies.every((c) => {
+      if (!c || typeof c !== "object") return false;
+      const rec = c as Record<string, unknown>;
+      return typeof rec["name"] === "string" && typeof rec["value"] === "string";
+    });
+    if (!cookiesGeldig) {
+      json(res, 400, { ok: false, detail: "elke cookie moet minimaal 'name' en 'value' (beide string) hebben" });
+      return;
+    }
+
+    try {
+      osintSaveSession(site, body.cookies as Record<string, unknown>[]);
+      log(`OSINT-sessie geïmporteerd voor ${site} (${body.cookies.length} cookies)`);
+      json(res, 200, { ok: true, site, count: body.cookies.length });
+    } catch {
+      json(res, 500, { ok: false, detail: "kon sessie niet opslaan op de server" });
+    }
+    return;
+  }
+
+  // ── OSINT: welke sites hebben al een opgeslagen sessie ───────────────────────
+  if (url === "/osint/status" && method === "GET") {
+    json(res, 200, { ok: true, sites: osintSessionStatus() });
+    return;
+  }
+
+  // ── OSINT: een pagina lezen met de opgeslagen sessie van de eigen site ──────
+  // Bewust ALLEEN lezen (navigeren + tekst/titel teruggeven, zoals de dagelijkse
+  // /capture) — geen klikken/typen/posten server-side zonder mens-in-de-lus, dat
+  // is een veel groter risico-oppervlak dan we voor dit doel (signalen verzamelen)
+  // nodig hebben.
+  if (url === "/osint/read-page" && method === "POST") {
+    let body: { site?: unknown; url?: unknown } = {};
+    try {
+      body = JSON.parse(await readBody(req)) as { site?: unknown; url?: unknown };
+    } catch {
+      json(res, 400, { ok: false, detail: "Ongeldige JSON in request body" });
+      return;
+    }
+
+    const site = typeof body.site === "string" ? body.site.toLowerCase().trim() : "";
+    if (!OSINT_ALLOWED_SITES.includes(site)) {
+      json(res, 400, { ok: false, detail: `'site' moet een van deze zijn: ${OSINT_ALLOWED_SITES.join(", ")}` });
+      return;
+    }
+
+    let target: URL;
+    try {
+      target = new URL(typeof body.url === "string" ? body.url.trim() : "");
+    } catch {
+      json(res, 400, { ok: false, detail: "'url' is geen geldige URL" });
+      return;
+    }
+    if (target.protocol !== "https:") {
+      json(res, 400, { ok: false, detail: "alleen https:// toegestaan" });
+      return;
+    }
+    // SSRF-bescherming: de opgevraagde url moet echt bij de opgegeven site horen.
+    // Zonder deze check zou een geldige API-key deze route kunnen misbruiken om
+    // MET de opgeslagen sessie-context willekeurige, niet-bedoelde URLs te laten
+    // bezoeken door de browser.
+    const bareHost = target.hostname.toLowerCase().replace(/^www\./, "");
+    if (bareHost !== site && !bareHost.endsWith(`.${site}`)) {
+      json(res, 400, { ok: false, detail: `'url' hoort niet bij site '${site}'` });
+      return;
+    }
+    if (!existsSync(osintSessionPath(site))) {
+      json(res, 409, { ok: false, detail: `geen opgeslagen sessie voor '${site}' — importeer eerst via /osint/import-session` });
+      return;
+    }
+
+    const browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+    });
+    try {
+      const ctx = await browser.newContext({
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        viewport: { width: 1366, height: 768 },
+        locale: "nl-NL",
+        timezoneId: "Europe/Amsterdam",
+      });
+      const sessionData = JSON.parse(readFileSync(osintSessionPath(site), "utf8")) as { cookies?: unknown[] };
+      if (Array.isArray(sessionData.cookies) && sessionData.cookies.length > 0) {
+        await ctx.addCookies(sessionData.cookies as Parameters<typeof ctx.addCookies>[0]);
+      }
+      const page = await ctx.newPage();
+      await page.goto(target.toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await page.waitForTimeout(2000);
+      const title = await page.title();
+      const text = (await page.evaluate("document.body ? document.body.innerText || '' : ''")) as string;
+      json(res, 200, { ok: true, site, url: page.url(), title, text: text.slice(0, 20_000) });
+    } catch {
+      json(res, 500, { ok: false, detail: "kon de pagina niet laden" });
+    } finally {
+      await browser.close();
     }
     return;
   }
