@@ -1,33 +1,49 @@
 /**
- * YAD server-playwright — Standalone HTTP server voor externe /goal requests.
+ * YAD server-playwright — Standalone HTTP server voor externe /goal- en /osint/*-requests.
  *
  * Draait op 0.0.0.0:3748 (instelbaar via YAD_SERVER_PORT).
  * Gebruikt Playwright (headless Chromium) — geen Chrome-extensie nodig.
- * LLM: Ollama only (OLLAMA_BASE_URL + YAD_EXTERNAL_OLLAMA_MODEL).
- * Auth: X-API-Key header (YAD_API_KEYS).
- * Rate: 20 req/min per key (via checkExternalGate).
- * Concurrentie: één run tegelijk (mutex), overige requests wachten in wachtrij.
+ * LLM: Ollama only (OLLAMA_BASE_URL + YAD_EXTERNAL_OLLAMA_MODEL), alleen voor /goal.
+ * Auth: X-API-Key header, TWEE GESCHEIDEN sleutelpools (sinds de 2026-09-24-audit):
+ *   - YAD_API_KEYS       → /status, /goal (geen ingelogde sessie)
+ *   - YAD_OSINT_API_KEYS → /osint/status, /osint/import-session, /osint/read-page
+ *     (deze route KAN de echte, ingelogde X/Discord-sessie lezen — bewust een andere
+ *     sleutel dan /goal, zodat een gelekte /goal-sleutel geen sessietoegang geeft).
+ * Rate: 20 req/min per key (via checkExternalGate). /osint/read-page heeft daarnaast
+ *   een eigen concurrency-plafond (OSINT_READ_PAGE_MAX_CONCURRENT).
+ * Concurrentie: /goal — één run tegelijk (mutex), overige requests wachten in wachtrij.
+ *   /osint/read-page — eigen, lichter concurrency-plafond (geen wachtrij, een burst
+ *   erboven krijgt gewoon een 429).
  *
  * Endpoints:
- *   GET  /status  → { ok, version, busy, ollamaConfigured }
- *   POST /goal    → { ok, status, summary, steps }
+ *   GET  /status              → { ok, version, busy, ollamaConfigured }
+ *   POST /goal                → { ok, status, summary, steps }
+ *   GET  /osint/status        → { ok, sites: [{site, hasSession, cookieCount, importedAt}] }
+ *   POST /osint/import-session→ { ok, site, count } — body: {site, cookies}
+ *   POST /osint/read-page     → { ok, site, url, title, text } — body: {site, url}
  *
  * Starten op de server:
  *   OLLAMA_BASE_URL=http://localhost:11434 \
  *   YAD_EXTERNAL_MODE=1 \
- *   YAD_API_KEYS=jouw-geheime-sleutel \
+ *   YAD_API_KEYS=jouw-geheime-sleutel-voor-goal \
+ *   YAD_OSINT_API_KEYS=een-ANDERE-geheime-sleutel-voor-osint \
  *   node dist/server-playwright.js
  *
  * Aanroepen als externe client:
  *   curl -X POST http://jouw-server-ip:3748/goal \
- *     -H "X-API-Key: jouw-geheime-sleutel" \
+ *     -H "X-API-Key: jouw-geheime-sleutel-voor-goal" \
  *     -H "Content-Type: application/json" \
  *     -d '{"goal":"ga naar example.com en lees de titel"}'
+ *
+ *   curl -X POST http://jouw-server-ip:3748/osint/read-page \
+ *     -H "X-API-Key: een-ANDERE-geheime-sleutel-voor-osint" \
+ *     -H "Content-Type: application/json" \
+ *     -d '{"site":"x.com","url":"https://x.com/notifications"}'
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import process from "node:process";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -72,11 +88,36 @@ function releaseLock(): void {
 }
 
 // ── HTTP helpers ────────────────────────────────────────────────────────────
+// MAJLIS AL-MURAQABA-bevinding (2026-09-24): readBody() had geen enkele
+// grootte-limiet — een aanvaller met een geldige key kon een multi-GB body
+// naar elke POST-route sturen (inclusief /osint/import-session) en het hele,
+// gedeelde server-process laten crashen voor er ook maar één validatiecheck
+// liep. main-server.ts had dit exacte gat al gefixt (MAX_BODY_BYTES + een
+// eigen foutklasse) — hier hetzelfde patroon toegepast.
+const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB — elke route hier stuurt normaal een paar honderd bytes tot een paar KB.
+
+class BodyTooLargeError extends Error {}
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = "";
-    req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
-    req.on("end", () => resolve(body));
+    let bytes = 0;
+    let tooLarge = false;
+    req.on("data", (chunk: Buffer) => {
+      bytes += chunk.length;
+      if (bytes > MAX_BODY_BYTES) {
+        tooLarge = true;
+        return; // stop met de body op te bouwen, dat is het eigenlijke geheugenrisico
+      }
+      body += chunk.toString();
+    });
+    req.on("end", () => {
+      if (tooLarge) {
+        reject(new BodyTooLargeError(`Request-body groter dan ${MAX_BODY_BYTES} bytes`));
+        return;
+      }
+      resolve(body);
+    });
     req.on("error", reject);
   });
 }
@@ -371,9 +412,45 @@ function osintSessionPath(site: string): string {
   return join(OSINT_SESSIONS_DIR, `${site}.json`);
 }
 
+/**
+ * Eén gedeelde host-vergelijking voor alle OSINT-plekken die moeten checken of een
+ * hostname bij een toegestane site hoort (cookie-domain-validatie bij import EN de
+ * SSRF-check vóór/na navigatie bij read-page) — bewust hetzelfde stukje logica op
+ * één plek, niet drie keer apart geschreven, want twee "gelijke" checks die uit elkaar
+ * groeien is precies hoe dit soort validatie-gaten in de praktijk ontstaan.
+ */
+function osintHostHoortBijSite(host: string, site: string): boolean {
+  const bare = host.toLowerCase().replace(/^\./, "").replace(/^www\./, "");
+  return bare === site || bare.endsWith(`.${site}`);
+}
+
+// MAJLIS AL-MURAQABA-bevinding (2026-09-24): /osint/read-page had GEEN concurrency-
+// beperking (anders dan /goal se acquireLock/releaseLock-mutex) — de 20-req/min
+// rate-limit in external-gate.ts telt alleen VOLUME, niet gelijktijdigheid, dus een
+// korte burst binnen die limiet kon evenveel headless Chromium-instanties tegelijk
+// starten. Een lichte, eigen concurrency-teller (geen strikte 1-tegelijk-mutex zoals
+// /goal, want gelijktijdig meerdere sites lezen is wel degelijk legitiem gebruik).
+const OSINT_READ_PAGE_MAX_CONCURRENT = 3;
+let osintReadPageActief = 0;
+
+/**
+ * MAJLIS AL-MURAQABA-bevindingen (2026-09-24), allebei hier gefixt:
+ * (1) Bestandsrechten — dit bevat ECHTE, werkende X.com/Discord-sessiecookies. Zonder
+ *     expliciete mode erft het bestand de proces-umask (meestal 0644 = world-readable
+ *     op een gedeelde VPS). auth-token.ts in dit package doet het al goed (mode 0o600 +
+ *     een expliciete chmodSync) — dat bewezen patroon hier ook toegepast.
+ * (2) Atomiciteit — een directe writeFileSync kan een half geschreven, corrupt bestand
+ *     achterlaten als het proces middenin crasht (bv. door de OOM/concurrency-fix
+ *     hieronder, of gewoon een volle schijf). Schrijf daarom eerst naar een temp-bestand
+ *     in dezelfde map, dan een atomische rename (globale CLAUDE.md, Publicatiepoort
+ *     punt 2: "schrijf het nieuwe bestand eerst en atomisch, temp-bestand + rename").
+ */
 function osintSaveSession(site: string, cookies: Record<string, unknown>[]): void {
-  if (!existsSync(OSINT_SESSIONS_DIR)) mkdirSync(OSINT_SESSIONS_DIR, { recursive: true });
-  writeFileSync(osintSessionPath(site), JSON.stringify({ cookies, importedAt: new Date().toISOString() }, null, 2), "utf8");
+  if (!existsSync(OSINT_SESSIONS_DIR)) mkdirSync(OSINT_SESSIONS_DIR, { recursive: true, mode: 0o700 });
+  const finalPath = osintSessionPath(site);
+  const tmpPath = `${finalPath}.tmp-${randomBytes(6).toString("hex")}`;
+  writeFileSync(tmpPath, JSON.stringify({ cookies, importedAt: new Date().toISOString() }, null, 2), { encoding: "utf8", mode: 0o600 });
+  renameSync(tmpPath, finalPath);
 }
 
 function osintSessionStatus(): Array<{ site: string; hasSession: boolean; cookieCount: number; importedAt: string | null }> {
@@ -590,7 +667,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     let body: { site?: unknown; cookies?: unknown } = {};
     try {
       body = JSON.parse(await readBody(req)) as { site?: unknown; cookies?: unknown };
-    } catch {
+    } catch (e) {
+      if (e instanceof BodyTooLargeError) { json(res, 413, { ok: false, detail: e.message }); return; }
       json(res, 400, { ok: false, detail: "Ongeldige JSON in request body" });
       return;
     }
@@ -608,13 +686,28 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       json(res, 400, { ok: false, detail: "te veel cookies (max 200) — waarschijnlijk het verkeerde bestand geplakt" });
       return;
     }
+    // MAJLIS AL-MURAQABA-bevinding (2026-09-24): de oude check liet een cookie met een
+    // 'domain' (of 'url') voor een HEEL ANDER domein gewoon door — die werd dan onder de
+    // opgegeven site opgeslagen en bij elke /osint/read-page voor die site stilzwijgend
+    // meegeladen in de browsercontext. Nu wordt, ALS domain/url aanwezig is, ook
+    // gecontroleerd dat die echt bij de opgegeven site hoort (osintHostHoortBijSite,
+    // dezelfde gedeelde check als de SSRF-controle bij /osint/read-page).
     const cookiesGeldig = body.cookies.every((c) => {
       if (!c || typeof c !== "object") return false;
       const rec = c as Record<string, unknown>;
-      return typeof rec["name"] === "string" && typeof rec["value"] === "string";
+      if (typeof rec["name"] !== "string" || typeof rec["value"] !== "string") return false;
+      if (typeof rec["domain"] === "string" && !osintHostHoortBijSite(rec["domain"], site)) return false;
+      if (typeof rec["url"] === "string") {
+        try {
+          if (!osintHostHoortBijSite(new URL(rec["url"]).hostname, site)) return false;
+        } catch {
+          return false;
+        }
+      }
+      return true;
     });
     if (!cookiesGeldig) {
-      json(res, 400, { ok: false, detail: "elke cookie moet minimaal 'name' en 'value' (beide string) hebben" });
+      json(res, 400, { ok: false, detail: "elke cookie moet minimaal 'name' en 'value' (beide string) hebben, en als 'domain'/'url' aanwezig is moet die bij de opgegeven site horen" });
       return;
     }
 
@@ -643,7 +736,8 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     let body: { site?: unknown; url?: unknown } = {};
     try {
       body = JSON.parse(await readBody(req)) as { site?: unknown; url?: unknown };
-    } catch {
+    } catch (e) {
+      if (e instanceof BodyTooLargeError) { json(res, 413, { ok: false, detail: e.message }); return; }
       json(res, 400, { ok: false, detail: "Ongeldige JSON in request body" });
       return;
     }
@@ -668,9 +762,10 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     // SSRF-bescherming: de opgevraagde url moet echt bij de opgegeven site horen.
     // Zonder deze check zou een geldige API-key deze route kunnen misbruiken om
     // MET de opgeslagen sessie-context willekeurige, niet-bedoelde URLs te laten
-    // bezoeken door de browser.
-    const bareHost = target.hostname.toLowerCase().replace(/^www\./, "");
-    if (bareHost !== site && !bareHost.endsWith(`.${site}`)) {
+    // bezoeken door de browser. LET OP: dit toetst alleen de AANVRAAG-url — Chromium
+    // volgt redirects, dus de check hieronder wordt na de navigatie HERHAALD tegen
+    // de daadwerkelijk bereikte pagina (page.url()), niet alleen hier vooraf.
+    if (!osintHostHoortBijSite(target.hostname, site)) {
       json(res, 400, { ok: false, detail: `'url' hoort niet bij site '${site}'` });
       return;
     }
@@ -679,11 +774,26 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       return;
     }
 
-    const browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
-    });
+    // MAJLIS AL-MURAQABA-bevinding (2026-09-24): geen concurrency-limiet betekende dat
+    // een burst binnen de bestaande 20/min-ratelimiet evenveel Chromium-instanties
+    // tegelijk kon starten. Vast, laag plafond i.p.v. onbeperkt.
+    if (osintReadPageActief >= OSINT_READ_PAGE_MAX_CONCURRENT) {
+      json(res, 429, { ok: false, detail: `te veel gelijktijdige /osint/read-page-aanvragen (max ${OSINT_READ_PAGE_MAX_CONCURRENT}), probeer straks opnieuw` });
+      return;
+    }
+    osintReadPageActief++;
+
+    // MAJLIS AL-MURAQABA-bevinding (2026-09-24): chromium.launch() stond eerder BUITEN
+    // de try/finally — een falende launch (bv. exact onder de geheugendruk die een
+    // concurrency-burst veroorzaakt) gaf dan een ongevangen promise-rejection, en dat
+    // crasht op deze Node-versie het HELE, gedeelde companion-process (ook /goal,
+    // /status, /yc/*). Nu staat de launch zelf ook binnen try/finally.
+    let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
     try {
+      browser = await chromium.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+      });
       const ctx = await browser.newContext({
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
         viewport: { width: 1366, height: 768 },
@@ -697,13 +807,30 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       const page = await ctx.newPage();
       await page.goto(target.toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
       await page.waitForTimeout(2000);
+
+      // MAJLIS AL-MURAQABA-bevinding (2026-09-24): Chromium volgt HTTP- en JS-redirects
+      // binnen dezelfde page.goto()-aanroep. Zonder deze hercontrole zou een redirect
+      // vanaf een toegestane site (open-redirect, of een interne/metadata-host) de
+      // pre-navigatie-host-check volledig omzeilen — de inhoud van de UITEINDELIJKE
+      // pagina moet dus opnieuw tegen dezelfde allowlist getoetst worden voor die
+      // teruggaat naar de aanvrager.
+      const bereikteUrl = new URL(page.url());
+      if (!osintHostHoortBijSite(bereikteUrl.hostname, site)) {
+        json(res, 502, {
+          ok: false,
+          detail: `navigatie eindigde op een host ('${bereikteUrl.hostname}') die niet bij site '${site}' hoort — waarschijnlijk een redirect, geweigerd`,
+        });
+        return;
+      }
+
       const title = await page.title();
       const text = (await page.evaluate("document.body ? document.body.innerText || '' : ''")) as string;
       json(res, 200, { ok: true, site, url: page.url(), title, text: text.slice(0, 20_000) });
     } catch {
       json(res, 500, { ok: false, detail: "kon de pagina niet laden" });
     } finally {
-      await browser.close();
+      osintReadPageActief--;
+      if (browser) await browser.close();
     }
     return;
   }

@@ -40,13 +40,22 @@ const RATE_LIMIT_MAX = 20;
  * MVP-scope: alleen read-only status + gestuurd doel, plus (sinds 2026-09-24) de
  * osint/*-route voor het generaliseerde sessie-importpatroon (zie server-playwright.ts).
  * Alle cdp/*, fs/*, save-session etc. blijven dicht.
+ *
+ * MAJLIS AL-MURAQABA-bevinding (2026-09-24): /osint/* deelde aanvankelijk dezelfde
+ * YAD_API_KEYS-pool als /status en /goal. Dat betekende dat elke sleutel die ooit
+ * alleen bedoeld was om af en toe een browse-taak (/goal, GEEN ingelogde sessie) te
+ * starten, ineens ook de ECHTE, ingelogde X/Discord-sessie kon lezen (privé-DM's,
+ * privé servers) en overschrijven. Elke route heeft nu een `keysEnv` — welke
+ * omgevingsvariabele de geldige sleutels voor DIE route bevat. /osint/* gebruikt een
+ * eigen pool (YAD_OSINT_API_KEYS), losstaand van YAD_API_KEYS, zodat een gelekte
+ * /goal-sleutel geen toegang geeft tot de sessie-routes en andersom.
  */
-const ALLOWED_EXTERNAL_ROUTES: ReadonlyArray<{ url: string; method: string }> = [
-  { url: "/status", method: "GET" },
-  { url: "/goal", method: "POST" },
-  { url: "/osint/status", method: "GET" },
-  { url: "/osint/import-session", method: "POST" },
-  { url: "/osint/read-page", method: "POST" },
+const ALLOWED_EXTERNAL_ROUTES: ReadonlyArray<{ url: string; method: string; keysEnv: string }> = [
+  { url: "/status", method: "GET", keysEnv: "YAD_API_KEYS" },
+  { url: "/goal", method: "POST", keysEnv: "YAD_API_KEYS" },
+  { url: "/osint/status", method: "GET", keysEnv: "YAD_OSINT_API_KEYS" },
+  { url: "/osint/import-session", method: "POST", keysEnv: "YAD_OSINT_API_KEYS" },
+  { url: "/osint/read-page", method: "POST", keysEnv: "YAD_OSINT_API_KEYS" },
 ];
 
 const hitLog = new Map<string, number[]>();
@@ -92,8 +101,8 @@ export interface GateResult {
   body: unknown;
 }
 
-function apiKeysFromEnv(): string[] {
-  return (process.env["YAD_API_KEYS"] ?? "")
+function apiKeysFromEnv(envVar: string): string[] {
+  return (process.env[envVar] ?? "")
     .split(",")
     .map((k) => k.trim())
     .filter(Boolean);
@@ -108,16 +117,16 @@ export function checkExternalGate(req: IncomingMessage, url: string, method: str
     return { allow: false, status: 403, body: { error: "Forbidden — alleen localhost" } };
   }
 
-  const routeAllowed = ALLOWED_EXTERNAL_ROUTES.some((r) => r.url === url && r.method === method);
-  if (!routeAllowed) {
+  const route = ALLOWED_EXTERNAL_ROUTES.find((r) => r.url === url && r.method === method);
+  if (!route) {
     auditLog({ remoteAddr, url, method, verdict: "blocked", reason: "not_allowlisted" });
     return { allow: false, status: 403, body: { error: "Forbidden — endpoint niet beschikbaar in externe modus" } };
   }
 
-  const apiKeys = apiKeysFromEnv();
+  const apiKeys = apiKeysFromEnv(route.keysEnv);
   if (apiKeys.length === 0) {
     auditLog({ remoteAddr, url, method, verdict: "blocked", reason: "no_api_keys_configured" });
-    return { allow: false, status: 503, body: { error: "Externe modus actief maar geen YAD_API_KEYS geconfigureerd" } };
+    return { allow: false, status: 503, body: { error: `Externe modus actief maar geen ${route.keysEnv} geconfigureerd` } };
   }
 
   const provided = req.headers["x-api-key"];
