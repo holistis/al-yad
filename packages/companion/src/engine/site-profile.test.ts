@@ -15,6 +15,11 @@ describe("getSiteProfile", () => {
     expect(getSiteProfile("https://www.glassdoor.nl/jobs/")).toMatchObject({ tier: "stealth" });
   });
 
+  it("herkent discord.com als stealth (2026-09-24, toegevoegd voor het osint/import-session-bouwwerk)", () => {
+    expect(getSiteProfile("https://discord.com/channels/@me")).toMatchObject({ tier: "stealth" });
+    expect(getSiteProfile("https://www.discord.com/")).toMatchObject({ tier: "stealth" });
+  });
+
   it("herkent localhost als fast", () => {
     expect(getSiteProfile("http://localhost:3000/")).toMatchObject({ tier: "fast" });
     expect(getSiteProfile("http://127.0.0.1:8080/")).toMatchObject({ tier: "fast" });
