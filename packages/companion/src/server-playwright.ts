@@ -24,7 +24,11 @@
  *     Nodig voor sites die hun sessie niet in een cookie bewaren maar in localStorage, zoals
  *     Discord's webclient — cookies alleen volstaan daar niet, zie server-playwright.ts se
  *     eigen commentaar bij de read-page-handler voor de volledige uitleg.)
- *   POST /osint/read-page     → { ok, site, url, title, text } — body: {site, url}
+ *   POST /osint/read-page     → { ok, site, url, title, text, posts } — body: {site, url}
+ *     (posts: alleen voor site="x.com", array van {text, url} per gevonden bericht op de
+ *     pagina, met het EIGEN permalink -- gebruik dat url-veld voor een vervolg-read-page-call
+ *     om de reply-thread van dat specifieke bericht te lezen. Leeg als de site-structuur dit
+ *     niet toelaat, text blijft dan nog steeds bruikbaar als terugval.)
  *
  * Starten op de server:
  *   OLLAMA_BASE_URL=http://localhost:11434 \
@@ -896,7 +900,34 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
       const title = await page.title();
       const text = (await page.evaluate("document.body ? document.body.innerText || '' : ''")) as string;
-      json(res, 200, { ok: true, site, url: page.url(), title, text: text.slice(0, 20_000) });
+
+      // Koning-verzoek (2026-09-28): "reacties lezen" op een gevonden bericht, niet alleen de
+      // eigen tekst. Dat vereist het EIGEN permalink van elk bericht (om de reply-thread
+      // apart te kunnen opvragen), niet alleen de platte paginatekst hierboven -- die bevat
+      // geen href's. Alleen voor x.com: elk bericht staat in een <article>, met de eigen
+      // permalink typisch op de tijdstempel-link (een <a href="/handle/status/<id>">). Faalt
+      // dit (site-structuur veranderd), dan blijft `posts` gewoon leeg -- text hierboven werkt
+      // nog steeds als terugval, dit is een aanvulling, geen vervanging.
+      let posts: Array<{ text: string; url: string }> = [];
+      if (site === "x.com") {
+        try {
+          posts = (await page.evaluate(`
+            Array.from(document.querySelectorAll('article')).map(function (art) {
+              var link = art.querySelector('a[href*="/status/"]');
+              var href = link ? link.getAttribute('href') : null;
+              if (!href) return null;
+              return {
+                text: (art.innerText || '').slice(0, 2000),
+                url: new URL(href, location.origin).toString(),
+              };
+            }).filter(Boolean)
+          `)) as Array<{ text: string; url: string }>;
+        } catch {
+          // Terugval: gewoon geen posts-array, text blijft bruikbaar.
+        }
+      }
+
+      json(res, 200, { ok: true, site, url: page.url(), title, text: text.slice(0, 20_000), posts: posts.slice(0, 50) });
     } catch {
       json(res, 500, { ok: false, detail: "kon de pagina niet laden" });
     } finally {
