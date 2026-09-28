@@ -18,8 +18,12 @@
  * Endpoints:
  *   GET  /status              → { ok, version, busy, ollamaConfigured }
  *   POST /goal                → { ok, status, summary, steps }
- *   GET  /osint/status        → { ok, sites: [{site, hasSession, cookieCount, importedAt}] }
- *   POST /osint/import-session→ { ok, site, count } — body: {site, cookies}
+ *   GET  /osint/status        → { ok, sites: [{site, hasSession, cookieCount, hasLocalStorage, importedAt}] }
+ *   POST /osint/import-session→ { ok, site, count, localStorageCount } — body: {site, cookies, localStorage?}
+ *     (localStorage is optioneel: een plat {sleutel: waarde}-object, beide altijd strings.
+ *     Nodig voor sites die hun sessie niet in een cookie bewaren maar in localStorage, zoals
+ *     Discord's webclient — cookies alleen volstaan daar niet, zie server-playwright.ts se
+ *     eigen commentaar bij de read-page-handler voor de volledige uitleg.)
  *   POST /osint/read-page     → { ok, site, url, title, text } — body: {site, url}
  *
  * Starten op de server:
@@ -445,28 +449,33 @@ let osintReadPageActief = 0;
  *     in dezelfde map, dan een atomische rename (globale CLAUDE.md, Publicatiepoort
  *     punt 2: "schrijf het nieuwe bestand eerst en atomisch, temp-bestand + rename").
  */
-function osintSaveSession(site: string, cookies: Record<string, unknown>[]): void {
+function osintSaveSession(site: string, cookies: Record<string, unknown>[], localStorage?: Record<string, string>): void {
   if (!existsSync(OSINT_SESSIONS_DIR)) mkdirSync(OSINT_SESSIONS_DIR, { recursive: true, mode: 0o700 });
   const finalPath = osintSessionPath(site);
   const tmpPath = `${finalPath}.tmp-${randomBytes(6).toString("hex")}`;
-  writeFileSync(tmpPath, JSON.stringify({ cookies, importedAt: new Date().toISOString() }, null, 2), { encoding: "utf8", mode: 0o600 });
+  const payload: Record<string, unknown> = { cookies, importedAt: new Date().toISOString() };
+  // Alleen opnemen als er echt iets is: houdt bestaande, cookie-only sessiebestanden (X.com)
+  // exact in hun oude vorm, geen loze lege sleutel erbij.
+  if (localStorage && Object.keys(localStorage).length > 0) payload["localStorage"] = localStorage;
+  writeFileSync(tmpPath, JSON.stringify(payload, null, 2), { encoding: "utf8", mode: 0o600 });
   renameSync(tmpPath, finalPath);
 }
 
-function osintSessionStatus(): Array<{ site: string; hasSession: boolean; cookieCount: number; importedAt: string | null }> {
+function osintSessionStatus(): Array<{ site: string; hasSession: boolean; cookieCount: number; hasLocalStorage: boolean; importedAt: string | null }> {
   return OSINT_ALLOWED_SITES.map((site) => {
     const path = osintSessionPath(site);
-    if (!existsSync(path)) return { site, hasSession: false, cookieCount: 0, importedAt: null };
+    if (!existsSync(path)) return { site, hasSession: false, cookieCount: 0, hasLocalStorage: false, importedAt: null };
     try {
-      const data = JSON.parse(readFileSync(path, "utf8")) as { cookies?: unknown[]; importedAt?: string };
+      const data = JSON.parse(readFileSync(path, "utf8")) as { cookies?: unknown[]; localStorage?: Record<string, string>; importedAt?: string };
       return {
         site,
         hasSession: Array.isArray(data.cookies) && data.cookies.length > 0,
         cookieCount: Array.isArray(data.cookies) ? data.cookies.length : 0,
+        hasLocalStorage: !!data.localStorage && Object.keys(data.localStorage).length > 0,
         importedAt: data.importedAt ?? null,
       };
     } catch {
-      return { site, hasSession: false, cookieCount: 0, importedAt: null };
+      return { site, hasSession: false, cookieCount: 0, hasLocalStorage: false, importedAt: null };
     }
   });
 }
@@ -664,9 +673,9 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
 
   // ── OSINT: sessie importeren (eenmalig, door een mens) ──────────────────────
   if (url === "/osint/import-session" && method === "POST") {
-    let body: { site?: unknown; cookies?: unknown } = {};
+    let body: { site?: unknown; cookies?: unknown; localStorage?: unknown } = {};
     try {
-      body = JSON.parse(await readBody(req)) as { site?: unknown; cookies?: unknown };
+      body = JSON.parse(await readBody(req)) as { site?: unknown; cookies?: unknown; localStorage?: unknown };
     } catch (e) {
       if (e instanceof BodyTooLargeError) { json(res, 413, { ok: false, detail: e.message }); return; }
       json(res, 400, { ok: false, detail: "Ongeldige JSON in request body" });
@@ -711,10 +720,35 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       return;
     }
 
+    // Optioneel: localStorage, voor sites (Discord) die hun sessie niet in een cookie
+    // bewaren. Plat {sleutel: waarde}-object, geen domain/url-metadata nodig (in
+    // tegenstelling tot cookies) — localStorage is altijd origin-gebonden aan de site
+    // waar dit ONDER geimporteerd wordt, er is geen los "welk domein hoort hierbij"-veld
+    // dat verkeerd kan staan.
+    let localStorageData: Record<string, string> | undefined;
+    if (body.localStorage !== undefined) {
+      if (typeof body.localStorage !== "object" || body.localStorage === null || Array.isArray(body.localStorage)) {
+        json(res, 400, { ok: false, detail: "'localStorage' moet een plat object zijn (sleutel -> waarde, beide strings)" });
+        return;
+      }
+      const entries = Object.entries(body.localStorage as Record<string, unknown>);
+      if (entries.length > 50) {
+        json(res, 400, { ok: false, detail: "te veel localStorage-sleutels (max 50) — waarschijnlijk het verkeerde object geplakt" });
+        return;
+      }
+      const allStrings = entries.every(([k, v]) => typeof k === "string" && typeof v === "string");
+      if (!allStrings) {
+        json(res, 400, { ok: false, detail: "elke localStorage-sleutel/waarde moet een string zijn" });
+        return;
+      }
+      localStorageData = Object.fromEntries(entries as Array<[string, string]>);
+    }
+
     try {
-      osintSaveSession(site, body.cookies as Record<string, unknown>[]);
-      log(`OSINT-sessie geïmporteerd voor ${site} (${body.cookies.length} cookies)`);
-      json(res, 200, { ok: true, site, count: body.cookies.length });
+      osintSaveSession(site, body.cookies as Record<string, unknown>[], localStorageData);
+      const lsCount = localStorageData ? Object.keys(localStorageData).length : 0;
+      log(`OSINT-sessie geïmporteerd voor ${site} (${body.cookies.length} cookies, ${lsCount} localStorage-sleutels)`);
+      json(res, 200, { ok: true, site, count: body.cookies.length, localStorageCount: lsCount });
     } catch {
       json(res, 500, { ok: false, detail: "kon sessie niet opslaan op de server" });
     }
@@ -800,13 +834,50 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         locale: "nl-NL",
         timezoneId: "Europe/Amsterdam",
       });
-      const sessionData = JSON.parse(readFileSync(osintSessionPath(site), "utf8")) as { cookies?: unknown[] };
+      const sessionData = JSON.parse(readFileSync(osintSessionPath(site), "utf8")) as { cookies?: unknown[]; localStorage?: Record<string, string> };
       if (Array.isArray(sessionData.cookies) && sessionData.cookies.length > 0) {
         await ctx.addCookies(sessionData.cookies as Parameters<typeof ctx.addCookies>[0]);
       }
+      // Sommige sites (Discord's webclient) bewaren hun sessie niet in een cookie maar in
+      // localStorage -- context.addCookies() alleen kan die sessie dan principieel niet
+      // namaken. addInitScript() draait VOOR elk scriptje van de site zelf, op elke nieuwe
+      // pagina in deze context, dus de sessie staat al klaar voordat de site's eigen JS ooit
+      // controleert of iemand is ingelogd. Moet VOOR ctx.newPage() staan: addInitScript
+      // registreert zich voor toekomstige pagina's in deze context, werkt niet met
+      // terugwerkende kracht op een pagina die al bestaat.
+      if (sessionData.localStorage && Object.keys(sessionData.localStorage).length > 0) {
+        // String-vorm i.p.v. een getypeerde functie (zelfde patroon als de bestaande
+        // "verberg automation-fingerprint"-addInitScript verderop in dit bestand): de
+        // callback-body draait in de BROWSER, niet in Node, dus TypeScript kent `window`
+        // hier niet als die als een echte functie wordt getypt. JSON.stringify escaped elke
+        // waarde veilig (aanhalingstekens, backslashes, nieuwe regels), dus dit is ook veilig
+        // als een token zelf zulke tekens bevat.
+        const localStorageJson = JSON.stringify(sessionData.localStorage);
+        await ctx.addInitScript(`
+          (function () {
+            var data = ${localStorageJson};
+            for (var k in data) {
+              try { window.localStorage.setItem(k, data[k]); } catch (e) { /* uitzonderlijk geblokkeerd, navigatie mag doorgaan */ }
+            }
+          })();
+        `);
+      }
       const page = await ctx.newPage();
       await page.goto(target.toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
-      await page.waitForTimeout(2000);
+      // Live gemeten (2026-09-28): een kale, vaste 2s-wachttijd volstaat voor sommige pagina's
+      // (bv. x.com/notifications) maar niet voor client-side-gerenderde resultatenlijsten
+      // (bv. x.com/search) -- die kwamen in twee van twee live tests LEEG terug (alleen de
+      // vaste pagina-chrome, geen enkel resultaat). networkidle wacht ADAPTIEF tot de site
+      // stopt met data ophalen i.p.v. een gegokt vast getal, met een eigen timeout zodat een
+      // pagina die nooit "idle" wordt (long-polling, een streaming-widget) de read-page-call
+      // niet onnodig laat mislukken -- valt dan gewoon terug op wat er tegen die tijd al staat.
+      try {
+        await page.waitForLoadState("networkidle", { timeout: 8000 });
+      } catch {
+        // Geen probleem: de pagina bleef gewoon actief netwerkverkeer hebben (bv. een
+        // achtergrond-poll), we lezen straks gewoon wat er op dat moment staat.
+      }
+      await page.waitForTimeout(500);
 
       // MAJLIS AL-MURAQABA-bevinding (2026-09-24): Chromium volgt HTTP- en JS-redirects
       // binnen dezelfde page.goto()-aanroep. Zonder deze hercontrole zou een redirect
