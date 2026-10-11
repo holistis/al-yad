@@ -84,6 +84,18 @@ describe("clickRealPositionInPage — echte, vertrouwde klik via CDP Input-domei
     expect(result.detail).toContain("onetrust-banner");
   });
 
+  it("slaat de selector-opzoek volledig over als expliciete x/y-coordinaten zijn opgegeven (klikken binnen een iframe)", async () => {
+    const { sendCommand } = mockChromeDebugger(undefined);
+
+    const result = await clickRealPositionInPage(1, "", { x: 607, y: 145 });
+
+    expect(result.ok).toBe(true);
+    const evaluateCalls = sendCommand.mock.calls.filter((c) => c[1] === "Runtime.evaluate");
+    expect(evaluateCalls).toHaveLength(0);
+    const mouseCalls = sendCommand.mock.calls.filter((c) => c[1] === "Input.dispatchMouseEvent");
+    expect(mouseCalls[1][2]).toMatchObject({ type: "mousePressed", x: 607, y: 145 });
+  });
+
   it("faalt netjes zonder debugger-permissie (Chrome Web Store-versie)", async () => {
     delete (globalThis as { chrome?: unknown }).chrome;
 

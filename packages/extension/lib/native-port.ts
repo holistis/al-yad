@@ -2,7 +2,7 @@ import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, s
 import { isAccepted } from "./acceptance";
 import { getSettings, saveSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { injectCookies, injectLocalStorage } from "./session-inject";
-import { startCapture, stopCapture, evaluateInPage, insertRealTextInPage, clickRealPositionInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
+import { startCapture, stopCapture, evaluateInPage, evaluateInFrame, insertRealTextInPage, clickRealPositionInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
 import { YadTabGroupManager, type TabGroupsChromeApi } from "./tab-groups";
 
 /**
@@ -716,7 +716,12 @@ function onMessage(raw: unknown): void {
         tabId?: number;
         urlFilter?: string;
         expression?: string;
+        frameUrlContains?: string;
         selector?: string;
+        /** Expliciete viewport-coordinaten voor real_click, i.p.v. selector — nodig om te
+         * klikken binnen een cross-origin iframe (selector kan het element daar niet vinden). */
+        x?: number;
+        y?: number;
         text?: string;
         clearFirst?: boolean;
         requestId?: string;
@@ -821,6 +826,21 @@ function onMessage(raw: unknown): void {
               }, raw.id);
               break;
             }
+            case "evaluate_frame": {
+              if (!p.expression || !p.frameUrlContains) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "evaluate_frame", detail: "expression en frameUrlContains zijn verplicht" }, raw.id);
+                break;
+              }
+              const frameRes = await evaluateInFrame(tabId, p.frameUrlContains, p.expression);
+              replyToBrain("CDP_RESULT", {
+                ok: !frameRes.error,
+                command: "evaluate_frame",
+                value: frameRes.value,
+                valueType: frameRes.valueType,
+                ...(frameRes.error ? { detail: frameRes.error } : {}),
+              }, raw.id);
+              break;
+            }
             case "insert_text": {
               if (!p.selector || typeof p.text !== "string") {
                 replyToBrain("CDP_RESULT", { ok: false, command: "insert_text", detail: "selector en text zijn verplicht" }, raw.id);
@@ -835,11 +855,12 @@ function onMessage(raw: unknown): void {
               break;
             }
             case "real_click": {
-              if (!p.selector) {
-                replyToBrain("CDP_RESULT", { ok: false, command: "real_click", detail: "selector is verplicht" }, raw.id);
+              const hasExplicitCoords = typeof p.x === "number" && typeof p.y === "number";
+              if (!p.selector && !hasExplicitCoords) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "real_click", detail: "selector of x+y is verplicht" }, raw.id);
                 break;
               }
-              const clickRes = await clickRealPositionInPage(tabId, p.selector);
+              const clickRes = await clickRealPositionInPage(tabId, p.selector ?? "", hasExplicitCoords ? { x: p.x as number, y: p.y as number } : undefined);
               replyToBrain("CDP_RESULT", {
                 ok: clickRes.ok,
                 command: "real_click",
