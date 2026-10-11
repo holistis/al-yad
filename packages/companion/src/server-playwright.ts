@@ -9,6 +9,15 @@
  *   - YAD_OSINT_API_KEYS → /osint/status, /osint/import-session, /osint/read-page
  *     (deze route KAN de echte, ingelogde X/Discord-sessie lezen — bewust een andere
  *     sleutel dan /goal, zodat een gelekte /goal-sleutel geen sessietoegang geeft).
+ * GET /, /ui en /yc (HTML-paginas) vereisen SINDS 2026-10-11 ook een geldig geheim
+ *   via de QUERYSTRING (een browser die een pagina laadt kan geen custom header
+ *   zetten): /?key=<YAD_API_KEYS-waarde> resp. /yc?access=<YAD_YC_ACCESS_KEY>.
+ *   VEILIGHEIDSFIX: deze paginas serveerden voorheen hun ingebedde sleutel aan
+ *   IEDEREEN zonder enige check (/ embedde YAD_API_KEYS[0], /yc embedde de
+ *   ycSecret() die alle /yc/*-schrijfroutes beschermt) -- wie de URL kende/
+ *   scande kreeg de sleutel gratis. YAD_YC_ACCESS_KEY is een NIEUWE, losse
+ *   env-var (niet ycSecret, die blijft intern/auto-gegenereerd): zonder deze
+ *   var gezet blijft /yc hard dicht (fail closed), nooit stilzwijgend open.
  * Rate: 20 req/min per key (via checkExternalGate). /osint/read-page heeft daarnaast
  *   een eigen concurrency-plafond (OSINT_READ_PAGE_MAX_CONCURRENT).
  * Concurrentie: /goal — één run tegelijk (mutex), overige requests wachten in wachtrij.
@@ -35,6 +44,7 @@
  *   YAD_EXTERNAL_MODE=1 \
  *   YAD_API_KEYS=jouw-geheime-sleutel-voor-goal \
  *   YAD_OSINT_API_KEYS=een-ANDERE-geheime-sleutel-voor-osint \
+ *   YAD_YC_ACCESS_KEY=een-DERDE-geheime-sleutel-alleen-voor-het-yc-dashboard \
  *   node dist/server-playwright.js
  *
  * Aanroepen als externe client:
@@ -63,7 +73,7 @@ import { CacheStore } from "./memory/cache-store.js";
 import { RunHistoryStore } from "./history/run-history.js";
 import { PlaywrightHand } from "./playwright-hand.js";
 import { checkExternalGate } from "./external-gate.js";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -396,10 +406,42 @@ function ycSecret(): string {
   } catch { /* schrijven mislukt: sleutel leeft dan alleen in-memory voor dit proces */ }
   return fresh;
 }
+// Constant-time vergelijking voor elk geheim hieronder (dashboard-toegang EN
+// schrijf-capability-sleutel) -- zelfde patroon als auth-token.ts se hasValidToken(),
+// voorkomt dat een lengte/byte-voor-byte-verschil in reactietijd lekt hoe dicht een
+// gok bij de echte sleutel zit. Praktisch risico is klein over een netwerk, maar er
+// is geen reden om hier een zwakkere vergelijking te gebruiken dan elders in dit project.
+function safeEqualStr(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
 function ycAuthorized(req: IncomingMessage): boolean {
   const provided = req.headers["x-yc-key"];
   const key = Array.isArray(provided) ? provided[0] : provided;
-  return !!key && key === ycSecret();
+  return !!key && safeEqualStr(key, ycSecret());
+}
+
+/**
+ * VEILIGHEIDSFIX (2026-10-11): GET /yc serveerde voorheen de dashboard-HTML aan
+ * IEDEREEN, met de echte ycSecret() ERIN GEBAKKEN (zie ycAuthorized hierboven) --
+ * "geen auth nodig voor de pagina zelf" betekende in de praktijk "geef de
+ * schrijf-capability-sleutel gratis weg aan wie dan ook deze URL bezoekt". Dit is
+ * een TWEEDE, APARTE sleutel (niet ycSecret, die blijft intern/auto-gegenereerd en
+ * wordt NOOIT door een mens ingevoerd): de operator zet YAD_YC_ACCESS_KEY zelf,
+ * eenmalig, en deelt 'm uit-of-band met wie het dashboard mag OPENEN. Zonder deze
+ * var gezet blijft /yc hard dicht (fail closed) -- nooit stilzwijgend toch open
+ * omdat een operator vergat 'm te configureren.
+ */
+function ycAccessKeyConfigured(): string | null {
+  const configured = (process.env["YAD_YC_ACCESS_KEY"] ?? "").trim();
+  return configured.length > 0 ? configured : null;
+}
+function ycAccessAuthorized(providedAccessKey: string): boolean {
+  const configured = ycAccessKeyConfigured();
+  return !!configured && safeEqualStr(providedAccessKey, configured);
 }
 
 // ── OSINT sessie-import (generalisatie van /yc/import-session, sinds 2026-09-24) ────
@@ -512,7 +554,16 @@ function checkRecentContact(datumMatches: string[] | null): { recentContact: boo
 
 // ── HTTP server ─────────────────────────────────────────────────────────────
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-  const url = req.url ?? "/";
+  // VEILIGHEIDSFIX (2026-10-11): url was voorheen de RAUWE req.url inclusief querystring,
+  // maar geen enkele routematch hieronder verwachtte ooit een querystring (allemaal exacte
+  // "===" of "startsWith" tegen een kaal pad) -- dus een querystring eraf splitsen breekt
+  // niets aan het bestaande gedrag. Nu wel nodig: GET /, /ui en /yc lezen een credential UIT
+  // de querystring (zie ycAccessAuthorized en de /-route hieronder), dat vereist een losse,
+  // voorspelbare plek om 'm te lezen.
+  const rawUrl = req.url ?? "/";
+  const queryIndex = rawUrl.indexOf("?");
+  const url = queryIndex === -1 ? rawUrl : rawUrl.slice(0, queryIndex);
+  const query = new URLSearchParams(queryIndex === -1 ? "" : rawUrl.slice(queryIndex + 1));
   const method = req.method ?? "GET";
 
   // CORS voor YC dashboard fetch calls vanuit de browser
@@ -523,20 +574,42 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     if (method === "OPTIONS") { res.writeHead(204); res.end(); return; }
   }
 
-  // Web UI: GET / is openbaar (geen API-key nodig voor de pagina zelf).
-  // De pagina stuurt vervolgens requests naar /goal met de ingebedde sleutel.
+  // Web UI: GET / vereist SINDS 2026-10-11 ?key=<een geldige YAD_API_KEYS-waarde>.
+  // VEILIGHEIDSFIX: deze pagina serveerde voorheen HAAR EIGEN echte YAD_API_KEYS[0]
+  // ongeauthenticeerd aan iedereen (de pagina gebruikt die sleutel daarna zelf voor
+  // /goal-aanroepen) -- wie de URL kende/scande kreeg de sleutel dus gratis, zonder
+  // 'm ooit zelf te hoeven kennen. Nu moet de aanroeper 'm AL weten, exact zoals bij
+  // elke andere X-API-Key-beschermde route in dit bestand.
   if ((url === "/" || url === "/ui") && method === "GET") {
+    const validKeys = (process.env["YAD_API_KEYS"] ?? "").split(",").map((k) => k.trim()).filter(Boolean);
+    const providedKey = query.get("key") ?? "";
+    const matchedKey = validKeys.find((k) => safeEqualStr(k, providedKey));
+    if (validKeys.length === 0 || !matchedKey) {
+      res.writeHead(401, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Unauthorized. Voeg ?key=<jouw YAD_API_KEYS-waarde> toe aan de URL.");
+      return;
+    }
     const model = process.env["YAD_EXTERNAL_OLLAMA_MODEL"] ?? "qwen2.5:7b";
-    const apiKey = (process.env["YAD_API_KEYS"] ?? "").split(",")[0]?.trim() ?? "";
-    const html = buildUiHtml(apiKey, model, busy);
+    const html = buildUiHtml(matchedKey, model, busy);
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(html);
     return;
   }
 
-  // ── Young Consult /yc/* endpoints (geen API-key vereist — eigen dashboard) ──
+  // ── Young Consult /yc/* endpoints (eigen dashboard, geen YAD_API_KEYS nodig) ──
   if (url.startsWith("/yc")) {
     if (url === "/yc" && method === "GET") {
+      // VEILIGHEIDSFIX (2026-10-11): deze pagina serveerde voorheen de ECHTE ycSecret()
+      // (de sleutel die /yc/preset-save, /yc/import-session EN /yc/scan beschermt)
+      // ongeauthenticeerd aan iedereen die deze URL bezocht -- zie ycAccessAuthorized()
+      // hierboven. ?access= moet nu matchen met de los geconfigureerde YAD_YC_ACCESS_KEY.
+      if (!ycAccessAuthorized(query.get("access") ?? "")) {
+        res.writeHead(ycAccessKeyConfigured() ? 401 : 503, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end(ycAccessKeyConfigured()
+          ? "Unauthorized. Voeg ?access=<de YAD_YC_ACCESS_KEY-waarde> toe aan de URL."
+          : "Dashboard niet beschikbaar: YAD_YC_ACCESS_KEY is niet geconfigureerd op deze server.");
+        return;
+      }
       try {
         let html = readFileSync(YC_DASHBOARD_PATH, "utf8");
         // Sleutel inbedden zodat de pagina's eigen fetch-calls hem kunnen meesturen.
