@@ -28,6 +28,9 @@
  *   GET  /cdp/cookies           → haal alle cookies op van de actieve tab
  *   POST /cdp/cookies/set       → set cookies voor de actieve tab (body: { cookies, url? })
  *   POST /cdp/fill-spa          → vul input-veld in React/Vue/Angular SPA via CDP (body: { selector, value, submit?, waitMs? })
+ *   POST /cdp/click             → echte, vertrouwde muisklik via CDP Input-domein, voor
+ *                                 custom dropdowns/comboboxen die event.isTrusted checken
+ *                                 en een JS-click() of OS-niveau klik negeren (body: { selector, tabId? })
  *
  * Beveiliging (Exposure-check):
  *   - Bindt ALLEEN aan 127.0.0.1 — niet bereikbaar van buiten de machine
@@ -44,9 +47,9 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, existsSync, chmodSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { extname, basename, join, resolve as resolvePath, sep } from "node:path";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { tokenFilePath, loadOrCreateAuthToken, hasValidToken } from "./auth-token.js";
 import { readSteps } from "./history/step-reader.js";
 import { verifySteps } from "./verify/verifier.js";
 import { checkExternalGate } from "./external-gate.js";
@@ -196,49 +199,9 @@ function hasValidHostHeader(req: IncomingMessage): boolean {
   return host === `localhost:${PORT}` || host === `127.0.0.1:${PORT}`;
 }
 
-/**
- * Gedeeld geheim tussen de companion en een geautoriseerde lokale aanroeper (Claude Code /
- * een ander lokaal script). Zonder dit kon LETTERLIJK elke pagina die de gebruiker ooit in
- * dezelfde Chrome opende, met een gewone same-machine fetch() naar 127.0.0.1:3747, deze hele
- * API bedienen: willekeurige JS in een YAD-tab laten draaien, lokale bestanden lezen, en de
- * volledig autonome agent starten. De eerdere Host-header-check verdedigt alleen tegen
- * DNS-rebinding, niet tegen een doodgewoon cross-origin verzoek — dat token doet dat wel.
- * Wordt eenmalig gegenereerd en persistent opgeslagen; bestaande scripts/sessies moeten het
- * token uit dit bestand lezen en meesturen als header X-Yad-Token.
- */
-function tokenFilePath(): string {
-  const dataDir = process.env["YAD_DATA_DIR"] ?? join(process.cwd(), "data");
-  return join(dataDir, "companion-token.txt");
-}
-
-function loadOrCreateAuthToken(log: (m: string) => void): string {
-  const filePath = tokenFilePath();
-  try {
-    if (existsSync(filePath)) {
-      const existing = readFileSync(filePath, "utf8").trim();
-      if (existing.length >= 32) return existing;
-    }
-  } catch { /* val terug op nieuw genereren */ }
-  const token = randomBytes(32).toString("hex");
-  try {
-    mkdirSync(join(filePath, ".."), { recursive: true });
-    writeFileSync(filePath, token, { encoding: "utf8", mode: 0o600 });
-    try { chmodSync(filePath, 0o600); } catch { /* niet elk platform ondersteunt dit, mode hierboven dekt de meeste gevallen al */ }
-    log(`[http-api] nieuw auth-token aangemaakt: ${filePath}`);
-  } catch (e) {
-    log(`[http-api] kon auth-token niet wegschrijven (${(e as Error).message}), token geldt alleen voor dit proces`);
-  }
-  return token;
-}
-
-function hasValidToken(req: IncomingMessage, expected: string): boolean {
-  const provided = req.headers["x-yad-token"];
-  if (typeof provided !== "string" || provided.length === 0) return false;
-  const a = Buffer.from(provided, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
+// tokenFilePath/loadOrCreateAuthToken/hasValidToken komen nu uit ./auth-token.js —
+// hierheen verplaatst (2026-09-15) zodat main-server.ts dezelfde bescherming kan
+// hergebruiken in plaats van een tweede, losse kopie te onderhouden.
 
 export function startHttpApi(session: BrainSession, log: (m: string) => void, externalRouter?: LlmRouter, spendGuard?: SpendGuard): void {
   const authToken = loadOrCreateAuthToken(log);
@@ -676,6 +639,39 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
           clearFirst: parsed.clearFirst === true,
           tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
         }, 60_000);
+        json(res, result.ok ? 200 : 500, result);
+      } catch (e) {
+        json(res, 500, { ok: false, detail: (e as Error).message });
+      }
+      return;
+    }
+
+    // ── /cdp/click : echte, vertrouwde muisklik via CDP's Input-domein ─────────
+    // Body: { selector, tabId? }
+    // Voor custom dropdowns/comboboxen (React/MUI e.a.) die op event.isTrusted
+    // controleren en daarom een JS-niveau click() negeren — ontdekt 2026-09-16 bij
+    // Atlassian Marketplace, Telegram Web en een Freshworks MUI Select, waar zelfs
+    // een OS-niveau klik (user32.dll/PowerShell) onbetrouwbaar bleek zodra DPI-
+    // schaling, vensterfocus-timing of scroll-positie niet exact klopten. Deze
+    // route berekent de klik-coordinaten zelf, na scrollIntoView, dus geen los
+    // getBoundingClientRect()-round-trip vooraf nodig.
+    if (url === "/cdp/click" && method === "POST") {
+      if (!session.isConnected()) {
+        json(res, 503, { ok: false, detail: "Chrome niet verbonden" });
+        return;
+      }
+      try {
+        const raw = await readBody(req);
+        const parsed = JSON.parse(raw) as { selector?: string; tabId?: number };
+        if (typeof parsed.selector !== "string" || !parsed.selector.trim()) {
+          json(res, 400, { ok: false, detail: "selector is verplicht" });
+          return;
+        }
+        const result = await session.cdp({
+          command: "real_click",
+          selector: parsed.selector,
+          tabId: typeof parsed.tabId === "number" ? parsed.tabId : undefined,
+        }, 30_000);
         json(res, result.ok ? 200 : 500, result);
       } catch (e) {
         json(res, 500, { ok: false, detail: (e as Error).message });
@@ -1308,7 +1304,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
       "POST /cdp/response-body", "POST /cdp/replay", "POST /cdp/dom-dump",
       "POST /cdp/idor-compare", "POST /cdp/intercept/start", "POST /cdp/intercept/stop",
       "POST /cdp/intercept/continue", "GET /cdp/cookies", "POST /cdp/cookies/set",
-      "POST /cdp/fill-spa", "POST /close-tabs", "POST /reload-extension",
+      "POST /cdp/fill-spa", "POST /cdp/click", "POST /close-tabs", "POST /reload-extension",
       "POST /fs/list-files", "POST /fs/search-files", "POST /fs/read-file",
     ] });
   });

@@ -14,6 +14,17 @@ export interface SnapshotNode {
   /** huidige waarde voor invoervelden */
   value?: string;
   disabled?: boolean;
+  /**
+   * URL van het frame waar dit element ECHT in staat, indien de Hand dat weet
+   * (bv. PlaywrightHand's frame-bewuste snapshot). Ontbreekt dit veld, dan gaat
+   * ScopeGuard ervan uit dat het element bij de hoofdpagina hoort — het huidige,
+   * niet-frame-bewuste gedrag, geen regressie. IS het gezet en wijkt het domein af
+   * van de toewijzing, dan blokkeert ScopeGuard een actie op deze ref alsnog, ook al
+   * is het geen `navigate`. Zonder dit veld kon een cross-origin iframe (advertentie,
+   * gecompromitteerde widget, phishing-overlay) volledig buiten de domein-scope om
+   * bediend worden zodra de Hand zulke elementen uberhaupt kon vinden (2026-09-15-audit).
+   */
+  frameUrl?: string;
 }
 
 export interface Snapshot {

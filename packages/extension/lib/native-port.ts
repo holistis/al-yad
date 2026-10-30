@@ -2,7 +2,7 @@ import { handMessage, isEnvelope, type Action, type Attachment, type Snapshot, s
 import { isAccepted } from "./acceptance";
 import { getSettings, saveSettings, getSiteOverrides, addHistoryEntry } from "./storage";
 import { injectCookies, injectLocalStorage } from "./session-inject";
-import { startCapture, stopCapture, evaluateInPage, insertRealTextInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
+import { startCapture, stopCapture, evaluateInPage, insertRealTextInPage, clickRealPositionInPage, getResponseBody, enableIntercept, disableIntercept, continueIntercept, getCookies, setCookies, peekNetworkRequests, zorgVoorDialoogVangnet } from "./cdp-manager";
 import { YadTabGroupManager, type TabGroupsChromeApi } from "./tab-groups";
 
 /**
@@ -831,6 +831,19 @@ function onMessage(raw: unknown): void {
                 ok: insertRes.ok,
                 command: "insert_text",
                 ...(insertRes.detail ? { detail: insertRes.detail } : {}),
+              }, raw.id);
+              break;
+            }
+            case "real_click": {
+              if (!p.selector) {
+                replyToBrain("CDP_RESULT", { ok: false, command: "real_click", detail: "selector is verplicht" }, raw.id);
+                break;
+              }
+              const clickRes = await clickRealPositionInPage(tabId, p.selector);
+              replyToBrain("CDP_RESULT", {
+                ok: clickRes.ok,
+                command: "real_click",
+                ...(clickRes.detail ? { detail: clickRes.detail } : {}),
               }, raw.id);
               break;
             }

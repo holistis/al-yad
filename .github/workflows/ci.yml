@@ -23,6 +23,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Playwright zelf (het npm-pakket) staat al via pnpm install hierboven, maar de
+      # BROWSER-BINARY (chrome-headless-shell) is een apart, los gedownload bestand dat
+      # geen enkele bestaande stap ooit installeerde — tot nu toe testte niets in deze
+      # workflow een echte browser-launch. De nieuwe live/integratietests
+      # (playwright-hand.crossFrame.test.ts, playwright-hand.cdpLifecycle.test.ts,
+      # scope-guard.crossOriginHijack.integration.test.ts) starten wel een ECHTE
+      # Chromium, en faalden hierdoor stil op CI met "Executable doesn't exist"
+      # (2026-09-16, ontdekt bij het openen van deze PR). Alleen chromium nodig, geen
+      # firefox/webkit — dat is het enige dat de companion-code aanroept.
+      - name: Install Playwright browser (chromium)
+        working-directory: packages/companion
+        run: pnpm exec playwright install chromium
+
       - name: Typecheck
         run: pnpm typecheck
 

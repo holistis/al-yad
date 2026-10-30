@@ -1,7 +1,7 @@
 # Privacyverklaring Yad
 
-**Versie:** 1.0
-**Laatst bijgewerkt:** 11 september 2026
+**Versie:** 1.1
+**Laatst bijgewerkt:** 13 september 2026
 
 > **Status van Yad.** Yad is op dit moment een gratis, lokaal draaiend hulpmiddel in een concept-/bètafase. Gebruik is op eigen risico. Deze verklaring beschrijft eerlijk wat er vandaag daadwerkelijk gebeurt, niet wat er ooit zou kunnen gebeuren als Yad een betaald, gehost product wordt. Wordt Yad dat ooit, dan komt er een nieuwe, uitgebreidere verklaring die dat moment dekt, met een eigen aankondiging.
 
@@ -24,7 +24,7 @@ Yad is een Chrome-extensie plus een lokale Companion-app die op uw eigen compute
 - **Geen account.** U hoeft zich nergens te registreren of in te loggen om Yad te gebruiken. Wij houden geen gebruikersdatabase bij.
 - **Geen betaling.** Yad is gratis. Er is geen facturatie, geen abonnement, geen betaaldienstverlener in dit product.
 - **Geen eigen taalmodel-contract.** Yad gebruikt het taalmodel dat u zelf kiest, met uw eigen API-sleutel (bijvoorbeeld Groq, Cerebras, Gemini of OpenRouter). Die sleutel en de bijbehorende gegevensstroom lopen rechtstreeks tussen uw browser en die leverancier. Wij zijn daarbij geen partij: wij kiezen de leverancier niet voor u, wij zien uw sleutel niet, en wij ontvangen de inhoud van die gesprekken niet op onze eigen servers. Welke privacyvoorwaarden gelden voor die verwerking, bepaalt de leverancier die u zelf koos; raadpleeg diens eigen privacyverklaring.
-- **Geen telemetrie, geen analytics, geen cookies.** Wij hebben dit gecontroleerd in onze eigen broncode: er zit geen ingebouwde metingssoftware in de extensie of de Companion, en onze website plaatst geen cookies of trackingscripts.
+- **Geen analytics, geen cookies. Wel een klein, anoniem herstelsignaal.** Wij hebben onze eigen broncode gecontroleerd: er zit geen los meet-, profilerings- of advertentiesysteem in de extensie of de Companion, en onze website plaatst geen cookies of trackingscripts. Wel stuurt de Companion, uitsluitend op het moment dat Yad vastloopt tijdens een taak, automatisch een klein anoniem signaal naar onze eigen server: het domein van de site waarop Yad vastliep, het soort hapering, en het soort actie. Nooit paginatekst, inloggegevens, wachtwoorden of andere persoonsgegevens. Dit gedeelde herstelgeheugen helpt Yad sneller een oplossing te vinden als een andere gebruiker al eerder tegen hetzelfde probleem aanliep. Dit staat standaard aan en is op dit moment niet per gebruiker uit te zetten via een instelling in de extensie; wilt u dit signaal helemaal vermijden, neem dan contact op via info@holistischadviseur.nl.
 
 Omdat geen van deze gebruikelijke verzamelpunten aanwezig is, verwerken wij als Holistisch Adviseur zelf op dit moment geen persoonsgegevens van u via Yad, buiten wat hieronder in hoofdstuk 3 en 4 staat.
 

@@ -15,6 +15,19 @@
  *                       bewust op 0.0.0.0 om van buiten bereikbaar te zijn —
  *                       verkeer dat dan niet van localhost komt loopt door
  *                       dezelfde externe poort als http-api.ts (zie hieronder).
+ *   YAD_CDP_ENDPOINT  — optioneel, bv. http://127.0.0.1:9222. Indien gezet:
+ *                       verbindt elke run met een AL DRAAIENDE, echte Chrome
+ *                       (gestart met --remote-debugging-port op een NIET-
+ *                       standaardprofiel — zie playwright-hand.ts) i.p.v. een
+ *                       lege Chromium te starten, zodat de run de echte,
+ *                       ingelogde sessie van de gebruiker heeft (en, via
+ *                       PlaywrightHand's frame-bewuste snapshot/act, ook
+ *                       cross-origin iframes bereikt). Elke run opent nog
+ *                       steeds een eigen, nieuw tabblad en sluit alleen dat
+ *                       tabblad, nooit de browser zelf. WEIGERT te starten
+ *                       in combinatie met YAD_EXTERNAL_MODE=1: de echte,
+ *                       persoonlijke browsersessie van de gebruiker mag nooit
+ *                       ook nog bereikbaar zijn voor extern/API-key-verkeer.
  *
  * ENDPOINTS:
  *   GET  /status    → { ok, mode, version }
@@ -29,6 +42,11 @@
  *     standaard 403, en pas open met YAD_EXTERNAL_MODE=1 + YAD_API_KEYS
  *     (X-API-Key-header, endpoint-allowlist /status+/goal, 20 req/min rate-limit,
  *     audit-log). Zelfde poort als http-api.ts, geen los, ongeteste mechanisme.
+ *   - Auth-token (X-Yad-Token-header, zie auth-token.ts): VERPLICHT voor elk endpoint
+ *     behalve GET /status, ook voor "lokaal" verkeer — anders kan elke andere pagina
+ *     die toevallig open staat in dezelfde browser gewoon fetch() naar deze poort doen.
+ *     Zelfde mechanisme en tokenbestand als http-api.ts (2026-09-15 hierheen
+ *     gebracht, was hier eerder afwezig).
  *   - Concurrency-limiet: 10 gelijktijdige runs max (daarboven 429). Dit is GEEN
  *     tijdvenster-rate-limit op zichzelf — die zit in checkExternalGate() voor
  *     niet-lokaal verkeer.
@@ -36,7 +54,10 @@
  *   - Goal wordt gesaniteerd (max 1000 chars, inject-patronen geblokkeerd)
  *   - ScopeGuard blokkeert acties buiten de toewijzingsdomeinen
  *   - Harde deny-lijst (/payment, /checkout, ...) altijd actief
- *   - Elke request maakt een eigen browser-instantie (geïsoleerd, auto-sluit)
+ *   - Elke request maakt een eigen browser-instantie (geïsoleerd, auto-sluit) —
+ *     of, met YAD_CDP_ENDPOINT, een eigen NIEUW TABBLAD op een gedeelde, echte
+ *     browser (nog steeds per-request geïsoleerd wat betreft het tabblad, maar
+ *     wel gedeelde login-staat over requests heen — zie YAD_CDP_ENDPOINT hierboven)
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -49,13 +70,26 @@ import { CacheStore } from "./memory/cache-store.js";
 import { PlaywrightHand } from "./playwright-hand.js";
 import { ScopeGuard } from "./gate/scope-guard.js";
 import { checkExternalGate } from "./external-gate.js";
+import { tokenFilePath, loadOrCreateAuthToken, hasValidToken } from "./auth-token.js";
 import type { Assignment } from "./gate/assignment.js";
 
 loadEnvFile();
 
 const PORT = parseInt(process.env["YAD_PORT"] ?? "3747", 10);
 const HOST = process.env["YAD_HOST"] ?? "127.0.0.1";
+const CDP_ENDPOINT = process.env["YAD_CDP_ENDPOINT"] || undefined;
 const VERSION = "server-1.0";
+
+if (CDP_ENDPOINT && process.env["YAD_EXTERNAL_MODE"] === "1") {
+  // Harde weigering, geen waarschuwing: dit zou de echte, persoonlijke browsersessie
+  // van de gebruiker bereikbaar maken voor elk verzoek met een geldige API-key. De
+  // twee losse env-vars kunnen elk voor zich veilig zijn; de combinatie niet.
+  console.error(
+    "[yad-server] FATAAL: YAD_CDP_ENDPOINT en YAD_EXTERNAL_MODE=1 mogen nooit samen aan staan " +
+      "(dat zou de echte, ingelogde browsersessie van de gebruiker extern bereikbaar maken). Stop.",
+  );
+  process.exit(1);
+}
 
 const log = (m: string): void => console.log(`[yad-server] ${m}`);
 
@@ -113,6 +147,8 @@ function hasValidHostHeader(req: IncomingMessage): boolean {
   return host === `localhost:${PORT}` || host === `127.0.0.1:${PORT}`;
 }
 
+const authToken = loadOrCreateAuthToken(log);
+
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const url = req.url ?? "/";
   const method = req.method ?? "GET";
@@ -129,6 +165,24 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       json(res, gate.status, gate.body);
       return;
     }
+  }
+
+  // Auth-token: een geldig loopback-adres + Host-header bewijst alleen dat het TCP-pakket
+  // van deze machine komt, niet WIE het stuurde. Zonder dit kon ELKE andere pagina die de
+  // gebruiker toevallig open heeft staan (of elk ander lokaal proces) een fetch() naar deze
+  // poort sturen en /goal laten uitvoeren — met YAD_CDP_ENDPOINT actief zou dat de ECHTE,
+  // ingelogde browsersessie van de gebruiker zijn (bank, e-mail, crypto-wallet, etc.), niet
+  // langer een onschuldige, wegwerpbare Chromium. Ontdekt bij de adversariele security-audit
+  // van 2026-09-15, exact het gat dat http-api.ts al in 2026-09-11 dichtte, hier gemist
+  // omdat main-server.ts een apart, zustereerd entry-point is. GET /status blijft open (geen
+  // enkele actie, alleen "leeft hij").
+  const isStatusCheck = url === "/status" && method === "GET";
+  if (!isStatusCheck && !hasValidToken(req, authToken)) {
+    json(res, 401, {
+      ok: false,
+      detail: `Ongeldig of ontbrekend token. Stuur header X-Yad-Token met de inhoud van ${tokenFilePath()}.`,
+    });
+    return;
   }
 
   // --- GET /status ---
@@ -207,7 +261,27 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     };
 
     activeRuns++;
-    const hand = new PlaywrightHand({ headless: true, log: (m) => log(`[hand] ${m}`) });
+    const hand = new PlaywrightHand({
+      headless: true,
+      log: (m) => log(`[hand] ${m}`),
+      ...(CDP_ENDPOINT
+        ? {
+            cdpEndpoint: CDP_ENDPOINT,
+            // In CDP-modus draait dit tegen de ECHTE, ingelogde browsersessie van de
+            // gebruiker (bank/e-mail/wallet), en er is NIEMAND aanwezig om een
+            // bevestigingsvraag echt te beantwoorden — autonomy staat hier altijd op
+            // "auto". PlaywrightHand's DEFAULT onConfirm keurt in dat geval alles
+            // automatisch goed ("ScopeGuard blokkeert toch"), maar ScopeGuard checkt
+            // alleen domein-scope, niet OF een actie een schrijf-actie is. Zonder deze
+            // override was needsConfirm() dus een placebo: elke actie die om
+            // bevestiging vroeg, kreeg die zonder mens automatisch (2026-09-16-audit).
+            // Fail-safe: weiger i.p.v. goedkeuren als er niemand is om het echt te
+            // vragen. Alleen in CDP-modus, niet voor de bestaande, wegwerpbare
+            // Chromium-modus (die pentest-scripts al gebruiken voor schrijftests).
+            onConfirm: async () => false,
+          }
+        : {}),
+    });
 
     try {
       await hand.init();
@@ -227,8 +301,24 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         },
       );
 
+      // Via guard.act(), NIET hand.act(): de kale Hand heeft geen eigen deny-lijst- of
+      // domein-check, dus een startUrl die naar een verboden pad (/payment, /checkout)
+      // of buiten de opgegeven 'domains' wijst, moet HIER al tegengehouden worden —
+      // vóór de browser er ooit naartoe navigeert. Voorheen liep dit via de kale hand
+      // en werd de "harde deny-lijst altijd actief"-claim hierboven niet waargemaakt
+      // voor precies deze ene, eerste navigatie (2026-09-16-audit).
       if (startUrl) {
-        await hand.act({ kind: "navigate", url: startUrl });
+        const navResult = await guard.act({ kind: "navigate", url: startUrl });
+        if (!navResult.ok) {
+          json(res, 200, {
+            ok: true,
+            status: "scope-violation",
+            steps: 0,
+            summary: navResult.detail ?? "Start-URL geweigerd door ScopeGuard.",
+            stuckSignal: null,
+          });
+          return;
+        }
       }
 
       const result = await loop.run(rawGoal);
@@ -241,8 +331,14 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
         stuckSignal: result.stuckSignalId ?? null,
       });
     } catch (e) {
-      log(`Fout tijdens run: ${(e as Error).message}`);
-      json(res, 500, { ok: false, detail: (e as Error).message });
+      // CDP_ENDPOINT (kan een intern adres/poort verraden) verwijderen voor deze fout
+      // ooit in een geplakt bug-report of GitHub-issue belandt — een mislukte
+      // connectOverCDP() stopt het adres anders letterlijk in de foutmelding
+      // (2026-09-16-audit).
+      const raw = (e as Error).message;
+      const safeMsg = CDP_ENDPOINT ? raw.split(CDP_ENDPOINT).join("[cdp-endpoint]") : raw;
+      log(`Fout tijdens run: ${safeMsg}`);
+      json(res, 500, { ok: false, detail: safeMsg });
     } finally {
       await hand.close().catch(() => {});
       activeRuns--;

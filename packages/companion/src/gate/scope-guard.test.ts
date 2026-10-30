@@ -92,3 +92,119 @@ describe("ScopeGuard", () => {
     expect(conf).toBe(true);
   });
 });
+
+// ── Frame-scope (2026-09-15-audit): een ref kan uit een cross-origin iframe komen ──
+
+class FrameAwareStubHand implements HandBridge {
+  acts: Action[] = [];
+  constructor(private readonly snap: Snapshot) {}
+  async requestSnapshot(): Promise<Snapshot> { return this.snap; }
+  async requestScreenshot(): Promise<string | null> { return null; }
+  async act(a: Action): Promise<ActResult> { this.acts.push(a); return { ok: true }; }
+  async requestConfirm(): Promise<boolean> { return true; }
+  update(_u: { status: RunStatus; message: string }): void { /* noop */ }
+}
+
+describe("ScopeGuard — frame-scope op ref-acties (niet alleen navigate)", () => {
+  it("blokkeert een click op een ref uit een cross-origin iframe buiten de toewijzing", async () => {
+    const snap: Snapshot = {
+      url: "https://www.example.com/",
+      title: "Example",
+      nodes: [{ ref: "f1:e1", role: "button", name: "Verifieer je account", frameUrl: "https://evil-widget.nl/frame" }],
+      textDigest: "",
+    };
+    const hand = new FrameAwareStubHand(snap);
+    const guard = new ScopeGuard(hand, ASSIGNMENT, () => {});
+    await guard.requestSnapshot(); // bouwt de ref→frameUrl-cache
+    const result = await guard.act({ kind: "click", ref: "f1:e1" });
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain("SCOPE_VIOLATION");
+    expect(guard.violated).toBe(true);
+    expect(hand.acts).toHaveLength(0);
+  });
+
+  it("laat een click op een ref uit een cross-origin iframe BINNEN de toewijzing gewoon door", async () => {
+    const snap: Snapshot = {
+      url: "https://www.example.com/",
+      title: "Example",
+      nodes: [{ ref: "f1:e1", role: "button", name: "Bevestig", frameUrl: "https://api.example.com/widget" }],
+      textDigest: "",
+    };
+    const hand = new FrameAwareStubHand(snap);
+    const guard = new ScopeGuard(hand, ASSIGNMENT, () => {});
+    await guard.requestSnapshot();
+    const result = await guard.act({ kind: "click", ref: "f1:e1" });
+    expect(result.ok).toBe(true);
+    expect(guard.violated).toBe(false);
+    expect(hand.acts).toHaveLength(1);
+  });
+
+  it("laat een ref zonder bekende frameUrl gewoon door (niet-frame-bewuste Hand, bestaand gedrag)", async () => {
+    const snap: Snapshot = {
+      url: "https://www.example.com/",
+      title: "Example",
+      nodes: [{ ref: "e1", role: "button", name: "Gewone knop" }], // geen frameUrl
+      textDigest: "",
+    };
+    const hand = new FrameAwareStubHand(snap);
+    const guard = new ScopeGuard(hand, ASSIGNMENT, () => {});
+    await guard.requestSnapshot();
+    const result = await guard.act({ kind: "click", ref: "e1" });
+    expect(result.ok).toBe(true);
+    expect(guard.violated).toBe(false);
+  });
+
+  it("checkt ook toRef bij een drag-actie", async () => {
+    const snap: Snapshot = {
+      url: "https://www.example.com/",
+      title: "Example",
+      nodes: [
+        { ref: "f0:e1", role: "button", name: "Bron", frameUrl: "https://www.example.com/" },
+        { ref: "f1:e2", role: "button", name: "Doel", frameUrl: "https://evil-widget.nl/frame" },
+      ],
+      textDigest: "",
+    };
+    const hand = new FrameAwareStubHand(snap);
+    const guard = new ScopeGuard(hand, ASSIGNMENT, () => {});
+    await guard.requestSnapshot();
+    const result = await guard.act({ kind: "drag", ref: "f0:e1", toRef: "f1:e2" });
+    expect(result.ok).toBe(false);
+    expect(guard.violated).toBe(true);
+  });
+
+  it("blokkeert een actie op een ref uit een verboden pad binnen een iframe (bv. /checkout)", async () => {
+    const snap: Snapshot = {
+      url: "https://www.example.com/",
+      title: "Example",
+      nodes: [{ ref: "f1:e1", role: "button", name: "Betaal nu", frameUrl: "https://www.example.com/checkout" }],
+      textDigest: "",
+    };
+    const hand = new FrameAwareStubHand(snap);
+    const guard = new ScopeGuard(hand, ASSIGNMENT, () => {});
+    await guard.requestSnapshot();
+    const result = await guard.act({ kind: "click", ref: "f1:e1" });
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain("verboden pad");
+  });
+
+  it("herbouwt de cache bij elke nieuwe requestSnapshot() (geen stale refs van een vorige pagina)", async () => {
+    const snap1: Snapshot = {
+      url: "https://www.example.com/",
+      title: "Example",
+      nodes: [{ ref: "f1:e1", role: "button", name: "Wisselend element", frameUrl: "https://evil-widget.nl/frame" }],
+      textDigest: "",
+    };
+    const hand = new FrameAwareStubHand(snap1);
+    const guard = new ScopeGuard(hand, ASSIGNMENT, () => {});
+    await guard.requestSnapshot();
+    const blocked = await guard.act({ kind: "click", ref: "f1:e1" });
+    expect(blocked.ok).toBe(false);
+
+    // Zelfde ref-string, maar een nieuwe snapshot zonder frameUrl-informatie (bv. terug op
+    // het hoofdframe) — de oude, geblokkeerde herkomst mag niet blijven hangen.
+    const guard2 = new ScopeGuard(new FrameAwareStubHand({ url: "https://www.example.com/", title: "Example", nodes: [{ ref: "f1:e1", role: "button", name: "Ander element" }], textDigest: "" }), ASSIGNMENT, () => {});
+    await guard2.requestSnapshot();
+    const allowed = await guard2.act({ kind: "click", ref: "f1:e1" });
+    expect(allowed.ok).toBe(true);
+  });
+});

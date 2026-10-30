@@ -194,6 +194,18 @@ export function needsConfirm(action: Action, ctx: GateContext): boolean {
       // pagina geleverde) label; CONFIRM_WORDS vangt daarbovenop muterende links.
       if (ctx.role && WRITE_ROLES.test(ctx.role)) return true;
       return ctx.targetName ? CONFIRM_WORDS.test(ctx.targetName) : false;
+    case "click-at":
+      // click-at (vision-fallback, geen ref) krijgt hier dezelfde WRITE_ROLES/
+      // CONFIRM_WORDS-scoping als "click" hierboven — mogelijk gemaakt doordat de lus
+      // (loop.ts) vlak vóór deze aanroep eerst een resolveOnly-ronde doet die de ECHTE
+      // rol/naam ophaalt (packages/extension/lib/executor.ts, clickAtViewportPoint).
+      // Fail-safe verschil met "click": kon die rol/naam NIET worden vastgesteld (geen
+      // element gevonden, resolve mislukt), dan bevestigen we ALTIJD. "click" mag bij
+      // een onbekende rol/naam doorschieten omdat de ref daar altijd door de agent zelf
+      // gekozen is uit een net geziene snapshot; click-at heeft die garantie niet.
+      if (!ctx.role && !ctx.targetName) return true;
+      if (ctx.role && WRITE_ROLES.test(ctx.role)) return true;
+      return ctx.targetName ? CONFIRM_WORDS.test(ctx.targetName) : false;
     default:
       return true;
   }

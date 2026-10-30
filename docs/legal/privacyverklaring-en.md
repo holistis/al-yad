@@ -1,7 +1,7 @@
 # Privacy Policy Yad
 
-**Version:** 1.0
-**Last updated:** September 11, 2026
+**Version:** 1.1
+**Last updated:** September 13, 2026
 
 > **Status of Yad.** Yad is currently a free, locally running tool in a concept/beta stage. Use is at your own risk. This policy honestly describes what actually happens today, not what might happen if Yad ever becomes a paid, hosted product. If that ever happens, a new, more extensive policy will cover that stage, with a clear announcement beforehand.
 
@@ -24,7 +24,7 @@ Yad is a Chrome extension plus a local Companion app that runs on your own compu
 - **No account.** You do not need to register or log in anywhere to use Yad. We do not keep a user database.
 - **No payment.** Yad is free. There is no billing, no subscription, no payment provider in this product.
 - **No LLM contract of our own.** Yad uses whichever language model you choose, with your own API key (for example Groq, Cerebras, Gemini or OpenRouter). That key and the associated data flow run directly between your browser and that provider. We are not a party to that flow: we do not choose the provider for you, we never see your key, and we do not receive the content of those exchanges on our own servers. Whatever privacy terms apply to that processing are set by the provider you chose; consult their own privacy policy.
-- **No telemetry, no analytics, no cookies.** We checked this against our own source code: there is no built-in measurement software in the extension or the Companion, and our website places no cookies or tracking scripts.
+- **No analytics, no cookies. A small, anonymous recovery signal, though.** We checked our own source code: there is no separate measurement, profiling or advertising system in the extension or the Companion, and our website places no cookies or tracking scripts. However, the Companion does automatically send a small, anonymous signal to our own server, but only at the moment Yad gets stuck during a task: the domain of the site Yad got stuck on, the type of hiccup, and the type of action. Never page text, login details, passwords or other personal data. This shared recovery memory helps Yad find a fix faster when another user already hit the same problem. This is on by default and currently cannot be turned off per user through a setting in the extension; if you want to avoid this signal entirely, contact us at info@holistischadviseur.nl.
 
 Because none of these usual collection points exist, Holistisch Adviseur does not currently process any personal data about you through Yad, beyond what is described in chapters 3 and 4 below.
 

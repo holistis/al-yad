@@ -28,6 +28,7 @@ const STEALTH_HOSTS: readonly string[] = [
   "threads.net",
   "twitter.com",
   "x.com",
+  "discord.com",
   "glassdoor.com",
   "glassdoor.nl",
   "indeed.com",

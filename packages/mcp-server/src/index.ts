@@ -74,7 +74,7 @@ server.registerTool(
   {
     title: "Run a browser task",
     description:
-      "Give Yad a plain-language task to carry out in the user's real, logged-in browser (e.g. 'find the price of the first item on this page' or 'click the login button'). Waits for the task to finish and returns the result. Yad cannot check out, pay, or place orders without the user's direct confirmation.",
+      "Give Yad a plain-language task to carry out in the user's real, logged-in browser (e.g. 'find the price of the first item on this page' or 'click the login button'). Waits for the task to finish and returns the result. Yad always pauses and asks the user for direct, in-browser confirmation before any action that changes something — clicking a button/checkbox/menu item, submitting or typing into a form, uploading a file, choosing a dropdown option, or navigating to a different site — not only checkout/payment paths, which are additionally hard-blocked outright.",
     inputSchema: {
       goal: z.string().min(1).max(1000).describe("Plain-language description of what to do in the browser"),
       url: z.string().url().optional().describe("Optional URL to navigate to before starting the task"),
