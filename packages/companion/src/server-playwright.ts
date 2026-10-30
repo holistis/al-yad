@@ -1,33 +1,67 @@
 /**
- * YAD server-playwright — Standalone HTTP server voor externe /goal requests.
+ * YAD server-playwright — Standalone HTTP server voor externe /goal- en /osint/*-requests.
  *
  * Draait op 0.0.0.0:3748 (instelbaar via YAD_SERVER_PORT).
  * Gebruikt Playwright (headless Chromium) — geen Chrome-extensie nodig.
- * LLM: Ollama only (OLLAMA_BASE_URL + YAD_EXTERNAL_OLLAMA_MODEL).
- * Auth: X-API-Key header (YAD_API_KEYS).
- * Rate: 20 req/min per key (via checkExternalGate).
- * Concurrentie: één run tegelijk (mutex), overige requests wachten in wachtrij.
+ * LLM: Ollama only (OLLAMA_BASE_URL + YAD_EXTERNAL_OLLAMA_MODEL), alleen voor /goal.
+ * Auth: X-API-Key header, TWEE GESCHEIDEN sleutelpools (sinds de 2026-09-24-audit):
+ *   - YAD_API_KEYS       → /status, /goal (geen ingelogde sessie)
+ *   - YAD_OSINT_API_KEYS → /osint/status, /osint/import-session, /osint/read-page
+ *     (deze route KAN de echte, ingelogde X/Discord-sessie lezen — bewust een andere
+ *     sleutel dan /goal, zodat een gelekte /goal-sleutel geen sessietoegang geeft).
+ * GET /, /ui en /yc (HTML-paginas) vereisen SINDS 2026-10-11 ook een geldig geheim
+ *   via de QUERYSTRING (een browser die een pagina laadt kan geen custom header
+ *   zetten): /?key=<YAD_API_KEYS-waarde> resp. /yc?access=<YAD_YC_ACCESS_KEY>.
+ *   VEILIGHEIDSFIX: deze paginas serveerden voorheen hun ingebedde sleutel aan
+ *   IEDEREEN zonder enige check (/ embedde YAD_API_KEYS[0], /yc embedde de
+ *   ycSecret() die alle /yc/*-schrijfroutes beschermt) -- wie de URL kende/
+ *   scande kreeg de sleutel gratis. YAD_YC_ACCESS_KEY is een NIEUWE, losse
+ *   env-var (niet ycSecret, die blijft intern/auto-gegenereerd): zonder deze
+ *   var gezet blijft /yc hard dicht (fail closed), nooit stilzwijgend open.
+ * Rate: 20 req/min per key (via checkExternalGate). /osint/read-page heeft daarnaast
+ *   een eigen concurrency-plafond (OSINT_READ_PAGE_MAX_CONCURRENT).
+ * Concurrentie: /goal — één run tegelijk (mutex), overige requests wachten in wachtrij.
+ *   /osint/read-page — eigen, lichter concurrency-plafond (geen wachtrij, een burst
+ *   erboven krijgt gewoon een 429).
  *
  * Endpoints:
- *   GET  /status  → { ok, version, busy, ollamaConfigured }
- *   POST /goal    → { ok, status, summary, steps }
+ *   GET  /status              → { ok, version, busy, ollamaConfigured }
+ *   POST /goal                → { ok, status, summary, steps }
+ *   GET  /osint/status        → { ok, sites: [{site, hasSession, cookieCount, hasLocalStorage, importedAt}] }
+ *   POST /osint/import-session→ { ok, site, count, localStorageCount } — body: {site, cookies, localStorage?}
+ *     (localStorage is optioneel: een plat {sleutel: waarde}-object, beide altijd strings.
+ *     Nodig voor sites die hun sessie niet in een cookie bewaren maar in localStorage, zoals
+ *     Discord's webclient — cookies alleen volstaan daar niet, zie server-playwright.ts se
+ *     eigen commentaar bij de read-page-handler voor de volledige uitleg.)
+ *   POST /osint/read-page     → { ok, site, url, title, text, posts } — body: {site, url}
+ *     (posts: alleen voor site="x.com", array van {text, url} per gevonden bericht op de
+ *     pagina, met het EIGEN permalink -- gebruik dat url-veld voor een vervolg-read-page-call
+ *     om de reply-thread van dat specifieke bericht te lezen. Leeg als de site-structuur dit
+ *     niet toelaat, text blijft dan nog steeds bruikbaar als terugval.)
  *
  * Starten op de server:
  *   OLLAMA_BASE_URL=http://localhost:11434 \
  *   YAD_EXTERNAL_MODE=1 \
- *   YAD_API_KEYS=jouw-geheime-sleutel \
+ *   YAD_API_KEYS=jouw-geheime-sleutel-voor-goal \
+ *   YAD_OSINT_API_KEYS=een-ANDERE-geheime-sleutel-voor-osint \
+ *   YAD_YC_ACCESS_KEY=een-DERDE-geheime-sleutel-alleen-voor-het-yc-dashboard \
  *   node dist/server-playwright.js
  *
  * Aanroepen als externe client:
  *   curl -X POST http://jouw-server-ip:3748/goal \
- *     -H "X-API-Key: jouw-geheime-sleutel" \
+ *     -H "X-API-Key: jouw-geheime-sleutel-voor-goal" \
  *     -H "Content-Type: application/json" \
  *     -d '{"goal":"ga naar example.com en lees de titel"}'
+ *
+ *   curl -X POST http://jouw-server-ip:3748/osint/read-page \
+ *     -H "X-API-Key: een-ANDERE-geheime-sleutel-voor-osint" \
+ *     -H "Content-Type: application/json" \
+ *     -d '{"site":"x.com","url":"https://x.com/notifications"}'
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import process from "node:process";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -39,7 +73,7 @@ import { CacheStore } from "./memory/cache-store.js";
 import { RunHistoryStore } from "./history/run-history.js";
 import { PlaywrightHand } from "./playwright-hand.js";
 import { checkExternalGate } from "./external-gate.js";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -72,11 +106,36 @@ function releaseLock(): void {
 }
 
 // ── HTTP helpers ────────────────────────────────────────────────────────────
+// MAJLIS AL-MURAQABA-bevinding (2026-09-24): readBody() had geen enkele
+// grootte-limiet — een aanvaller met een geldige key kon een multi-GB body
+// naar elke POST-route sturen (inclusief /osint/import-session) en het hele,
+// gedeelde server-process laten crashen voor er ook maar één validatiecheck
+// liep. main-server.ts had dit exacte gat al gefixt (MAX_BODY_BYTES + een
+// eigen foutklasse) — hier hetzelfde patroon toegepast.
+const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB — elke route hier stuurt normaal een paar honderd bytes tot een paar KB.
+
+class BodyTooLargeError extends Error {}
+
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = "";
-    req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
-    req.on("end", () => resolve(body));
+    let bytes = 0;
+    let tooLarge = false;
+    req.on("data", (chunk: Buffer) => {
+      bytes += chunk.length;
+      if (bytes > MAX_BODY_BYTES) {
+        tooLarge = true;
+        return; // stop met de body op te bouwen, dat is het eigenlijke geheugenrisico
+      }
+      body += chunk.toString();
+    });
+    req.on("end", () => {
+      if (tooLarge) {
+        reject(new BodyTooLargeError(`Request-body groter dan ${MAX_BODY_BYTES} bytes`));
+        return;
+      }
+      resolve(body);
+    });
     req.on("error", reject);
   });
 }
@@ -347,10 +406,124 @@ function ycSecret(): string {
   } catch { /* schrijven mislukt: sleutel leeft dan alleen in-memory voor dit proces */ }
   return fresh;
 }
+// Constant-time vergelijking voor elk geheim hieronder (dashboard-toegang EN
+// schrijf-capability-sleutel) -- zelfde patroon als auth-token.ts se hasValidToken(),
+// voorkomt dat een lengte/byte-voor-byte-verschil in reactietijd lekt hoe dicht een
+// gok bij de echte sleutel zit. Praktisch risico is klein over een netwerk, maar er
+// is geen reden om hier een zwakkere vergelijking te gebruiken dan elders in dit project.
+function safeEqualStr(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
 function ycAuthorized(req: IncomingMessage): boolean {
   const provided = req.headers["x-yc-key"];
   const key = Array.isArray(provided) ? provided[0] : provided;
-  return !!key && key === ycSecret();
+  return !!key && safeEqualStr(key, ycSecret());
+}
+
+/**
+ * VEILIGHEIDSFIX (2026-10-11): GET /yc serveerde voorheen de dashboard-HTML aan
+ * IEDEREEN, met de echte ycSecret() ERIN GEBAKKEN (zie ycAuthorized hierboven) --
+ * "geen auth nodig voor de pagina zelf" betekende in de praktijk "geef de
+ * schrijf-capability-sleutel gratis weg aan wie dan ook deze URL bezoekt". Dit is
+ * een TWEEDE, APARTE sleutel (niet ycSecret, die blijft intern/auto-gegenereerd en
+ * wordt NOOIT door een mens ingevoerd): de operator zet YAD_YC_ACCESS_KEY zelf,
+ * eenmalig, en deelt 'm uit-of-band met wie het dashboard mag OPENEN. Zonder deze
+ * var gezet blijft /yc hard dicht (fail closed) -- nooit stilzwijgend toch open
+ * omdat een operator vergat 'm te configureren.
+ */
+function ycAccessKeyConfigured(): string | null {
+  const configured = (process.env["YAD_YC_ACCESS_KEY"] ?? "").trim();
+  return configured.length > 0 ? configured : null;
+}
+function ycAccessAuthorized(providedAccessKey: string): boolean {
+  const configured = ycAccessKeyConfigured();
+  return !!configured && safeEqualStr(providedAccessKey, configured);
+}
+
+// ── OSINT sessie-import (generalisatie van /yc/import-session, sinds 2026-09-24) ────
+// Zelfde patroon (cookies eenmalig importeren, later server-side hergebruiken zonder
+// dat er een mens hoeft in te loggen), maar site-onafhankelijk en achter de AL BESTAANDE,
+// geauditeerde externe poort (checkExternalGate/X-API-Key) i.p.v. een nieuw, los geheim
+// zoals ycSecret() — minder losse auth-paden om te moeten controleren bij een audit.
+// Vaste allowlist i.p.v. een vrij site-veld: voorkomt zowel pad-traversal bij het
+// opslaan (site wordt nooit ongecontroleerd in een bestandspad geplakt) als dat iemand
+// met een geldige API-key deze route gebruikt om een sessie voor een willekeurige,
+// niet-bedoelde site te bewaren.
+const OSINT_ALLOWED_SITES: readonly string[] = ["x.com", "discord.com"];
+// Overschrijfbaar via env zodat tests een geïsoleerde tijdelijke map kunnen gebruiken
+// i.p.v. het echte, gedeelde /opt/al-yad-pad op schijf te raken.
+const OSINT_SESSIONS_DIR = process.env["YAD_OSINT_SESSIONS_DIR"] ?? "/opt/al-yad/osint/sessions";
+
+function osintSessionPath(site: string): string {
+  return join(OSINT_SESSIONS_DIR, `${site}.json`);
+}
+
+/**
+ * Eén gedeelde host-vergelijking voor alle OSINT-plekken die moeten checken of een
+ * hostname bij een toegestane site hoort (cookie-domain-validatie bij import EN de
+ * SSRF-check vóór/na navigatie bij read-page) — bewust hetzelfde stukje logica op
+ * één plek, niet drie keer apart geschreven, want twee "gelijke" checks die uit elkaar
+ * groeien is precies hoe dit soort validatie-gaten in de praktijk ontstaan.
+ */
+function osintHostHoortBijSite(host: string, site: string): boolean {
+  const bare = host.toLowerCase().replace(/^\./, "").replace(/^www\./, "");
+  return bare === site || bare.endsWith(`.${site}`);
+}
+
+// MAJLIS AL-MURAQABA-bevinding (2026-09-24): /osint/read-page had GEEN concurrency-
+// beperking (anders dan /goal se acquireLock/releaseLock-mutex) — de 20-req/min
+// rate-limit in external-gate.ts telt alleen VOLUME, niet gelijktijdigheid, dus een
+// korte burst binnen die limiet kon evenveel headless Chromium-instanties tegelijk
+// starten. Een lichte, eigen concurrency-teller (geen strikte 1-tegelijk-mutex zoals
+// /goal, want gelijktijdig meerdere sites lezen is wel degelijk legitiem gebruik).
+const OSINT_READ_PAGE_MAX_CONCURRENT = 3;
+let osintReadPageActief = 0;
+
+/**
+ * MAJLIS AL-MURAQABA-bevindingen (2026-09-24), allebei hier gefixt:
+ * (1) Bestandsrechten — dit bevat ECHTE, werkende X.com/Discord-sessiecookies. Zonder
+ *     expliciete mode erft het bestand de proces-umask (meestal 0644 = world-readable
+ *     op een gedeelde VPS). auth-token.ts in dit package doet het al goed (mode 0o600 +
+ *     een expliciete chmodSync) — dat bewezen patroon hier ook toegepast.
+ * (2) Atomiciteit — een directe writeFileSync kan een half geschreven, corrupt bestand
+ *     achterlaten als het proces middenin crasht (bv. door de OOM/concurrency-fix
+ *     hieronder, of gewoon een volle schijf). Schrijf daarom eerst naar een temp-bestand
+ *     in dezelfde map, dan een atomische rename (globale CLAUDE.md, Publicatiepoort
+ *     punt 2: "schrijf het nieuwe bestand eerst en atomisch, temp-bestand + rename").
+ */
+function osintSaveSession(site: string, cookies: Record<string, unknown>[], localStorage?: Record<string, string>): void {
+  if (!existsSync(OSINT_SESSIONS_DIR)) mkdirSync(OSINT_SESSIONS_DIR, { recursive: true, mode: 0o700 });
+  const finalPath = osintSessionPath(site);
+  const tmpPath = `${finalPath}.tmp-${randomBytes(6).toString("hex")}`;
+  const payload: Record<string, unknown> = { cookies, importedAt: new Date().toISOString() };
+  // Alleen opnemen als er echt iets is: houdt bestaande, cookie-only sessiebestanden (X.com)
+  // exact in hun oude vorm, geen loze lege sleutel erbij.
+  if (localStorage && Object.keys(localStorage).length > 0) payload["localStorage"] = localStorage;
+  writeFileSync(tmpPath, JSON.stringify(payload, null, 2), { encoding: "utf8", mode: 0o600 });
+  renameSync(tmpPath, finalPath);
+}
+
+function osintSessionStatus(): Array<{ site: string; hasSession: boolean; cookieCount: number; hasLocalStorage: boolean; importedAt: string | null }> {
+  return OSINT_ALLOWED_SITES.map((site) => {
+    const path = osintSessionPath(site);
+    if (!existsSync(path)) return { site, hasSession: false, cookieCount: 0, hasLocalStorage: false, importedAt: null };
+    try {
+      const data = JSON.parse(readFileSync(path, "utf8")) as { cookies?: unknown[]; localStorage?: Record<string, string>; importedAt?: string };
+      return {
+        site,
+        hasSession: Array.isArray(data.cookies) && data.cookies.length > 0,
+        cookieCount: Array.isArray(data.cookies) ? data.cookies.length : 0,
+        hasLocalStorage: !!data.localStorage && Object.keys(data.localStorage).length > 0,
+        importedAt: data.importedAt ?? null,
+      };
+    } catch {
+      return { site, hasSession: false, cookieCount: 0, hasLocalStorage: false, importedAt: null };
+    }
+  });
 }
 
 function checkRecentContact(datumMatches: string[] | null): { recentContact: boolean; contactDatum: string | null } {
@@ -381,7 +554,16 @@ function checkRecentContact(datumMatches: string[] | null): { recentContact: boo
 
 // ── HTTP server ─────────────────────────────────────────────────────────────
 const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-  const url = req.url ?? "/";
+  // VEILIGHEIDSFIX (2026-10-11): url was voorheen de RAUWE req.url inclusief querystring,
+  // maar geen enkele routematch hieronder verwachtte ooit een querystring (allemaal exacte
+  // "===" of "startsWith" tegen een kaal pad) -- dus een querystring eraf splitsen breekt
+  // niets aan het bestaande gedrag. Nu wel nodig: GET /, /ui en /yc lezen een credential UIT
+  // de querystring (zie ycAccessAuthorized en de /-route hieronder), dat vereist een losse,
+  // voorspelbare plek om 'm te lezen.
+  const rawUrl = req.url ?? "/";
+  const queryIndex = rawUrl.indexOf("?");
+  const url = queryIndex === -1 ? rawUrl : rawUrl.slice(0, queryIndex);
+  const query = new URLSearchParams(queryIndex === -1 ? "" : rawUrl.slice(queryIndex + 1));
   const method = req.method ?? "GET";
 
   // CORS voor YC dashboard fetch calls vanuit de browser
@@ -392,20 +574,42 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
     if (method === "OPTIONS") { res.writeHead(204); res.end(); return; }
   }
 
-  // Web UI: GET / is openbaar (geen API-key nodig voor de pagina zelf).
-  // De pagina stuurt vervolgens requests naar /goal met de ingebedde sleutel.
+  // Web UI: GET / vereist SINDS 2026-10-11 ?key=<een geldige YAD_API_KEYS-waarde>.
+  // VEILIGHEIDSFIX: deze pagina serveerde voorheen HAAR EIGEN echte YAD_API_KEYS[0]
+  // ongeauthenticeerd aan iedereen (de pagina gebruikt die sleutel daarna zelf voor
+  // /goal-aanroepen) -- wie de URL kende/scande kreeg de sleutel dus gratis, zonder
+  // 'm ooit zelf te hoeven kennen. Nu moet de aanroeper 'm AL weten, exact zoals bij
+  // elke andere X-API-Key-beschermde route in dit bestand.
   if ((url === "/" || url === "/ui") && method === "GET") {
+    const validKeys = (process.env["YAD_API_KEYS"] ?? "").split(",").map((k) => k.trim()).filter(Boolean);
+    const providedKey = query.get("key") ?? "";
+    const matchedKey = validKeys.find((k) => safeEqualStr(k, providedKey));
+    if (validKeys.length === 0 || !matchedKey) {
+      res.writeHead(401, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Unauthorized. Voeg ?key=<jouw YAD_API_KEYS-waarde> toe aan de URL.");
+      return;
+    }
     const model = process.env["YAD_EXTERNAL_OLLAMA_MODEL"] ?? "qwen2.5:7b";
-    const apiKey = (process.env["YAD_API_KEYS"] ?? "").split(",")[0]?.trim() ?? "";
-    const html = buildUiHtml(apiKey, model, busy);
+    const html = buildUiHtml(matchedKey, model, busy);
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     res.end(html);
     return;
   }
 
-  // ── Young Consult /yc/* endpoints (geen API-key vereist — eigen dashboard) ──
+  // ── Young Consult /yc/* endpoints (eigen dashboard, geen YAD_API_KEYS nodig) ──
   if (url.startsWith("/yc")) {
     if (url === "/yc" && method === "GET") {
+      // VEILIGHEIDSFIX (2026-10-11): deze pagina serveerde voorheen de ECHTE ycSecret()
+      // (de sleutel die /yc/preset-save, /yc/import-session EN /yc/scan beschermt)
+      // ongeauthenticeerd aan iedereen die deze URL bezocht -- zie ycAccessAuthorized()
+      // hierboven. ?access= moet nu matchen met de los geconfigureerde YAD_YC_ACCESS_KEY.
+      if (!ycAccessAuthorized(query.get("access") ?? "")) {
+        res.writeHead(ycAccessKeyConfigured() ? 401 : 503, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end(ycAccessKeyConfigured()
+          ? "Unauthorized. Voeg ?access=<de YAD_YC_ACCESS_KEY-waarde> toe aan de URL."
+          : "Dashboard niet beschikbaar: YAD_YC_ACCESS_KEY is niet geconfigureerd op deze server.");
+        return;
+      }
       try {
         let html = readFileSync(YC_DASHBOARD_PATH, "utf8");
         // Sleutel inbedden zodat de pagina's eigen fetch-calls hem kunnen meesturen.
@@ -540,6 +744,268 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
       json(res, 500, { ok: false, detail: (e as Error).message });
     } finally {
       releaseLock();
+    }
+    return;
+  }
+
+  // ── OSINT: sessie importeren (eenmalig, door een mens) ──────────────────────
+  if (url === "/osint/import-session" && method === "POST") {
+    let body: { site?: unknown; cookies?: unknown; localStorage?: unknown } = {};
+    try {
+      body = JSON.parse(await readBody(req)) as { site?: unknown; cookies?: unknown; localStorage?: unknown };
+    } catch (e) {
+      if (e instanceof BodyTooLargeError) { json(res, 413, { ok: false, detail: e.message }); return; }
+      json(res, 400, { ok: false, detail: "Ongeldige JSON in request body" });
+      return;
+    }
+
+    const site = typeof body.site === "string" ? body.site.toLowerCase().trim() : "";
+    if (!OSINT_ALLOWED_SITES.includes(site)) {
+      json(res, 400, { ok: false, detail: `'site' moet een van deze zijn: ${OSINT_ALLOWED_SITES.join(", ")}` });
+      return;
+    }
+    if (!Array.isArray(body.cookies) || body.cookies.length === 0) {
+      json(res, 400, { ok: false, detail: "'cookies' moet een niet-lege array zijn" });
+      return;
+    }
+    if (body.cookies.length > 200) {
+      json(res, 400, { ok: false, detail: "te veel cookies (max 200) — waarschijnlijk het verkeerde bestand geplakt" });
+      return;
+    }
+    // MAJLIS AL-MURAQABA-bevinding (2026-09-24): de oude check liet een cookie met een
+    // 'domain' (of 'url') voor een HEEL ANDER domein gewoon door — die werd dan onder de
+    // opgegeven site opgeslagen en bij elke /osint/read-page voor die site stilzwijgend
+    // meegeladen in de browsercontext. Nu wordt, ALS domain/url aanwezig is, ook
+    // gecontroleerd dat die echt bij de opgegeven site hoort (osintHostHoortBijSite,
+    // dezelfde gedeelde check als de SSRF-controle bij /osint/read-page).
+    const cookiesGeldig = body.cookies.every((c) => {
+      if (!c || typeof c !== "object") return false;
+      const rec = c as Record<string, unknown>;
+      if (typeof rec["name"] !== "string" || typeof rec["value"] !== "string") return false;
+      if (typeof rec["domain"] === "string" && !osintHostHoortBijSite(rec["domain"], site)) return false;
+      if (typeof rec["url"] === "string") {
+        try {
+          if (!osintHostHoortBijSite(new URL(rec["url"]).hostname, site)) return false;
+        } catch {
+          return false;
+        }
+      }
+      return true;
+    });
+    if (!cookiesGeldig) {
+      json(res, 400, { ok: false, detail: "elke cookie moet minimaal 'name' en 'value' (beide string) hebben, en als 'domain'/'url' aanwezig is moet die bij de opgegeven site horen" });
+      return;
+    }
+
+    // Optioneel: localStorage, voor sites (Discord) die hun sessie niet in een cookie
+    // bewaren. Plat {sleutel: waarde}-object, geen domain/url-metadata nodig (in
+    // tegenstelling tot cookies) — localStorage is altijd origin-gebonden aan de site
+    // waar dit ONDER geimporteerd wordt, er is geen los "welk domein hoort hierbij"-veld
+    // dat verkeerd kan staan.
+    let localStorageData: Record<string, string> | undefined;
+    if (body.localStorage !== undefined) {
+      if (typeof body.localStorage !== "object" || body.localStorage === null || Array.isArray(body.localStorage)) {
+        json(res, 400, { ok: false, detail: "'localStorage' moet een plat object zijn (sleutel -> waarde, beide strings)" });
+        return;
+      }
+      const entries = Object.entries(body.localStorage as Record<string, unknown>);
+      if (entries.length > 50) {
+        json(res, 400, { ok: false, detail: "te veel localStorage-sleutels (max 50) — waarschijnlijk het verkeerde object geplakt" });
+        return;
+      }
+      const allStrings = entries.every(([k, v]) => typeof k === "string" && typeof v === "string");
+      if (!allStrings) {
+        json(res, 400, { ok: false, detail: "elke localStorage-sleutel/waarde moet een string zijn" });
+        return;
+      }
+      localStorageData = Object.fromEntries(entries as Array<[string, string]>);
+    }
+
+    try {
+      osintSaveSession(site, body.cookies as Record<string, unknown>[], localStorageData);
+      const lsCount = localStorageData ? Object.keys(localStorageData).length : 0;
+      log(`OSINT-sessie geïmporteerd voor ${site} (${body.cookies.length} cookies, ${lsCount} localStorage-sleutels)`);
+      json(res, 200, { ok: true, site, count: body.cookies.length, localStorageCount: lsCount });
+    } catch {
+      json(res, 500, { ok: false, detail: "kon sessie niet opslaan op de server" });
+    }
+    return;
+  }
+
+  // ── OSINT: welke sites hebben al een opgeslagen sessie ───────────────────────
+  if (url === "/osint/status" && method === "GET") {
+    json(res, 200, { ok: true, sites: osintSessionStatus() });
+    return;
+  }
+
+  // ── OSINT: een pagina lezen met de opgeslagen sessie van de eigen site ──────
+  // Bewust ALLEEN lezen (navigeren + tekst/titel teruggeven, zoals de dagelijkse
+  // /capture) — geen klikken/typen/posten server-side zonder mens-in-de-lus, dat
+  // is een veel groter risico-oppervlak dan we voor dit doel (signalen verzamelen)
+  // nodig hebben.
+  if (url === "/osint/read-page" && method === "POST") {
+    let body: { site?: unknown; url?: unknown } = {};
+    try {
+      body = JSON.parse(await readBody(req)) as { site?: unknown; url?: unknown };
+    } catch (e) {
+      if (e instanceof BodyTooLargeError) { json(res, 413, { ok: false, detail: e.message }); return; }
+      json(res, 400, { ok: false, detail: "Ongeldige JSON in request body" });
+      return;
+    }
+
+    const site = typeof body.site === "string" ? body.site.toLowerCase().trim() : "";
+    if (!OSINT_ALLOWED_SITES.includes(site)) {
+      json(res, 400, { ok: false, detail: `'site' moet een van deze zijn: ${OSINT_ALLOWED_SITES.join(", ")}` });
+      return;
+    }
+
+    let target: URL;
+    try {
+      target = new URL(typeof body.url === "string" ? body.url.trim() : "");
+    } catch {
+      json(res, 400, { ok: false, detail: "'url' is geen geldige URL" });
+      return;
+    }
+    if (target.protocol !== "https:") {
+      json(res, 400, { ok: false, detail: "alleen https:// toegestaan" });
+      return;
+    }
+    // SSRF-bescherming: de opgevraagde url moet echt bij de opgegeven site horen.
+    // Zonder deze check zou een geldige API-key deze route kunnen misbruiken om
+    // MET de opgeslagen sessie-context willekeurige, niet-bedoelde URLs te laten
+    // bezoeken door de browser. LET OP: dit toetst alleen de AANVRAAG-url — Chromium
+    // volgt redirects, dus de check hieronder wordt na de navigatie HERHAALD tegen
+    // de daadwerkelijk bereikte pagina (page.url()), niet alleen hier vooraf.
+    if (!osintHostHoortBijSite(target.hostname, site)) {
+      json(res, 400, { ok: false, detail: `'url' hoort niet bij site '${site}'` });
+      return;
+    }
+    if (!existsSync(osintSessionPath(site))) {
+      json(res, 409, { ok: false, detail: `geen opgeslagen sessie voor '${site}' — importeer eerst via /osint/import-session` });
+      return;
+    }
+
+    // MAJLIS AL-MURAQABA-bevinding (2026-09-24): geen concurrency-limiet betekende dat
+    // een burst binnen de bestaande 20/min-ratelimiet evenveel Chromium-instanties
+    // tegelijk kon starten. Vast, laag plafond i.p.v. onbeperkt.
+    if (osintReadPageActief >= OSINT_READ_PAGE_MAX_CONCURRENT) {
+      json(res, 429, { ok: false, detail: `te veel gelijktijdige /osint/read-page-aanvragen (max ${OSINT_READ_PAGE_MAX_CONCURRENT}), probeer straks opnieuw` });
+      return;
+    }
+    osintReadPageActief++;
+
+    // MAJLIS AL-MURAQABA-bevinding (2026-09-24): chromium.launch() stond eerder BUITEN
+    // de try/finally — een falende launch (bv. exact onder de geheugendruk die een
+    // concurrency-burst veroorzaakt) gaf dan een ongevangen promise-rejection, en dat
+    // crasht op deze Node-versie het HELE, gedeelde companion-process (ook /goal,
+    // /status, /yc/*). Nu staat de launch zelf ook binnen try/finally.
+    let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
+    try {
+      browser = await chromium.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+      });
+      const ctx = await browser.newContext({
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        viewport: { width: 1366, height: 768 },
+        locale: "nl-NL",
+        timezoneId: "Europe/Amsterdam",
+      });
+      const sessionData = JSON.parse(readFileSync(osintSessionPath(site), "utf8")) as { cookies?: unknown[]; localStorage?: Record<string, string> };
+      if (Array.isArray(sessionData.cookies) && sessionData.cookies.length > 0) {
+        await ctx.addCookies(sessionData.cookies as Parameters<typeof ctx.addCookies>[0]);
+      }
+      // Sommige sites (Discord's webclient) bewaren hun sessie niet in een cookie maar in
+      // localStorage -- context.addCookies() alleen kan die sessie dan principieel niet
+      // namaken. addInitScript() draait VOOR elk scriptje van de site zelf, op elke nieuwe
+      // pagina in deze context, dus de sessie staat al klaar voordat de site's eigen JS ooit
+      // controleert of iemand is ingelogd. Moet VOOR ctx.newPage() staan: addInitScript
+      // registreert zich voor toekomstige pagina's in deze context, werkt niet met
+      // terugwerkende kracht op een pagina die al bestaat.
+      if (sessionData.localStorage && Object.keys(sessionData.localStorage).length > 0) {
+        // String-vorm i.p.v. een getypeerde functie (zelfde patroon als de bestaande
+        // "verberg automation-fingerprint"-addInitScript verderop in dit bestand): de
+        // callback-body draait in de BROWSER, niet in Node, dus TypeScript kent `window`
+        // hier niet als die als een echte functie wordt getypt. JSON.stringify escaped elke
+        // waarde veilig (aanhalingstekens, backslashes, nieuwe regels), dus dit is ook veilig
+        // als een token zelf zulke tekens bevat.
+        const localStorageJson = JSON.stringify(sessionData.localStorage);
+        await ctx.addInitScript(`
+          (function () {
+            var data = ${localStorageJson};
+            for (var k in data) {
+              try { window.localStorage.setItem(k, data[k]); } catch (e) { /* uitzonderlijk geblokkeerd, navigatie mag doorgaan */ }
+            }
+          })();
+        `);
+      }
+      const page = await ctx.newPage();
+      await page.goto(target.toString(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+      // Live gemeten (2026-09-28): een kale, vaste 2s-wachttijd volstaat voor sommige pagina's
+      // (bv. x.com/notifications) maar niet voor client-side-gerenderde resultatenlijsten
+      // (bv. x.com/search) -- die kwamen in twee van twee live tests LEEG terug (alleen de
+      // vaste pagina-chrome, geen enkel resultaat). networkidle wacht ADAPTIEF tot de site
+      // stopt met data ophalen i.p.v. een gegokt vast getal, met een eigen timeout zodat een
+      // pagina die nooit "idle" wordt (long-polling, een streaming-widget) de read-page-call
+      // niet onnodig laat mislukken -- valt dan gewoon terug op wat er tegen die tijd al staat.
+      try {
+        await page.waitForLoadState("networkidle", { timeout: 8000 });
+      } catch {
+        // Geen probleem: de pagina bleef gewoon actief netwerkverkeer hebben (bv. een
+        // achtergrond-poll), we lezen straks gewoon wat er op dat moment staat.
+      }
+      await page.waitForTimeout(500);
+
+      // MAJLIS AL-MURAQABA-bevinding (2026-09-24): Chromium volgt HTTP- en JS-redirects
+      // binnen dezelfde page.goto()-aanroep. Zonder deze hercontrole zou een redirect
+      // vanaf een toegestane site (open-redirect, of een interne/metadata-host) de
+      // pre-navigatie-host-check volledig omzeilen — de inhoud van de UITEINDELIJKE
+      // pagina moet dus opnieuw tegen dezelfde allowlist getoetst worden voor die
+      // teruggaat naar de aanvrager.
+      const bereikteUrl = new URL(page.url());
+      if (!osintHostHoortBijSite(bereikteUrl.hostname, site)) {
+        json(res, 502, {
+          ok: false,
+          detail: `navigatie eindigde op een host ('${bereikteUrl.hostname}') die niet bij site '${site}' hoort — waarschijnlijk een redirect, geweigerd`,
+        });
+        return;
+      }
+
+      const title = await page.title();
+      const text = (await page.evaluate("document.body ? document.body.innerText || '' : ''")) as string;
+
+      // Koning-verzoek (2026-09-28): "reacties lezen" op een gevonden bericht, niet alleen de
+      // eigen tekst. Dat vereist het EIGEN permalink van elk bericht (om de reply-thread
+      // apart te kunnen opvragen), niet alleen de platte paginatekst hierboven -- die bevat
+      // geen href's. Alleen voor x.com: elk bericht staat in een <article>, met de eigen
+      // permalink typisch op de tijdstempel-link (een <a href="/handle/status/<id>">). Faalt
+      // dit (site-structuur veranderd), dan blijft `posts` gewoon leeg -- text hierboven werkt
+      // nog steeds als terugval, dit is een aanvulling, geen vervanging.
+      let posts: Array<{ text: string; url: string }> = [];
+      if (site === "x.com") {
+        try {
+          posts = (await page.evaluate(`
+            Array.from(document.querySelectorAll('article')).map(function (art) {
+              var link = art.querySelector('a[href*="/status/"]');
+              var href = link ? link.getAttribute('href') : null;
+              if (!href) return null;
+              return {
+                text: (art.innerText || '').slice(0, 2000),
+                url: new URL(href, location.origin).toString(),
+              };
+            }).filter(Boolean)
+          `)) as Array<{ text: string; url: string }>;
+        } catch {
+          // Terugval: gewoon geen posts-array, text blijft bruikbaar.
+        }
+      }
+
+      json(res, 200, { ok: true, site, url: page.url(), title, text: text.slice(0, 20_000), posts: posts.slice(0, 50) });
+    } catch {
+      json(res, 500, { ok: false, detail: "kon de pagina niet laden" });
+    } finally {
+      osintReadPageActief--;
+      if (browser) await browser.close();
     }
     return;
   }
