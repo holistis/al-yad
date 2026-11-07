@@ -82,7 +82,7 @@ async function main() {
         const err = reqUrl.searchParams.get('error')
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(err
-          ? `<p>Mislukt: ${err}. Dit venster mag dicht.</p>`
+          ? `<p>Mislukt: ${String(err).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch])}. Dit venster mag dicht.</p>`
           : '<p>Gelukt — YAD kan verder. Dit venster mag dicht.</p>')
         server.close()
         if (err) rejectPromise(new Error('OAuth geweigerd: ' + err))
