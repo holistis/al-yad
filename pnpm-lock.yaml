@@ -76,7 +76,7 @@ importers:
     devDependencies:
       '@types/chrome':
         specifier: latest
-        version: 0.2.0
+        version: 0.3.7
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
@@ -94,10 +94,10 @@ importers:
     dependencies:
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
-        version: 1.30.0(zod@4.5.4)
+        version: 1.30.0(zod@4.6.7)
       zod:
-        specifier: ^4.5.2
-        version: 4.5.4
+        specifier: ^4.6.6
+        version: 4.6.7
     devDependencies:
       '@types/node':
         specifier: ^22.10.5
@@ -872,8 +872,8 @@ packages:
   '@types/chrome@0.0.280':
     resolution: {integrity: sha512-AotSmZrL9bcZDDmSI1D9dE7PGbhOur5L0cKxXd7IqbVizQWCY4gcvupPUVsQ4FfDj3V2tt/iOpomT9EY0s+w1g==}
 
-  '@types/chrome@0.2.0':
-    resolution: {integrity: sha512-K/i7EKEVSpmyXXjE0ev5oASWBYMY6yM8LFSutG2PkM1DmxJUggZsoaTc0W1RsVwDDKrsZEjpHFAbqqxlRxGsSg==}
+  '@types/chrome@0.3.7':
+    resolution: {integrity: sha512-jWZgbHqWbTL1a5+PoyN0OJutNyejWgyZ5MdcvKo6iJE1TNRtXR3FxsC4WzNl52yZWPidfWC8NV/VUNZf+OFKcA==}
 
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
@@ -2825,8 +2825,8 @@ packages:
     peerDependencies:
       zod: ^3.25.28 || ^4
 
-  zod@4.5.4:
-    resolution: {integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==}
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
 
 snapshots:
 
@@ -3140,7 +3140,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@modelcontextprotocol/sdk@1.30.0(zod@4.5.4)':
+  '@modelcontextprotocol/sdk@1.30.0(zod@4.6.7)':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.5)
       ajv: 8.20.0
@@ -3157,8 +3157,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 4.5.4
-      zod-to-json-schema: 3.25.2(zod@4.5.4)
+      zod: 4.6.7
+      zod-to-json-schema: 3.25.2(zod@4.6.7)
     transitivePeerDependencies:
       - supports-color
 
@@ -3292,9 +3292,8 @@ snapshots:
       '@types/filesystem': 0.0.36
       '@types/har-format': 1.2.16
 
-  '@types/chrome@0.2.0':
+  '@types/chrome@0.3.7':
     dependencies:
-      '@types/filesystem': 0.0.36
       '@types/har-format': 1.2.16
 
   '@types/estree@1.0.9': {}
@@ -4684,7 +4683,7 @@ snapshots:
       formdata-node: 6.0.3
       listr2: 8.3.3
       ofetch: 1.5.1
-      zod: 4.5.4
+      zod: 4.6.7
 
   punycode@2.3.1: {}
 
@@ -5380,8 +5379,8 @@ snapshots:
       async: 3.2.6
       jszip: 3.10.1
 
-  zod-to-json-schema@3.25.2(zod@4.5.4):
+  zod-to-json-schema@3.25.2(zod@4.6.7):
     dependencies:
-      zod: 4.5.4
+      zod: 4.6.7
 
-  zod@4.5.4: {}
+  zod@4.6.7: {}
