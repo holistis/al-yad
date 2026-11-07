@@ -1155,7 +1155,9 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
         if (!parsed.selector) { json(res, 400, { ok: false, detail: "'selector' is verplicht" }); return; }
         if (typeof parsed.value !== "string") { json(res, 400, { ok: false, detail: "'value' is verplicht" }); return; }
         // Begrensd op 0 tot 10 s (de CDP-aanroep hieronder krijgt zelf 10 s): een onbegrensde waarde hield de aanvraag eindeloos open.
-        const waitMs = Math.min(Math.max(Number(parsed.waitMs ?? 400) || 0, 0), 10_000);
+        const MAX_WAIT_MS = 10000;
+        const requestedWait = Number(parsed.waitMs ?? 400);
+        const waitMs = !(requestedWait > 0) ? 0 : requestedWait > MAX_WAIT_MS ? MAX_WAIT_MS : requestedWait;
         const doSubmit = parsed.submit === true;
         // Bouw een JS-expressie die:
         // 1. Het element opzoekt via de CSS-selector
