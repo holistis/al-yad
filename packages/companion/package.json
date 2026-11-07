@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@yad/shared": "workspace:*",
-    "playwright": "^1.61.1"
+    "playwright": "^1.64.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
