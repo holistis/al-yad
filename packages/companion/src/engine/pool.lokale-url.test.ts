@@ -32,7 +32,7 @@ describe("isLokaleUrl", () => {
 
   it("herkent adressen buiten deze computer", () => {
     for (const u of [
-      "http://203.0.113.7:11434/v1", // de echte waarde die het gat blootlegde
+      "http://203.0.113.7:11434/v1", // een adres op een andere computer
       "https://api.groq.com/openai/v1",
       "http://192.168.1.50:11434/v1", // ander apparaat in huis is ook niet deze computer
       "onzin",

@@ -292,10 +292,10 @@ PR #2/#3).
    eigen benchmark-comment (`pool.ts` regel ~283, van 2026-07-19) zegt letterlijk dat 32b
    85-105s/stap kost tegen een default provider-timeout van 60s — dus gegarandeerd timeout, elke
    keer. 7b haalt 13-27s/stap, past wel. Omgezet naar `qwen2.5:7b-instruct`.
-2. **NIET gefixt, koning-beslissing nodig:** de Hetzner-Ollama-box (`203.0.113.7:11434`) is
+2. **NIET gefixt, koning-beslissing nodig:** de Hetzner-Ollama-box (`<server>:11434`) is
    op dit moment gewoon onbereikbaar, los van modelkeuze (`fetch failed`, TCP-poort dicht
    bevestigd). Er ligt al een SSH-tunnel-script klaar (`ollama-tunnel.bat`/`ollama-tunnel.py`,
-   sinds 10 juli) dat verbinding maakt via `root@203.0.113.7` naar `localhost:11434` op de
+   sinds 10 juli) dat verbinding maakt via `root@<server>` naar `localhost:11434` op de
    server, maar dat moet iemand HANDMATIG starten en een venster open houden. Zonder dat draaien
    is de "bodemloze terugval" dus geen automatische terugval — hij is er gewoon niet, tenzij een
    mens hem net aanzet. Drie eerlijke opties: (a) tunnel automatisch laten starten (Taakplanner)
@@ -497,7 +497,7 @@ tegengekomen obstakels:
    door een loopback-redirect (`http://localhost:53682/callback`): het script start zelf
    tijdelijk een lokale server, vangt de `code` op zodra Google terugstuurt, en sluit meteen af.
 2. **Verkeerd Google-account eerst geauthenticeerd.** De OAuth-login liep aanvankelijk via
-   info@mergefix.com (eigenaar van het GCP-project) — die kreeg 403 Forbidden, zelfs op
+   het account dat eigenaar is van het GCP-project — die kreeg 403 Forbidden, zelfs op
    lees-acties. De koning wees uit dat de Chrome Web Store-listing zelf onder een ander account
    staat. Opnieuw ingelogd onder het juiste account (incl. telefoon-2FA, nummer live doorgegeven
    tijdens het inloggen) loste dit meteen op.

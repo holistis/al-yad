@@ -15,7 +15,7 @@
 set -e
 
 # ── Config ───────────────────────────────────────────────────────────────
-SERVER="203.0.113.7"
+SERVER="${DEPLOY_SERVER:?zet DEPLOY_SERVER op het adres van je server}"
 SERVER_USER="root"
 KEY="/c/Code/al-yad/ollama_key"
 REMOTE_COMPANION="/opt/al-yad/packages/companion"
