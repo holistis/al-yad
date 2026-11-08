@@ -12,10 +12,10 @@
 | **Rechtspersoon** | Holistisch Adviseur |
 | **KvK-nummer** | 86816632 |
 | **Vestigingsadres** | Bramantestraat, Eindhoven |
-| **E-mail (privacy en algemeen)** | info@holistischadviseur.nl |
+| **E-mail (privacy en algemeen)** | info@mergefix.com |
 | **Website** | https://yadagent.com |
 
-Wij zijn niet wettelijk verplicht een Functionaris voor Gegevensbescherming aan te stellen en hebben dit ook niet gedaan. Voor privacyvragen kunt u terecht via info@holistischadviseur.nl.
+Wij zijn niet wettelijk verplicht een Functionaris voor Gegevensbescherming aan te stellen en hebben dit ook niet gedaan. Voor privacyvragen kunt u terecht via info@mergefix.com.
 
 ## 2. Wat Yad is, en waarom dat betekent dat er weinig te vertellen valt
 
@@ -24,7 +24,7 @@ Yad is een Chrome-extensie plus een lokale Companion-app die op uw eigen compute
 - **Geen account.** U hoeft zich nergens te registreren of in te loggen om Yad te gebruiken. Wij houden geen gebruikersdatabase bij.
 - **Geen betaling.** Yad is gratis. Er is geen facturatie, geen abonnement, geen betaaldienstverlener in dit product.
 - **Geen eigen taalmodel-contract.** Yad gebruikt het taalmodel dat u zelf kiest, met uw eigen API-sleutel (bijvoorbeeld Groq, Cerebras, Gemini of OpenRouter). Die sleutel en de bijbehorende gegevensstroom lopen rechtstreeks tussen uw browser en die leverancier. Wij zijn daarbij geen partij: wij kiezen de leverancier niet voor u, wij zien uw sleutel niet, en wij ontvangen de inhoud van die gesprekken niet op onze eigen servers. Welke privacyvoorwaarden gelden voor die verwerking, bepaalt de leverancier die u zelf koos; raadpleeg diens eigen privacyverklaring.
-- **Geen analytics, geen cookies. Wel een klein, anoniem herstelsignaal.** Wij hebben onze eigen broncode gecontroleerd: er zit geen los meet-, profilerings- of advertentiesysteem in de extensie of de Companion, en onze website plaatst geen cookies of trackingscripts. Wel stuurt de Companion, uitsluitend op het moment dat Yad vastloopt tijdens een taak, automatisch een klein anoniem signaal naar onze eigen server: het domein van de site waarop Yad vastliep, het soort hapering, en het soort actie. Nooit paginatekst, inloggegevens, wachtwoorden of andere persoonsgegevens. Dit gedeelde herstelgeheugen helpt Yad sneller een oplossing te vinden als een andere gebruiker al eerder tegen hetzelfde probleem aanliep. Dit staat standaard aan en is op dit moment niet per gebruiker uit te zetten via een instelling in de extensie; wilt u dit signaal helemaal vermijden, neem dan contact op via info@holistischadviseur.nl.
+- **Geen analytics, geen cookies. Wel een klein, anoniem herstelsignaal.** Wij hebben onze eigen broncode gecontroleerd: er zit geen los meet-, profilerings- of advertentiesysteem in de extensie of de Companion, en onze website plaatst geen cookies of trackingscripts. Wel stuurt de Companion, uitsluitend op het moment dat Yad vastloopt tijdens een taak, automatisch een klein anoniem signaal naar onze eigen server: het domein van de site waarop Yad vastliep, het soort hapering, en het soort actie. Nooit paginatekst, inloggegevens, wachtwoorden of andere persoonsgegevens. Dit gedeelde herstelgeheugen helpt Yad sneller een oplossing te vinden als een andere gebruiker al eerder tegen hetzelfde probleem aanliep. Dit staat standaard aan en is op dit moment niet per gebruiker uit te zetten via een instelling in de extensie; wilt u dit signaal helemaal vermijden, neem dan contact op via info@mergefix.com.
 
 Omdat geen van deze gebruikelijke verzamelpunten aanwezig is, verwerken wij als Holistisch Adviseur zelf op dit moment geen persoonsgegevens van u via Yad, buiten wat hieronder in hoofdstuk 3 en 4 staat.
 
@@ -45,7 +45,7 @@ Onze website plaatst geen cookies en gebruikt geen analytics- of trackingsoftwar
 
 ## 5. Uw rechten
 
-Ook al verwerken wij zelf weinig tot geen persoonsgegevens over u, heeft u op grond van de AVG in beginsel de gebruikelijke rechten voor zover van toepassing: inzage, rectificatie, wissing, beperking, overdraagbaarheid en bezwaar. Stuur een verzoek naar info@holistischadviseur.nl; wij reageren binnen een maand.
+Ook al verwerken wij zelf weinig tot geen persoonsgegevens over u, heeft u op grond van de AVG in beginsel de gebruikelijke rechten voor zover van toepassing: inzage, rectificatie, wissing, beperking, overdraagbaarheid en bezwaar. Stuur een verzoek naar info@mergefix.com; wij reageren binnen een maand.
 
 Bent u niet tevreden over hoe wij met uw gegevens omgaan, dan horen wij dat graag eerst van u. U heeft daarnaast altijd het recht een klacht in te dienen bij de Autoriteit Persoonsgegevens (www.autoriteitpersoonsgegevens.nl).
 
@@ -67,4 +67,4 @@ Verandert Yad's architectuur wezenlijk, bijvoorbeeld door een toekomstig betaald
 
 ## 10. Contact
 
-Vragen over deze verklaring of over hoe Yad met gegevens omgaat: info@holistischadviseur.nl.
+Vragen over deze verklaring of over hoe Yad met gegevens omgaat: info@mergefix.com.

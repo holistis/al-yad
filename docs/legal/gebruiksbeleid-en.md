@@ -2,7 +2,7 @@
 
 **Issued by:** Holistisch Adviseur, KvK 86816632, Bramantestraat, Eindhoven, the Netherlands.
 **Version:** 1.0 — **Date:** September 11, 2026
-**Abuse reports contact:** info@holistischadviseur.nl
+**Abuse reports contact:** info@mergefix.com
 
 > **Status of Yad.** Yad is free, runs locally, is in a concept/beta stage, and has no account or DPA relationship. This policy governs what is and is not allowed with the software regardless of that free/beta character, because the underlying risks (unauthorized access, deception, harm to third parties) do not change with the business model.
 
@@ -65,7 +65,7 @@ Yad has a built-in deny-list that blocks or requires prior confirmation for cert
 
 ## 7. Reporting and enforcement
 
-If you suspect abuse or a violation of this policy, report it via info@holistischadviseur.nl. In the event of a violation, we may restrict use of Yad or, in the case of open source distribution, refuse access to supported services (such as future hosted features).
+If you suspect abuse or a violation of this policy, report it via info@mergefix.com. In the event of a violation, we may restrict use of Yad or, in the case of open source distribution, refuse access to supported services (such as future hosted features).
 
 ## 8. Changes
 
