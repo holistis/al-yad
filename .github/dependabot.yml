@@ -4,6 +4,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -14,6 +16,8 @@ updates:
     directory: "/packages/companion"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -30,6 +34,8 @@ updates:
     directory: "/packages/companion/npm-package"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -40,6 +46,8 @@ updates:
     directory: "/packages/dashboard"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -56,6 +64,8 @@ updates:
     directory: "/packages/desktop-app"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -72,6 +82,8 @@ updates:
     directory: "/packages/extension"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -82,6 +94,8 @@ updates:
     directory: "/packages/mcp-server"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -98,6 +112,8 @@ updates:
     directory: "/packages/shared"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
@@ -108,6 +124,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 5
     groups:
       minor-and-patch:
