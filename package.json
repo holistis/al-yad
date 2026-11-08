@@ -19,6 +19,8 @@
     "check-licenses": "tsx scripts/check-licenses.ts",
     "extension-smoke": "node scripts/extension-smoke.mjs",
     "extension-smoke:selftest": "node scripts/extension-smoke.selftest.mjs",
+    "winkelzip-poort": "node scripts/winkelzip-poort.mjs",
+    "winkelzip-poort:selftest": "node scripts/winkelzip-poort.selftest.mjs",
     "setup-host": "tsx scripts/setup-native-host.ts",
     "register-host": "powershell -ExecutionPolicy Bypass -File scripts/register-host.ps1",
     "smoke-host": "tsx scripts/smoke-native-host.ts",
