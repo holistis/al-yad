@@ -1,3 +1,11 @@
 {
-  "extends": "./.wxt/tsconfig.json"
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    // TypeScript 6 and later no longer load every installed @types package by default.
+    "types": ["chrome"],
+    // WXT 0.21 switched this on in the tsconfig it generates. Twelve places in the extension
+    // index into arrays or records without a guard. Fixing them changes shipped code, so this
+    // upgrade keeps the previous behavior and the tightening is left for its own change.
+    "noUncheckedIndexedAccess": false
+  }
 }
