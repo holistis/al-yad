@@ -153,12 +153,16 @@ MIT/Apache-2.0 dependencies only. No AGPL (no browser-use/Skyvern/BrowserOS as d
 
 ## Development
 
+Node 22.22.2 or newer (or 24.15 and up) is needed to build and test, because vitest 5, wxt 0.21 and jsdom 30 require it. The `yadagent` npm package itself still runs on Node 20 and up, and CI starts its built bundle under Node 20.
+
 ```
 pnpm install
 pnpm build
 pnpm typecheck
 pnpm test
 ```
+
+`pnpm extension-smoke` builds the store variant of the extension, loads it into Chromium through Playwright and checks the manifest, the service worker, the side panel and legal pages, and the content script. Run `pnpm exec playwright install chromium` in `packages/companion` once if Chromium is not installed yet. `node scripts/extension-smoke.selftest.mjs` plants faults in a copy of the build and requires the smoke test to fail on every one of them; CI runs both.
 
 ## Contributing
 

@@ -20,6 +20,12 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # @types/node follows the Node major that ci.yml builds and tests on (22). The
+      # versions for a newer Node describe APIs the tests do not run against. Move it
+      # together with the Node version in ci.yml.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/packages/companion/npm-package"
     schedule:
@@ -40,6 +46,12 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # @types/node follows the Node major that ci.yml builds and tests on (22). The
+      # versions for a newer Node describe APIs the tests do not run against. Move it
+      # together with the Node version in ci.yml.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/packages/desktop-app"
     schedule:
@@ -50,6 +62,12 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # @types/node follows the Node major that ci.yml builds and tests on (22). The
+      # versions for a newer Node describe APIs the tests do not run against. Move it
+      # together with the Node version in ci.yml.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/packages/extension"
     schedule:
@@ -70,6 +88,12 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # @types/node follows the Node major that ci.yml builds and tests on (22). The
+      # versions for a newer Node describe APIs the tests do not run against. Move it
+      # together with the Node version in ci.yml.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "npm"
     directory: "/packages/shared"
     schedule:

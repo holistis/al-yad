@@ -25,7 +25,8 @@ import { tmpdir } from "node:os";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER_ENTRY = join(HERE, "..", "dist", "server-playwright.js");
-const PORT = 37494;
+// Its own port: http-api.auth.test.ts uses 37494, and vitest runs test files in parallel.
+const PORT = 37495;
 const BASE = `http://127.0.0.1:${PORT}`;
 const OSINT_KEY = "test-osint-key-1234567890";
 const GOAL_ONLY_KEY = "test-goal-only-key-0987654321";
