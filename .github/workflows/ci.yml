@@ -56,6 +56,14 @@ jobs:
       - name: License check
         run: pnpm check-licenses
 
+      # Loads the built store variant of the extension into the Chromium installed above and
+      # checks the manifest, the service worker, the side panel, the legal pages and the content
+      # script. The selftest then plants faults in a copy of the build and requires the smoke
+      # test to fail on each of them, which proves the smoke test is not blind. It runs the
+      # smoke test on the untouched build first, so it covers that case too.
+      - name: Extension smoke test and selftest
+        run: pnpm extension-smoke:selftest
+
       - name: Build + verify yadagent npm package
         # A separate, isolated build (its own package.json, its own esbuild
         # dependency, not a pnpm workspace member) that bundles the companion

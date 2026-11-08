@@ -15,7 +15,7 @@ pnpm typecheck
 pnpm test
 ```
 
-All four need to pass before you open a PR. CI runs the same four checks plus a license check on every push and pull request, so a red CI run is the same thing you'd see locally.
+You need Node 22.22.2 or newer (or 24.15 and up). All four need to pass before you open a PR. CI runs the same four checks plus a license check on every push and pull request, so a red CI run is the same thing you'd see locally.
 
 ## What the packages are
 
