@@ -85,6 +85,48 @@
     <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-desktop-app-nl"/>
   </url>
   <url>
+    <loc>https://yadagent.com/yad-blog-eight-permissions</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-eight-permissions"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-eight-permissions-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-blog-eight-permissions-nl</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-eight-permissions"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-eight-permissions-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-blog-why-extension</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-why-extension"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-why-extension-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-blog-why-extension-nl</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-why-extension"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-why-extension-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-blog-tab-visibility</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-tab-visibility"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-tab-visibility-nl"/>
+  </url>
+  <url>
+    <loc>https://yadagent.com/yad-blog-tab-visibility-nl</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://yadagent.com/yad-blog-tab-visibility"/>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://yadagent.com/yad-blog-tab-visibility-nl"/>
+  </url>
+  <url>
     <loc>https://yadagent.com/yad-blog-stuck-in-loops</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
