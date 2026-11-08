@@ -70,6 +70,15 @@ De volledige versie blijft gewoon bestaan voor eigen gebruik, in `.output/chrome
 winkelversie bouw je met `YAD_WINKEL=1 pnpm build` en die landt in `.output-winkel/`, apart,
 zodat een winkelbuild nooit stilletjes je werkversie vervangt.
 
+**De volledige versie kan niet per ongeluk de winkel in.** `scripts/webstore-publish.mjs` leest
+vóór elke upload het manifest uit het exacte zip dat verstuurd wordt (`scripts/winkelzip-poort.mjs`)
+en weigert alles wat geen winkelversie is: `debugger` of `cookies`, elk recht dat niet op de vaste
+lijst staat, optionele rechten, een ontwikkelsleutel, de naam van de volledige versie, of een zip
+met twee `manifest.json`-bestanden. Er is bewust geen omzeilvlag. Een recht toevoegen aan de
+winkelversie kan alleen door de lijst in dat bestand aan te passen en het bij de permissie-teksten
+hierboven uit te leggen. De zelftest (`pnpm winkelzip-poort:selftest`, draait in de CI) plant al die
+fouten en eist een weigering, ook van het uploadscript zelf vóór het iets naar Google stuurt.
+
 ---
 
 ## Edge: het snelste kanaal, en gratis

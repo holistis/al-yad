@@ -64,6 +64,14 @@ jobs:
       - name: Extension smoke test and selftest
         run: pnpm extension-smoke:selftest
 
+      # The store upload script reads the manifest out of the exact zip it is about to send and
+      # refuses anything that is not the store variant (debugger, cookies, any permission not on
+      # the fixed list, the full variant's name, a development key, a doubled manifest.json). The
+      # selftest plants each of those faults and requires a refusal, including from the upload
+      # script itself before it touches the network.
+      - name: Store zip gate selftest
+        run: pnpm winkelzip-poort:selftest
+
       - name: Build + verify yadagent npm package
         # A separate, isolated build (its own package.json, its own esbuild
         # dependency, not a pnpm workspace member) that bundles the companion

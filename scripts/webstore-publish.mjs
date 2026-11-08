@@ -18,6 +18,7 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createServer } from 'node:http'
+import { poortWinkelzip } from './winkelzip-poort.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const SECRETS = process.env['WEBSTORE_SECRETS'] ?? resolve(ROOT, 'webstore-secrets.json')
@@ -128,6 +129,10 @@ async function main() {
   const c = cfg()
   if (!c.item_id) throw new Error('item_id ontbreekt — maak het item één keer via het dashboard aan, kopieer het item-ID.')
   if (!existsSync(ZIP)) throw new Error('Geen zip: ' + ZIP + ' (bouw eerst: YAD_WINKEL=1 pnpm build + zippen)')
+  // Harde poort, geen omzeilvlag: alleen een echte winkelversie mag omhoog. De volledige versie (met debugger en cookies) is voor eigen gebruik.
+  const poort = poortWinkelzip(ZIP)
+  if (!poort.ok) throw new Error('Winkelzip geweigerd, er is niets verstuurd:\n - ' + poort.redenen.join('\n - '))
+  console.log(`[webstore] winkelzip gecontroleerd: ${poort.naam} ${poort.versie}, rechten: ${poort.rechten.join(', ')}`)
   const token = await accessToken(c)
   const zipBytes = readFileSync(ZIP)
 
