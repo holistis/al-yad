@@ -745,7 +745,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
 
     // ── /cdp/dom-dump: security-relevante DOM-elementen ──────────────────────
     // Geeft: hidden inputs, meta tags, data-* attributen, CSRF-tokens, HTML-commentaar.
-    // Essentieel voor bug bounty: vindt CSRF-tokens, verborgen velden, lekt data.
+    // Handig om een pagina te inspecteren: vindt CSRF-tokens en verborgen velden.
 
     if (url === "/cdp/dom-dump" && method === "POST") {
       if (!session.isConnected()) {

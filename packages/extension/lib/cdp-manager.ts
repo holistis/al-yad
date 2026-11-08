@@ -3,7 +3,7 @@ import type { CdpConsoleEntry, CdpInterceptedRequest, CdpNetworkEntry, CdpWebSoc
 /**
  * CDP-manager: beheert chrome.debugger-sessies per tab.
  *
- * Biedt voor bug bounty:
+ * Biedt voor ontwikkelaars en onderzoek:
  *  - start_capture: HTTP-requests + response-bodies + console logs + WebSocket frames
  *  - stop_capture:  geeft alle gevangen data terug als gestructureerde JSON
  *  - evaluate:      voert JavaScript uit in de pagina-context (zoals DevTools Console)

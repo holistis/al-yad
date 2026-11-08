@@ -72,6 +72,13 @@ jobs:
       - name: Store zip gate selftest
         run: pnpm winkelzip-poort:selftest
 
+      # This repo is public, so nothing personal may be committed to it. The gate works from an
+      # allowlist: any e-mail address, public IPv4 address or full wallet address that is not on
+      # the list, and any file where a user keeps their own data (memory files, keys, sessions,
+      # backups), fails the build. The selftest plants each of those and requires a failure.
+      - name: Public repo gate and selftest
+        run: pnpm openbaar-schoon-poort:selftest
+
       - name: Build + verify yadagent npm package
         # A separate, isolated build (its own package.json, its own esbuild
         # dependency, not a pnpm workspace member) that bundles the companion

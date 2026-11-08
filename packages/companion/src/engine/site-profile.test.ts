@@ -15,7 +15,7 @@ describe("getSiteProfile", () => {
     expect(getSiteProfile("https://www.glassdoor.nl/jobs/")).toMatchObject({ tier: "stealth" });
   });
 
-  it("herkent discord.com als stealth (2026-09-24, toegevoegd voor het osint/import-session-bouwwerk)", () => {
+  it("herkent discord.com als stealth", () => {
     expect(getSiteProfile("https://discord.com/channels/@me")).toMatchObject({ tier: "stealth" });
     expect(getSiteProfile("https://www.discord.com/")).toMatchObject({ tier: "stealth" });
   });

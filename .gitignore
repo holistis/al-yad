@@ -78,3 +78,8 @@ yad-owned-profile/
 
 # Persoonlijk: wat Yad onthoudt over de sites van de eigenaar (knoppen, mailadressen, tickets). Hoort nooit in de openbare repo.
 data/selector-memory.json
+
+# Persoonlijke geheugenbestanden en back-ups van de eigenaar (ook in submappen). De openbaar-schoon-poort keurt ze af.
+**/data/selector-memory.json
+data/*.backup-*
+**/data/*.backup-*

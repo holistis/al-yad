@@ -19,6 +19,8 @@
     "check-licenses": "tsx scripts/check-licenses.ts",
     "extension-smoke": "node scripts/extension-smoke.mjs",
     "extension-smoke:selftest": "node scripts/extension-smoke.selftest.mjs",
+    "openbaar-schoon-poort": "node scripts/openbaar-schoon-poort.mjs",
+    "openbaar-schoon-poort:selftest": "node scripts/openbaar-schoon-poort.selftest.mjs",
     "winkelzip-poort": "node scripts/winkelzip-poort.mjs",
     "winkelzip-poort:selftest": "node scripts/winkelzip-poort.selftest.mjs",
     "setup-host": "tsx scripts/setup-native-host.ts",
