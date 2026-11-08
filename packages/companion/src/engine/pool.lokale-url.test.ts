@@ -32,7 +32,7 @@ describe("isLokaleUrl", () => {
 
   it("herkent adressen buiten deze computer", () => {
     for (const u of [
-      "http://138.201.204.97:11434/v1", // de echte waarde die het gat blootlegde
+      "http://203.0.113.7:11434/v1", // een adres op een andere computer
       "https://api.groq.com/openai/v1",
       "http://192.168.1.50:11434/v1", // ander apparaat in huis is ook niet deze computer
       "onzin",
@@ -45,18 +45,18 @@ describe("isLokaleUrl", () => {
 describe("lokale stand weigert een Ollama buiten deze computer", () => {
   it("gooit een fout bij een adres op afstand, in plaats van stil door te gaan", () => {
     expect(() =>
-      buildPool({ ...LOKAAL, OLLAMA_BASE_URL: "http://138.201.204.97:11434/v1" } as never),
+      buildPool({ ...LOKAAL, OLLAMA_BASE_URL: "http://203.0.113.7:11434/v1" } as never),
     ).toThrow(/geen adres op deze computer/i);
   });
 
   it("noemt in de fout het adres én hoe je het oplost", () => {
     let bericht = "";
     try {
-      buildPool({ ...LOKAAL, OLLAMA_BASE_URL: "http://138.201.204.97:11434/v1" } as never);
+      buildPool({ ...LOKAAL, OLLAMA_BASE_URL: "http://203.0.113.7:11434/v1" } as never);
     } catch (e) {
       bericht = String(e);
     }
-    expect(bericht).toContain("138.201.204.97");
+    expect(bericht).toContain("203.0.113.7");
     expect(bericht).toContain("localhost");
   });
 
@@ -78,7 +78,7 @@ describe("lokale stand weigert een Ollama buiten deze computer", () => {
   it("controle: zonder de lokale stand is een adres op afstand gewoon toegestaan", () => {
     expect(staatOpAlleenLokaal({} as never)).toBe(false);
     expect(() =>
-      buildPool({ OLLAMA_BASE_URL: "http://138.201.204.97:11434/v1" } as never),
+      buildPool({ OLLAMA_BASE_URL: "http://203.0.113.7:11434/v1" } as never),
     ).not.toThrow();
   });
 });

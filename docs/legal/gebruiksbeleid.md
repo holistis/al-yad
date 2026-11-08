@@ -2,7 +2,7 @@
 
 **Uitgegeven door:** Holistisch Adviseur, KvK 86816632, Bramantestraat, Eindhoven.
 **Versie:** 1.0 — **Datum:** 11 september 2026
-**Contact misbruikmeldingen:** info@holistischadviseur.nl
+**Contact misbruikmeldingen:** info@mergefix.com
 
 > **Status van Yad.** Yad is gratis, lokaal draaiend, in een concept-/bètafase, zonder account of DPA-relatie. Dit beleid regelt wat wel en niet mag met de software, ongeacht dat gratis/bèta-karakter, want de onderliggende risico's (onbevoegde toegang, misleiding, schade aan derden) veranderen niet door het businessmodel.
 
@@ -65,7 +65,7 @@ Yad kent een ingebouwde deny-lijst die bepaalde paden (onder meer rond betalen, 
 
 ## 7. Melding en handhaving
 
-Vermoedt u misbruik of een overtreding van dit beleid, meld dat via info@holistischadviseur.nl. Wij kunnen bij een overtreding het gebruik van Yad beperken of, in geval van open source distributie, de betreffende toegang tot ondersteunde diensten (zoals toekomstige gehoste functies) weigeren.
+Vermoedt u misbruik of een overtreding van dit beleid, meld dat via info@mergefix.com. Wij kunnen bij een overtreding het gebruik van Yad beperken of, in geval van open source distributie, de betreffende toegang tot ondersteunde diensten (zoals toekomstige gehoste functies) weigeren.
 
 ## 8. Wijzigingen
 

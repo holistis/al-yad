@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Date:** September 11, 2026
 **Issued by:** Holistisch Adviseur, KvK 86816632, Bramantestraat, Eindhoven, the Netherlands, hereafter "we" or "Yad".
-**Contact:** info@holistischadviseur.nl
+**Contact:** info@mergefix.com
 
 > **Status of Yad.** Yad is a free, open source (MIT licensed), locally running tool in a concept/beta stage. These Terms describe the current, actual situation: no account, no payment, no hosted offering. They are deliberately short, precisely because there is little to regulate while that remains the case. If Yad ever ships a paid, hosted offering with its own accounts, separate, more extensive terms will accompany that, with a clear announcement beforehand.
 
@@ -47,4 +47,4 @@ These Terms are governed by Dutch law.
 
 ## 10. Contact
 
-Questions about these Terms: info@holistischadviseur.nl.
+Questions about these Terms: info@mergefix.com.

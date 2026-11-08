@@ -1070,7 +1070,7 @@ export function startHttpApi(session: BrainSession, log: (m: string) => void, ex
     }
 
     // ── /close-tabs : sluit alle tabbladen behalve die matchen op keepUrlContains ──
-    // Body: { "keepUrlContains": "web4.ping64.net/roundcube" }
+    // Body: { "keepUrlContains": "webmail.example.com/roundcube" }
     if (url === "/close-tabs" && method === "POST") {
       if (!session.isConnected()) { json(res, 503, { ok: false, detail: "Chrome niet verbonden" }); return; }
       try {

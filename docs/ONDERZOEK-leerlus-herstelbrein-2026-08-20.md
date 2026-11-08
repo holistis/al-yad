@@ -2,7 +2,7 @@
 
 Doel van dit document: een volgende Claude-sessie leest dit en hoeft NIET opnieuw uit te zoeken
 hoe YAD leert, waar het herstelbrein staat, en waarom Ollama nu niet bruikbaar is. Alle
-verwijzingen zijn geverifieerd in de echte code / op de live server (Hetzner 138.201.204.97,
+verwijzingen zijn geverifieerd in de echte code / op de live server (Hetzner,
 SSH-sleutel `~/.ssh/id_ed25519`, host `hetzner-bots`).
 
 ## 1. Architectuur: de agent-loop naast de 9 klassieke loops
@@ -54,7 +54,7 @@ Bewezen hints worden GLOBAAL per `host|why` geserveerd (netwerkeffect).
 
 - Bron: `/app/euler-liquidator/scripts/yad-herstel-dashboard.mjs` (losstaand, NUL risico voor
   x402-betaalserver). PM2-naam `yad-herstel-dashboard`, poort **3755**, ufw 3755 open.
-- URL: **http://138.201.204.97:3755** (publiek, geen auth — consistent met fleet-dashboard 3752 /
+- URL: **http://<server>:3755** (publiek, geen auth — consistent met fleet-dashboard 3752 /
   business 3753, maar exposure-vlag: overweeg token als er echte gebruikersdata in komt).
 - Toont per site+signaal: hint, bewezen-teller (groen=bewezen/geel=wacht), signaal-verdeling.
   JSON op `/json`. Ververst elke 30s.

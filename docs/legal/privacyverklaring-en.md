@@ -12,10 +12,10 @@
 | **Legal entity** | Holistisch Adviseur |
 | **Chamber of Commerce (KvK) number** | 86816632 |
 | **Registered address** | Bramantestraat, Eindhoven, the Netherlands |
-| **Email (privacy and general)** | info@holistischadviseur.nl |
+| **Email (privacy and general)** | info@mergefix.com |
 | **Website** | https://yadagent.com |
 
-We are not legally required to appoint a Data Protection Officer and have not done so. For privacy questions, contact info@holistischadviseur.nl.
+We are not legally required to appoint a Data Protection Officer and have not done so. For privacy questions, contact info@mergefix.com.
 
 ## 2. What Yad is, and why there is little to tell
 
@@ -24,7 +24,7 @@ Yad is a Chrome extension plus a local Companion app that runs on your own compu
 - **No account.** You do not need to register or log in anywhere to use Yad. We do not keep a user database.
 - **No payment.** Yad is free. There is no billing, no subscription, no payment provider in this product.
 - **No LLM contract of our own.** Yad uses whichever language model you choose, with your own API key (for example Groq, Cerebras, Gemini or OpenRouter). That key and the associated data flow run directly between your browser and that provider. We are not a party to that flow: we do not choose the provider for you, we never see your key, and we do not receive the content of those exchanges on our own servers. Whatever privacy terms apply to that processing are set by the provider you chose; consult their own privacy policy.
-- **No analytics, no cookies. A small, anonymous recovery signal, though.** We checked our own source code: there is no separate measurement, profiling or advertising system in the extension or the Companion, and our website places no cookies or tracking scripts. However, the Companion does automatically send a small, anonymous signal to our own server, but only at the moment Yad gets stuck during a task: the domain of the site Yad got stuck on, the type of hiccup, and the type of action. Never page text, login details, passwords or other personal data. This shared recovery memory helps Yad find a fix faster when another user already hit the same problem. This is on by default and currently cannot be turned off per user through a setting in the extension; if you want to avoid this signal entirely, contact us at info@holistischadviseur.nl.
+- **No analytics, no cookies. A small, anonymous recovery signal, though.** We checked our own source code: there is no separate measurement, profiling or advertising system in the extension or the Companion, and our website places no cookies or tracking scripts. However, the Companion does automatically send a small, anonymous signal to our own server, but only at the moment Yad gets stuck during a task: the domain of the site Yad got stuck on, the type of hiccup, and the type of action. Never page text, login details, passwords or other personal data. This shared recovery memory helps Yad find a fix faster when another user already hit the same problem. This is on by default and currently cannot be turned off per user through a setting in the extension; if you want to avoid this signal entirely, contact us at info@mergefix.com.
 
 Because none of these usual collection points exist, Holistisch Adviseur does not currently process any personal data about you through Yad, beyond what is described in chapters 3 and 4 below.
 
@@ -45,7 +45,7 @@ Our website places no cookies and uses no analytics or tracking software. Visiti
 
 ## 5. Your rights
 
-Even though we ourselves process little to no personal data about you, under the GDPR you in principle have the usual rights where applicable: access, rectification, erasure, restriction, portability and objection. Send a request to info@holistischadviseur.nl; we respond within one month.
+Even though we ourselves process little to no personal data about you, under the GDPR you in principle have the usual rights where applicable: access, rectification, erasure, restriction, portability and objection. Send a request to info@mergefix.com; we respond within one month.
 
 If you are not satisfied with how we handle your data, we would like to hear that from you first. You also always have the right to file a complaint with the Dutch Data Protection Authority, the Autoriteit Persoonsgegevens (www.autoriteitpersoonsgegevens.nl).
 
@@ -67,4 +67,4 @@ If Yad's architecture changes materially, for example through a future paid, hos
 
 ## 10. Contact
 
-Questions about this policy or about how Yad handles data: info@holistischadviseur.nl.
+Questions about this policy or about how Yad handles data: info@mergefix.com.
