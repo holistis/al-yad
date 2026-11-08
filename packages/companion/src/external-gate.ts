@@ -37,25 +37,13 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 20;
 
 /**
- * MVP-scope: alleen read-only status + gestuurd doel, plus (sinds 2026-09-24) de
- * osint/*-route voor het generaliseerde sessie-importpatroon (zie server-playwright.ts).
- * Alle cdp/*, fs/*, save-session etc. blijven dicht.
- *
- * MAJLIS AL-MURAQABA-bevinding (2026-09-24): /osint/* deelde aanvankelijk dezelfde
- * YAD_API_KEYS-pool als /status en /goal. Dat betekende dat elke sleutel die ooit
- * alleen bedoeld was om af en toe een browse-taak (/goal, GEEN ingelogde sessie) te
- * starten, ineens ook de ECHTE, ingelogde X/Discord-sessie kon lezen (privé-DM's,
- * privé servers) en overschrijven. Elke route heeft nu een `keysEnv` — welke
- * omgevingsvariabele de geldige sleutels voor DIE route bevat. /osint/* gebruikt een
- * eigen pool (YAD_OSINT_API_KEYS), losstaand van YAD_API_KEYS, zodat een gelekte
- * /goal-sleutel geen toegang geeft tot de sessie-routes en andersom.
+ * MVP-scope: alleen read-only status + gestuurd doel. Alle cdp/*, fs/*, save-session etc.
+ * blijven dicht. Elke route heeft een `keysEnv`: welke omgevingsvariabele de geldige
+ * sleutels voor DIE route bevat.
  */
 const ALLOWED_EXTERNAL_ROUTES: ReadonlyArray<{ url: string; method: string; keysEnv: string }> = [
   { url: "/status", method: "GET", keysEnv: "YAD_API_KEYS" },
   { url: "/goal", method: "POST", keysEnv: "YAD_API_KEYS" },
-  { url: "/osint/status", method: "GET", keysEnv: "YAD_OSINT_API_KEYS" },
-  { url: "/osint/import-session", method: "POST", keysEnv: "YAD_OSINT_API_KEYS" },
-  { url: "/osint/read-page", method: "POST", keysEnv: "YAD_OSINT_API_KEYS" },
 ];
 
 const hitLog = new Map<string, number[]>();

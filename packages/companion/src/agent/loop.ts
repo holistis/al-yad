@@ -82,8 +82,8 @@ const DONE_REQUIRED_ACTION_KINDS = new Set<Action["kind"]>([
  *    documented "purely informational goal" carve-out, which must be allowed to omit
  *    done and still reach "klaar".
  *  - the run DID click/type/select/etc and still supplies no proof -- the original
- *    false-"klaar" bug (see PROMPT-FIX-VALSE-KLAAR.md: the model claimed a HackerOne
- *    asset click / weakness-menu selection had happened with zero objective proof).
+ *    false-"klaar" bug (see PROMPT-FIX-VALSE-KLAAR.md: the model claimed a form
+ *    dropdown selection had happened with zero objective proof).
  */
 function hasStateChangingAction(history: HistoryItem[]): boolean {
   return history.some((h) => DONE_REQUIRED_ACTION_KINDS.has(h.action.kind));
@@ -1097,7 +1097,7 @@ export class AgentLoop {
         //     state-changing action (click/type/select/etc, see
         //     DONE_REQUIRED_ACTION_KINDS) and still supplies no done predicates, that
         //     IS the original false-"klaar" bug (PROMPT-FIX-VALSE-KLAAR.md: the model
-        //     claimed a HackerOne asset click / weakness-menu selection had happened
+        //     claimed a dropdown selection had happened
         //     with zero objective proof) -- reject, same as a failed verification. If
         //     the run never did anything but read the page (extract/wait/scroll),
         //     there is nothing to verify and prompt.ts explicitly tells the model to

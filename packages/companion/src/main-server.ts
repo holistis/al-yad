@@ -277,7 +277,7 @@ const server = createServer(async (req: IncomingMessage, res: ServerResponse) =>
             // bevestiging vroeg, kreeg die zonder mens automatisch (2026-09-16-audit).
             // Fail-safe: weiger i.p.v. goedkeuren als er niemand is om het echt te
             // vragen. Alleen in CDP-modus, niet voor de bestaande, wegwerpbare
-            // Chromium-modus (die pentest-scripts al gebruiken voor schrijftests).
+            // Chromium-modus (die bestaande scripts al gebruiken voor schrijftests).
             onConfirm: async () => false,
           }
         : {}),

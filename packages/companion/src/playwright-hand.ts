@@ -13,7 +13,7 @@
  * Confirm-gedrag:
  *   - headless=true (standaard): schrijf-acties worden gelogd en terugverwezen
  *     aan de caller via de `onConfirm`-callback. Standaard auto-approve voor
- *     bug-bounty recon (readonly). De ScopeGuard blokkeert toch alles gevaarlijks.
+ *     alleen-lezen verkenning. De ScopeGuard blokkeert toch alles gevaarlijks.
  */
 import { chromium, type Browser, type Page, type Frame } from "playwright";
 import { writeFile, unlink } from "node:fs/promises";

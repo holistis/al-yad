@@ -595,7 +595,7 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
     // (PROMPT-FIX-VALSE-KLAAR.md): `donePreds.length > 0` was the only gate, so an
     // empty done array skipped the whole check. Now a finish without predicates,
     // AFTER the run performed a state-changing action (select, here, mirroring the
-    // real HackerOne repro: a menu selection claimed with zero objective proof), is
+    // real-world repro: a menu selection claimed with zero objective proof), is
     // treated as a failed verification: rejected, with the same retry/hint mechanism
     // as a mismatch, and only a non-"klaar" status once MAX_FINISH_REJECTIONS is hit.
     // Every finish attempt is bare (no done array), including the ones the retry hint
@@ -688,7 +688,7 @@ describe("AgentLoop — DONE-predicaat bewaker", () => {
 // to prove the bug exists (RED), then re-run after the fix to prove it is closed (GREEN).
 //
 // The run below performs a real state-changing action (select) before the bare
-// finish, matching the actual HackerOne repro in that doc (a menu/asset interaction
+// finish, matching the actual repro in that doc (a menu interaction
 // claimed with zero objective proof). A run that never changes state at all is the
 // separate, legitimate "purely informational" carve-out from prompt.ts, covered by
 // its own test in the "DONE-predicaat bewaker" describe block above.
