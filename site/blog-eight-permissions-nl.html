@@ -108,6 +108,9 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
 .foot-links a{color:var(--text-dim);transition:color .2s}
 .foot-links a:hover{color:var(--text)}
 .foot-built{width:100%;font-size:13px;color:var(--text-faint);margin-top:6px}
+
+.hero-art{width:100%;aspect-ratio:16/8;border-radius:18px;overflow:hidden;margin-top:var(--s6);border:1px solid var(--border-strong);box-shadow:0 20px 60px -20px rgba(147,51,234,.35)}
+.hero-art svg{width:100%;height:100%;display:block}
 </style>
 </head>
 <body>
@@ -151,6 +154,43 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
     <div class="art-date">8 november 2026</div>
     <h1>v0.1.15: precies acht rechten, automatisch afgedwongen</h1>
     <p class="lede">We hebben opnieuw precies nagekeken wat de winkelversie van Yad in je browser mag doen, teruggebracht tot acht concrete rechten, en een automatische check gebouwd zodat dat nooit meer stilletjes kan uitgroeien.</p>
+
+    <div class="hero-art"><svg viewBox="0 0 1200 600" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<radialGradient id="g1" cx="50%" cy="50%" r="65%"><stop offset="0%" stop-color="#2a1f52"/><stop offset="55%" stop-color="#140f2b"/><stop offset="100%" stop-color="#0B0A12"/></radialGradient>
+<linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4f46e5"/><stop offset="55%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#9333ea"/></linearGradient>
+<filter id="gl"><feGaussianBlur stdDeviation="9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1200" height="600" fill="url(#g1)"/>
+<g opacity=".35" filter="url(#gl)">
+<circle cx="600" cy="300" r="220" fill="none" stroke="url(#g2)" stroke-width="1.5"/>
+<circle cx="600" cy="300" r="170" fill="none" stroke="url(#g2)" stroke-width="1"/>
+</g>
+<g filter="url(#gl)">
+<circle cx="600" cy="300" r="58" fill="url(#g2)" opacity=".9"/>
+<text x="600" y="322" font-size="58" text-anchor="middle" fill="#fff">✋</text>
+</g>
+<g fill="url(#g2)" filter="url(#gl)">
+<circle cx="600.0" cy="80.0" r="11"/>
+<circle cx="755.6" cy="144.4" r="11"/>
+<circle cx="820.0" cy="300.0" r="11"/>
+<circle cx="755.6" cy="455.6" r="11"/>
+<circle cx="600.0" cy="520.0" r="11"/>
+<circle cx="444.4" cy="455.6" r="11"/>
+<circle cx="380.0" cy="300.0" r="11"/>
+<circle cx="444.4" cy="144.4" r="11"/>
+</g>
+<g stroke="url(#g2)" stroke-width="1" opacity=".55">
+<line x1="600" y1="300" x2="600.0" y2="80.0"/>
+<line x1="600" y1="300" x2="755.6" y2="144.4"/>
+<line x1="600" y1="300" x2="820.0" y2="300.0"/>
+<line x1="600" y1="300" x2="755.6" y2="455.6"/>
+<line x1="600" y1="300" x2="600.0" y2="520.0"/>
+<line x1="600" y1="300" x2="444.4" y2="455.6"/>
+<line x1="600" y1="300" x2="380.0" y2="300.0"/>
+<line x1="600" y1="300" x2="444.4" y2="144.4"/>
+</g>
+</svg></div>
 
     <div class="prose">
       <p>Elke browserextensie vraagt om rechten, en bijna niemand leest die lijst. Wij wel, op onze eigen extensie, met een frisse blik, en schreven precies op wat de winkelversie nodig heeft: <code>nativeMessaging</code> (om te praten met de companion-app op je eigen machine), <code>sidePanel</code>, <code>storage</code>, <code>tabs</code>, <code>scripting</code>, <code>webNavigation</code>, <code>downloads</code> en <code>tabGroups</code> (de tabgroepfunctie van de vorige update). Dat is de hele lijst. Geen toegang tot cookies, geen debugger-toegang, niets daarbuiten.</p>

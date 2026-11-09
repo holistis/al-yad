@@ -108,6 +108,9 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
 .foot-links a{color:var(--text-dim);transition:color .2s}
 .foot-links a:hover{color:var(--text)}
 .foot-built{width:100%;font-size:13px;color:var(--text-faint);margin-top:6px}
+
+.hero-art{width:100%;aspect-ratio:16/8;border-radius:18px;overflow:hidden;margin-top:var(--s6);border:1px solid var(--border-strong);box-shadow:0 20px 60px -20px rgba(147,51,234,.35)}
+.hero-art svg{width:100%;height:100%;display:block}
 </style>
 </head>
 <body>
@@ -151,6 +154,33 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
     <div class="art-date">8 november 2026</div>
     <h1>Waarom Yad een Chrome-extensie is, en geen nieuwe browser</h1>
     <p class="lede">2026 werd het jaar van de AI-browser. Dit is waar Yad in dat veld echt staat, en waar niet.</p>
+
+    <div class="hero-art"><svg viewBox="0 0 1200 600" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<radialGradient id="g1" cx="40%" cy="45%" r="70%"><stop offset="0%" stop-color="#241a4a"/><stop offset="55%" stop-color="#140f2b"/><stop offset="100%" stop-color="#0B0A12"/></radialGradient>
+<linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#4f46e5"/><stop offset="55%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#9333ea"/></linearGradient>
+<filter id="gl"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1200" height="600" fill="url(#g1)"/>
+<g filter="url(#gl)">
+<rect x="210" y="120" width="560" height="360" rx="20" fill="none" stroke="url(#g2)" stroke-width="2" opacity=".8"/>
+<rect x="210" y="120" width="560" height="52" rx="20" fill="url(#g2)" opacity=".22"/>
+<circle cx="240" cy="146" r="6" fill="url(#g2)"/>
+<circle cx="262" cy="146" r="6" fill="url(#g2)" opacity=".6"/>
+<circle cx="284" cy="146" r="6" fill="url(#g2)" opacity=".35"/>
+<rect x="240" y="200" width="500" height="18" rx="4" fill="#fff" opacity=".12"/>
+<rect x="240" y="236" width="380" height="14" rx="4" fill="#fff" opacity=".08"/>
+<rect x="240" y="264" width="420" height="14" rx="4" fill="#fff" opacity=".08"/>
+</g>
+<g filter="url(#gl)">
+<circle cx="860" cy="330" r="92" fill="url(#g2)" opacity=".95"/>
+<text x="860" y="360" font-size="92" text-anchor="middle" fill="#fff">✋</text>
+</g>
+<g stroke="url(#g2)" stroke-width="2" opacity=".5" filter="url(#gl)">
+<path d="M770 300 L700 270" fill="none"/>
+<path d="M690 266 l12 -4 l-2 12 z" fill="url(#g2)" stroke="none"/>
+</g>
+</svg></div>
 
     <div class="prose">
       <p>Dit jaar liep snel vol: hele nieuwe browsers gebouwd rond een AI-agent (Atlas, Comet, Dia, Opera Neon), zware extensies ingebouwd in een browser die je al gebruikt (Claude in Chrome, onderdeel van Claude Pro), en open-source code-libraries die je zelf moet programmeren (browser-use, Skyvern, Stagehand).</p>
