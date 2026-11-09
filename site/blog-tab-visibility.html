@@ -108,6 +108,9 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
 .foot-links a{color:var(--text-dim);transition:color .2s}
 .foot-links a:hover{color:var(--text)}
 .foot-built{width:100%;font-size:13px;color:var(--text-faint);margin-top:6px}
+
+.hero-art{width:100%;aspect-ratio:16/8;border-radius:18px;overflow:hidden;margin-top:var(--s6);border:1px solid var(--border-strong);box-shadow:0 20px 60px -20px rgba(147,51,234,.35)}
+.hero-art svg{width:100%;height:100%;display:block}
 </style>
 </head>
 <body>
@@ -151,6 +154,27 @@ footer{border-top:1px solid var(--border);padding-block:44px;color:var(--text-di
     <div class="art-date">September 8, 2026</div>
     <h1>A visible signal for where Yad is working</h1>
     <p class="lede">Until this release, the only way to know what Yad was doing was the action log. Now you can see it happening, right in your own tabs.</p>
+
+    <div class="hero-art"><svg viewBox="0 0 1200 600" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<radialGradient id="g1" cx="50%" cy="40%" r="75%"><stop offset="0%" stop-color="#271c4e"/><stop offset="55%" stop-color="#140f2b"/><stop offset="100%" stop-color="#0B0A12"/></radialGradient>
+<linearGradient id="gA" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#4f46e5"/><stop offset="100%" stop-color="#6d5cf0"/></linearGradient>
+<linearGradient id="gB" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#9333ea"/></linearGradient>
+<linearGradient id="gC" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#9333ea"/><stop offset="100%" stop-color="#c084fc"/></linearGradient>
+<filter id="gl"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1200" height="600" fill="url(#g1)"/>
+<g filter="url(#gl)">
+<g transform="rotate(0 600 170)"><rect x="310" y="144" width="580" height="52" rx="14" fill="url(#gA)" opacity="0.85"/></g>
+<g transform="rotate(-6 600 250)"><rect x="310" y="224" width="580" height="52" rx="14" fill="url(#gB)" opacity="0.77"/></g>
+<g transform="rotate(6 600 330)"><rect x="310" y="304" width="580" height="52" rx="14" fill="url(#gC)" opacity="0.69"/></g>
+<g transform="rotate(-3 600 410)"><rect x="310" y="384" width="580" height="52" rx="14" fill="url(#gA)" opacity="0.61"/></g>
+</g>
+<g filter="url(#gl)">
+<circle cx="600" cy="300" r="46" fill="#fff" opacity=".9"/>
+<text x="600" y="320" font-size="48" text-anchor="middle" fill="#2a1f52">✋</text>
+</g>
+</svg></div>
 
     <div class="prose">
       <p>When an AI agent runs inside your browser, the fair question is: which tab is it touching right now, and how would I actually know. Before this update, the honest answer was: check the action log, or watch the mouse move and hope.</p>
