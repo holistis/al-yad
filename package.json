@@ -42,9 +42,9 @@
     "deploy-server": "bash scripts/deploy-server.sh"
   },
   "devDependencies": {
-    "marked": "^18.2.0",
+    "marked": "^18.2.1",
     "tsx": "^4.23.15",
-    "turbo": "^2.11.10",
+    "turbo": "^2.11.12",
     "typescript": "^7.0.2"
   }
 }
